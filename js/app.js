@@ -313,7 +313,6 @@ function openVenue(id) {
       <button class="btn btn-back" data-home>←</button>
       <a class="btn btn-go" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">📍 Take me there</a>
       ${v.links.facebook ? `<a class="btn btn-fb" href="${esc(v.links.facebook)}" target="_blank" rel="noopener">Page</a>` : ''}
-      <button class="btn btn-fb" id="trackBtn" style="flex:0 0 auto;padding:0 16px;">🔥 Track</button>
     </div>
     ${v.verified ? '' : '<div class="hint">details unconfirmed — hours may differ</div>'}`;
 
@@ -321,8 +320,6 @@ function openVenue(id) {
   const ht = document.getElementById('hoursToggle');
   if (ht) ht.addEventListener('click', () =>
     document.getElementById('hoursWeek').classList.toggle('show'));
-  const tb = document.getElementById('trackBtn');
-  if (tb) tb.addEventListener('click', () => startTracking(v));
   state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
 }
 
@@ -367,6 +364,7 @@ function bindLocate() {
 }
 
 /* ---------- tracking mode ---------- */
+/* kept for phase 2 check-in radius — no UI currently calls this */
 function startTracking(v) {
   if (!navigator.geolocation) return;
   stopTracking();
@@ -376,16 +374,21 @@ function startTracking(v) {
     () => stopTracking(),
     { enableHighAccuracy: true }
   );
-  document.getElementById('trackChip').classList.add('on');
-  document.getElementById('trackChip').textContent = 'locating…';
-  document.getElementById('trackChip').onclick = stopTracking;
+  const chip = document.getElementById('trackChip');
+  if (chip) {
+    chip.classList.add('on');
+    chip.textContent = 'locating…';
+    chip.onclick = stopTracking;
+  }
 }
 
 function updateTrack(v, pos) {
   state.userPos = pos;
   const m = haversine(pos, v);
-  document.getElementById('trackChip').textContent =
-    `🔥 ${fmtDist(m)} to ${v.short_name || v.name} — tap to stop`;
+  const chip = document.getElementById('trackChip');
+  if (chip) {
+    chip.textContent = `🔥 ${fmtDist(m)} to ${v.short_name || v.name} — tap to stop`;
+  }
   const line = {
     type: 'Feature',
     geometry: { type: 'LineString',
@@ -407,7 +410,8 @@ function stopTracking() {
   if (state.trackWatchId !== null) navigator.geolocation.clearWatch(state.trackWatchId);
   state.trackWatchId = null;
   state.tracking = null;
-  document.getElementById('trackChip').classList.remove('on');
+  const chip = document.getElementById('trackChip');
+  if (chip) chip.classList.remove('on');
   if (state.map && state.map.getLayer('trackline')) {
     state.map.removeLayer('trackline');
     state.map.removeSource('trackline');
