@@ -163,14 +163,14 @@
       "type": "bar",
       "lat": 17.9631989,
       "lng": 102.6054431,
-      "area": "City center — location needs confirming",
+      "area": "2nd floor area above Starbucks, same building as Baron",
       "short": "Live band and DJ bar",
       "description": "Live music bar with bands and a DJ, decorated interior, food worth trying. Friendly to both locals and visitors.",
       "photos": [],
       "hours": null,
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9631989,102.6054431" },
-      "verified": false,
-      "source": "Google Maps listing, 2026-07-11 — pin nearly identical to Baron, confirm real location"
+      "verified": true,
+      "source": "Google Maps listing 2026-07-11, location confirmed in person"
     },
     {
       "id": "treekoff-watchane",
