@@ -1,0 +1,85 @@
+{
+  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h format 'HH:MM-HH:MM' per day, null = closed/varies. Closing past midnight: use e.g. '17:00-25:30' for 1:30 am.",
+  "venues": [
+    {
+      "id": "kong-view",
+      "name": "Kong View",
+      "short_name": "Kong View",
+      "name_lo": "ຄອງວິວ",
+      "type": "bar",
+      "lat": 17.9678909,
+      "lng": 102.5805278,
+      "area": "Souphanouvong Rd, Sikhottabong",
+      "short": "Riverside-view restaurant and bar with live music",
+      "description": "Big open-air restaurant and bar on Souphanouvong Road with a view across the Mekong to Thailand. Known for live bands in the evening, Beerlao on tap and grilled food. Fills up with groups after sunset.",
+      "photos": [],
+      "hours": {
+        "mon": "16:30-23:30", "tue": "16:30-23:30", "wed": "16:30-23:30",
+        "thu": "16:30-23:30", "fri": "16:30-23:30", "sat": "16:30-23:30", "sun": "16:30-23:30"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJS2V5_lVoJDERowgX1QXZg9k" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "chokdee-cafe",
+      "name": "Chokdee Café Belgian Beer Bar",
+      "short_name": "Chokdee",
+      "name_lo": "ໂຊກດີຄາເຟ",
+      "type": "bar",
+      "lat": 17.9630719,
+      "lng": 102.6058379,
+      "area": "Quai Fa Ngum, riverside",
+      "short": "Belgian beer bar on the riverfront, big bottle list",
+      "description": "Belgian beer institution on the riverfront with one of the biggest bottle lists in Laos, regular 2-for-1 deals and pub food. Casual, popular with both locals and expats.",
+      "photos": [],
+      "hours": {
+        "mon": "10:00-23:30", "tue": "10:00-23:30", "wed": "10:00-23:30",
+        "thu": "10:00-23:30", "fri": "10:00-23:30", "sat": "10:00-23:30", "sun": "10:00-23:30"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJK56pB4loJDERvZN6To4UJyU" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "sinouk-khemkhong",
+      "name": "Café Sinouk Khemkhong",
+      "short_name": "Sinouk",
+      "name_lo": "ຄາເຟຊີນຸກ ເຂື່ອນຂອງ",
+      "type": "cafe",
+      "lat": 17.9636131,
+      "lng": 102.6039109,
+      "area": "Quai Fa Ngum, opposite the night market",
+      "short": "Lao coffee house on the riverfront",
+      "description": "Riverside branch of the Lao coffee roaster, opposite the night market. Lao-grown beans, pastries and breakfast. Good daytime meeting spot before the riverfront wakes up.",
+      "photos": [],
+      "hours": {
+        "mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00",
+        "thu": "07:00-22:00", "fri": "07:00-22:00", "sat": "07:00-22:00", "sun": "07:00-22:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJI0n_LopoJDER46kRkZYpjQI" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "itecc-hall",
+      "name": "ITECC",
+      "short_name": "ITECC",
+      "name_lo": "ໄອເທັກ",
+      "type": "venue",
+      "lat": 17.9607924,
+      "lng": 102.6439024,
+      "area": "Ban Phonthan",
+      "short": "Mall and exhibition halls, hosts concerts and events",
+      "description": "Vientiane's main hall for concerts, fairs and big events. Check the event listing for dates — the building itself is a mall during the day.",
+      "photos": [],
+      "hours": {
+        "mon": null, "tue": null, "wed": null,
+        "thu": null, "fri": null, "sat": null, "sun": null
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJOapSejVmJDER57jAzeDeMGQ" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "_schema_notes": "PLACEHOLDER DATA — this file is the weekly curation output. Every event needs a source_url (the venue post or page you verified it from) before verified can be true. date: YYYY-MM-DD. Expired events are hidden automatically by the app, so it is safe to leave past events in the file for a while. price: 0 = free, null = unknown.",
+  "events": [
+    {
+      "id": "sample-live-band",
+      "venue_id": "kong-view",
+      "title": "Live band night (sample)",
+      "title_lo": "ດົນຕີສົດ (ຕົວຢ່າງ)",
+      "date": "2026-07-11",
+      "start_time": "20:00",
+      "price": 0,
+      "short": "SAMPLE EVENT — replace with a real verified event before launch",
+      "source_url": "",
+      "verified": false
+    },
+    {
+      "id": "sample-concert",
+      "venue_id": "itecc-hall",
+      "title": "Concert (sample)",
+      "title_lo": "ຄອນເສີດ (ຕົວຢ່າງ)",
+      "date": "2026-07-18",
+      "start_time": "19:00",
+      "price": 80000,
+      "short": "SAMPLE EVENT — replace with a real verified event before launch",
+      "source_url": "",
+      "verified": false
+    }
+  ]
+}

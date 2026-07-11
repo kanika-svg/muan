@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Muan — what's on in Vientiane tonight</title>
+  <meta name="description" content="Muan (ມ່ວນ) — live map of bars, cafes and events in Vientiane. ຄືນນີ້ໄປໃສດີ?">
+  <meta name="theme-color" content="#131019">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+Lao:wght@400;700&display=swap" rel="stylesheet">
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<div id="app">
+
+  <div id="map"></div>
+
+  <header id="topbar">
+    <div class="row">
+      <div class="pill brand-pill">
+        <img src="assets/logo.svg" alt="" width="15" height="18">
+        <span class="brand">MUAN</span>
+      </div>
+      <button class="pill" id="locateBtn" aria-label="Show my location">
+        <span id="locateIcon">📍</span><span id="locateLabel">near me</span>
+      </button>
+      <button class="pill" id="themeBtn" aria-label="Switch theme">
+        <span id="themeLabel">auto</span>
+      </button>
+    </div>
+    <div class="chip-bar" id="chipBar">
+      <button class="chip on" data-filter="all">All</button>
+      <button class="chip" data-filter="bar">Bars</button>
+      <button class="chip" data-filter="cafe">Cafes</button>
+      <button class="chip" data-filter="event">Events</button>
+    </div>
+  </header>
+  <button id="trackChip" aria-label="Stop tracking"></button>
+
+  <section id="sheet" aria-live="polite"></section>
+
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
