@@ -125,6 +125,7 @@ function renderMarkers() {
     const hot = isNo1(v);
     const el = document.createElement('div');
     el.className = 'marker' + (hot ? ' is-hot' : '');
+    el.style.animationDelay = `${state.markers.length * 45}ms`;
     if (v.id === state.selectedId) el.classList.add('is-selected');
     el.innerHTML = `
       ${pinSVG(hot ? '#FF5A3C' : COLORS[v.type] || '#8A8494', hot ? 1.25 : 1)}
@@ -328,6 +329,9 @@ function setSheet(html) {
   document.getElementById('sheet').classList.toggle('expanded', html.includes('data-venue-detail'));
   const sheet = document.getElementById('sheet');
   sheet.innerHTML = html;
+  sheet.classList.remove('anim');
+  void sheet.offsetWidth;
+  sheet.classList.add('anim');
   sheet.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
   sheet.querySelectorAll('[data-home]').forEach(el =>
