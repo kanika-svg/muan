@@ -152,6 +152,7 @@ function isNo1(v) {
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 function openStatus(v) {
+  if (!v.hours) return { open: false, label: 'hours unconfirmed' };
   const now = new Date();
   const today = DAYS[now.getDay()];
   const yesterday = DAYS[(now.getDay() + 6) % 7];
@@ -255,7 +256,9 @@ function openVenue(id) {
 
   const order = ['mon','tue','wed','thu','fri','sat','sun'];
   const todayKey = DAYS[new Date().getDay()];
-  const week = order.map(d => {
+  const week = !v.hours
+    ? '<div>hours not yet confirmed</div>'
+    : order.map(d => {
     const h = parseHours(v.hours[d]);
     const label = h ? `${fmtTime(h.open)} – ${fmtTime(h.close % 1440)}` : 'closed';
     return `<div class="${d === todayKey ? 'today' : ''}"><span>${d}</span><span>${label}</span></div>`;

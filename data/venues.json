@@ -1,5 +1,5 @@
 {
-  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h format 'HH:MM-HH:MM' per day, null = closed/varies. Closing past midnight: use e.g. '17:00-25:30' for 1:30 am.",
+  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am = '26:00', 03:00 am = '27:00'.",
   "venues": [
     {
       "id": "kong-view",
@@ -17,7 +17,7 @@
         "mon": "16:30-23:30", "tue": "16:30-23:30", "wed": "16:30-23:30",
         "thu": "16:30-23:30", "fri": "16:30-23:30", "sat": "16:30-23:30", "sun": "16:30-23:30"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJS2V5_lVoJDERowgX1QXZg9k" },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9678909,102.5805278" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -37,7 +37,7 @@
         "mon": "10:00-23:30", "tue": "10:00-23:30", "wed": "10:00-23:30",
         "thu": "10:00-23:30", "fri": "10:00-23:30", "sat": "10:00-23:30", "sun": "10:00-23:30"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJK56pB4loJDERvZN6To4UJyU" },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9630719,102.6058379" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -57,7 +57,7 @@
         "mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00",
         "thu": "07:00-22:00", "fri": "07:00-22:00", "sat": "07:00-22:00", "sun": "07:00-22:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJI0n_LopoJDER46kRkZYpjQI" },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9636131,102.6039109" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -73,11 +73,202 @@
       "short": "Mall and exhibition halls, hosts concerts and events",
       "description": "Vientiane's main hall for concerts, fairs and big events. Check the event listing for dates — the building itself is a mall during the day.",
       "photos": [],
+      "hours": null,
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9607924,102.6439024" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "go-dunk",
+      "name": "Go Dunk",
+      "short_name": "Go Dunk",
+      "name_lo": "ໂກດັງ",
+      "type": "bar",
+      "lat": 17.9690462,
+      "lng": 102.6103675,
+      "area": "City center",
+      "short": "Live music and DJ warehouse-style bar",
+      "description": "Warehouse-style live music venue with rotating bands and DJs, popular with the young local crowd. Cheap big Beerlao and a packed floor from about 9 pm. One of the few places in town where the crowd is almost all local.",
+      "photos": [],
       "hours": {
-        "mon": null, "tue": null, "wed": null,
-        "thu": null, "fri": null, "sat": null, "sun": null
+        "mon": "17:00-26:00", "tue": "17:00-26:00", "wed": "17:00-26:00",
+        "thu": "17:00-26:00", "fri": "17:00-26:00", "sat": "17:00-26:00", "sun": "17:00-26:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/place/?q=place_id:ChIJOapSejVmJDER57jAzeDeMGQ" },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9690462,102.6103675" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "status-bar",
+      "name": "Status Restaurant & Bar",
+      "short_name": "Status",
+      "name_lo": "ສະຕາຕັສ",
+      "type": "bar",
+      "lat": 17.969079,
+      "lng": 102.609883,
+      "area": "City center",
+      "short": "Restaurant and bar with live music",
+      "description": "Restaurant-bar with music and a reservation culture — tables release around 8:30 pm, and booking ahead via their Facebook page is recommended on busy nights.",
+      "photos": [],
+      "hours": null,
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.969079,102.609883" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11 (hours not listed)"
+    },
+    {
+      "id": "rustic-white",
+      "name": "Rustic White 90's Music Bar",
+      "short_name": "Rustic",
+      "name_lo": "ຣັສຕິກ",
+      "type": "bar",
+      "lat": 17.9582834,
+      "lng": 102.6107121,
+      "area": "Riverside area",
+      "short": "90s music bar with live folk sets and DJ",
+      "description": "Music bar built around 90s hits, live folk sets and a DJ. Draws a young crowd — going early gets you a seat. Best with a group.",
+      "photos": [],
+      "hours": {
+        "mon": "19:00-24:00", "tue": "19:00-24:00", "wed": "19:00-24:00",
+        "thu": "19:00-24:00", "fri": "19:00-24:00", "sat": "19:00-24:00", "sun": "19:00-24:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9582834,102.6107121" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "baron",
+      "name": "Baron Vientiane",
+      "short_name": "Baron",
+      "name_lo": "ບາຣອນ",
+      "type": "bar",
+      "lat": 17.9632547,
+      "lng": 102.6054528,
+      "area": "2nd floor above Starbucks, riverside",
+      "short": "Cocktail and DJ lounge, 90s and 2000s pop",
+      "description": "Upstairs cocktail lounge with DJ sets leaning 90s and 2000s pop. Dressier and pricier than the average Vientiane bar — bottle service for tables — with a big-city club feel. Closed Tuesdays, open late on weekends.",
+      "photos": [],
+      "hours": {
+        "mon": "20:00-26:00", "tue": null, "wed": "20:00-26:00",
+        "thu": "20:00-26:00", "fri": "20:00-27:00", "sat": "20:00-27:00", "sun": "20:00-26:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9632547,102.6054528" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "mahasan",
+      "name": "Mahasan Music & Bar",
+      "short_name": "Mahasan",
+      "name_lo": "ມະຫາສານ",
+      "type": "bar",
+      "lat": 17.9631989,
+      "lng": 102.6054431,
+      "area": "City center — location needs confirming",
+      "short": "Live band and DJ bar",
+      "description": "Live music bar with bands and a DJ, decorated interior, food worth trying. Friendly to both locals and visitors.",
+      "photos": [],
+      "hours": null,
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9631989,102.6054431" },
+      "verified": false,
+      "source": "Google Maps listing, 2026-07-11 — pin nearly identical to Baron, confirm real location"
+    },
+    {
+      "id": "treekoff-watchane",
+      "name": "Treekoff Watchane",
+      "short_name": "Treekoff",
+      "name_lo": "ທຣີຄອຟ ວັດຈັນ",
+      "type": "cafe",
+      "lat": 17.9663429,
+      "lng": 102.6018097,
+      "area": "Khun Bu Lom Rd, opposite Wat Chan",
+      "short": "Affordable specialty coffee, often a queue",
+      "description": "Small, popular coffee shop opposite the temple on Khun Bu Lom Road. Affordable, good beans, cozy wooden upstairs that fills fast — expect a queue at peak hours.",
+      "photos": [],
+      "hours": {
+        "mon": "06:30-22:00", "tue": "06:30-22:00", "wed": "06:30-22:00",
+        "thu": "06:30-22:00", "fri": "06:30-22:00", "sat": "06:30-22:00", "sun": "06:30-22:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663429,102.6018097" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "tree-town",
+      "name": "Tree Town Cafe",
+      "short_name": "Tree Town",
+      "name_lo": "ທຣີທາວ",
+      "type": "cafe",
+      "lat": 17.9650688,
+      "lng": 102.6021906,
+      "area": "Chao Anou Rd",
+      "short": "Photo-friendly decor, bingsu and cotton-candy lattes",
+      "description": "The photo-spot café — seasonal decor, cotton-candy-topped lattes, beanbags upstairs and well-known bingsu. Tucked in a small soi off Chao Anou. Closed Mondays.",
+      "photos": [],
+      "hours": {
+        "mon": null, "tue": "09:00-22:00", "wed": "09:00-22:00",
+        "thu": "09:00-22:00", "fri": "09:00-22:00", "sat": "09:00-22:00", "sun": "09:00-22:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650688,102.6021906" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "common-grounds",
+      "name": "Common Grounds Cafe & Bakery",
+      "short_name": "Common Grounds",
+      "name_lo": "ຄອມມອນກຣາວ",
+      "type": "cafe",
+      "lat": 17.964785,
+      "lng": 102.6026191,
+      "area": "Chao Anou Rd",
+      "short": "Brunch café and bakery near the night market",
+      "description": "Long-running café and bakery on Chao Anou — pita pockets, salads, baked goods and strong coffee, with a small shop inside. A daytime staple near the night market. Closed Sundays.",
+      "photos": [],
+      "hours": {
+        "mon": "07:00-20:00", "tue": "07:00-20:00", "wed": "07:00-20:00",
+        "thu": "07:00-20:00", "fri": "07:00-20:00", "sat": "07:00-20:00", "sun": null
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.964785,102.6026191" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "drip-1920s",
+      "name": "Drip 1920s",
+      "short_name": "Drip 1920s",
+      "name_lo": "ດຣິບ 1920s",
+      "type": "cafe",
+      "lat": 17.9695095,
+      "lng": 102.6052324,
+      "area": "Khun Bu Lom Rd",
+      "short": "Vintage 1920s-theme café, open late Thu–Sun",
+      "description": "Retro café styled to the 1920s — gramophone music, vintage decor, drip coffee blends — inside a hostel garden. Unusually for a Vientiane café, it stays open until midnight Thursday to Sunday.",
+      "photos": [],
+      "hours": {
+        "mon": "07:00-20:00", "tue": "07:00-20:00", "wed": "07:00-20:00",
+        "thu": "07:00-24:00", "fri": "07:00-24:00", "sat": "07:00-24:00", "sun": "07:00-24:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9695095,102.6052324" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "maomao-matcha",
+      "name": "MaoMao Matcha Café",
+      "short_name": "MaoMao",
+      "name_lo": "ເມົາເມົາ ມັດຈະ",
+      "type": "cafe",
+      "lat": 17.9737332,
+      "lng": 102.6338178,
+      "area": "That Luang",
+      "short": "Small ceremonial-grade matcha café",
+      "description": "Compact matcha specialist near That Luang — ceremonial-grade matcha, strawberry daifuku, calm vibe. Closes mid-afternoon, so it's a daytime stop. Closed Saturdays.",
+      "photos": [],
+      "hours": {
+        "mon": "07:30-16:30", "tue": "07:30-16:30", "wed": "07:30-16:30",
+        "thu": "07:30-16:30", "fri": "07:30-16:30", "sat": null, "sun": "07:30-16:30"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9737332,102.6338178" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     }
