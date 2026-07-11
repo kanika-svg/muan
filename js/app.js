@@ -133,8 +133,15 @@ function renderMarkers() {
       ${hot ? `<div class="m-sub" style="color:#FF5A3C">tonight</div>` : ''}`;
     el.addEventListener('click', () => openVenue(v.id));
 
+    /* visual de-overlap only — real coords stay in data and directions */
+    const seen = state.markers.filter(m => {
+      const p = m.getLngLat();
+      return Math.abs(p.lat - v.lat) < 0.0004 && Math.abs(p.lng - v.lng) < 0.0004;
+    }).length;
+    const offLng = v.lng + seen * 0.00055;
+
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-      .setLngLat([v.lng, v.lat])
+      .setLngLat([offLng, v.lat])
       .addTo(state.map);
     state.markers.push(marker);
   }
