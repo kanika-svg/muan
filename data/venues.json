@@ -308,6 +308,26 @@
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9604,102.6085" },
       "verified": false,
       "source": "TripAdvisor reports 2026 + boardwalk coordinates estimated — confirm location and schedule in person"
+    },
+    {
+      "id": "farsai-cafe",
+      "name": "Farsai Cafe & Restaurant",
+      "short_name": "Farsai",
+      "name_lo": "ຟ້າໃສ ຄາເຟ",
+      "type": "cafe",
+      "lat": 18.0083709,
+      "lng": 102.6436896,
+      "area": "National Library compound",
+      "short": "Cafe-restaurant with garden seating, hosts meetups",
+      "description": "Cafe and restaurant inside the National Library compound with a spacious interior and outdoor garden seating. Fresh, well-priced food — and an occasional venue for community meetups and tech events.",
+      "photos": [],
+      "hours": {
+        "mon": "10:00-22:00", "tue": "10:00-22:00", "wed": "10:00-22:00",
+        "thu": "10:00-22:00", "fri": "10:00-22:00", "sat": "10:00-22:00", "sun": "10:00-22:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=18.0083709,102.6436896" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-13"
     }
   ]
 }
