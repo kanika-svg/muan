@@ -93,7 +93,10 @@ function initMap() {
     attributionControl: { compact: true },
     style: mapStyle(state.theme),
   });
-  state.map.on('load', renderMarkers);
+  state.map.on('load', () => {
+    state.map.resize();
+    requestAnimationFrame(() => { state.map.resize(); renderMarkers(); });
+  });
   state.map.on('zoom', () => {
     document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 13);
   });
