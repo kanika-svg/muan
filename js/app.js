@@ -259,9 +259,15 @@ function opensLate(v) {
 }
 
 function sectionCard(v, sub) {
+  const thumb = (v.photos && v.photos.length)
+    ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">`
+    : `<div class="thumb thumb-ph" style="color:var(--${v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet'});">${esc((v.short_name || v.name).charAt(0))}</div>`;
   return `<div class="hcard" data-open-venue="${v.id}">
-    <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
-    <div style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
+    ${thumb}
+    <div>
+      <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
+      <div style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
+    </div>
   </div>`;
 }
 
@@ -288,11 +294,14 @@ function renderHomeSheet() {
       const st = openStatus(v);
       html += `
         <div class="card" data-open-venue="${v.id}">
-          <div class="row">
-            <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
-            <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
+          ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--violet);">${esc((v.short_name || v.name).charAt(0))}</div>`}
+          <div class="card-body">
+            <div class="row">
+              <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
+              <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
+            </div>
+            <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
           </div>
-          <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
         </div>`;
     }
   }
