@@ -10,6 +10,7 @@ const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
 const state = {
   venues: [],
   events: [],
+  picks: null,
   filter: 'all',
   markers: [],
   userPos: null,
@@ -22,12 +23,14 @@ const state = {
 
 /* ---------- boot ---------- */
 async function boot() {
-  const [vRes, eRes] = await Promise.all([
+  const [vRes, eRes, pRes] = await Promise.all([
     fetch('data/venues.json'),
     fetch('data/events.json'),
+    fetch('data/picks.json'),
   ]);
   state.venues = (await vRes.json()).venues;
   state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
+  state.picks = await pRes.json();
 
   applyTheme();
   bindTheme();
@@ -273,14 +276,13 @@ function renderHomeSheet() {
     fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') +
     `</div>`;
 
-  html += `
-    <div class="sec-soon">
-      <div>
-        <span class="sec-h" style="color:var(--flame);margin-top:0;display:inline-block;">🔥 ON FIRE · ໄຟລຸກ</span>
-        <div style="font-size:11px;color:var(--mute);margin-top:2px;">live rankings unlock when check-ins launch</div>
-      </div>
-      <span style="font-size:10px;color:var(--dim);">soon</span>
-    </div>`;
+  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean);
+  if (pickVenues.length) {
+    html += `<div class="sec-h" style="color:var(--flame);">🔥 ON FIRE · ໄຟລຸກ <span style="font-weight:400;color:var(--mute);letter-spacing:0;">· ${esc(state.picks.note_en)}</span></div>
+      <div class="hcards">` +
+      pickVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
+      <div style="font-size:10.5px;color:var(--dim);margin-top:6px;">live check-in rankings coming soon</div>`;
+  }
 
   setSheet(html);
 }
