@@ -132,6 +132,8 @@ function initMap() {
     container: 'map',
     center: [VIENTIANE.lng, VIENTIANE.lat],
     zoom: 14,
+    minZoom: 11.5,
+    maxBounds: [[102.42, 17.83], [102.80, 18.10]],
     attributionControl: { compact: true },
     style: mapStyle(state.theme),
   });
