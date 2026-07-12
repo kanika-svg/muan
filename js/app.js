@@ -210,20 +210,35 @@ const fmtTime = m => {
 };
 
 /* ---------- sheet: home ---------- */
+function opensLate(v) {
+  if (!v.hours) return false;
+  const t = parseHours(v.hours[DAYS[new Date().getDay()]]);
+  return !!t && t.close >= 1440;
+}
+
+function sectionCard(v, sub) {
+  return `<div class="hcard" data-open-venue="${v.id}">
+    <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
+    <div style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
+  </div>`;
+}
+
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
   const today = todayISO();
   const tonight = state.events.filter(ev => ev.date === today);
   const upcoming = state.events.filter(ev => ev.date > today).slice(0, 6);
+  const late = state.venues.filter(opensLate);
+  const fresh = state.venues.slice(-3).reverse();
 
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">ຄືນນີ້ໄປໃສດີ? · tap a pin to explore</div>`;
 
-  if (tonight.length === 0 && upcoming.length === 0) {
-    html += `<div class="empty">No events listed yet this week.<br>New list every Thursday.</div>`;
+  html += `<div class="sec-h" style="color:var(--violet);">TONIGHT · ຄືນນີ້</div>`;
+  if (tonight.length === 0) {
+    html += `<div class="sec-empty">Nothing verified for tonight yet — new list every Thursday.</div>`;
   }
-
   for (const ev of tonight) {
     const v = venueById(ev.venue_id);
     if (!v) continue;
@@ -231,25 +246,41 @@ function renderHomeSheet() {
     html += `
       <div class="card" data-open-venue="${v.id}">
         <div class="row">
-          <span class="tag flame">TONIGHT · ${esc(v.area || '')}</span>
-          <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : st.label.toUpperCase()}</span>
+          <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
+          <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
         </div>
-        <div class="t-name">${esc(ev.title)} — ${esc(v.name)}</div>
-        <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)}${ev.verified ? '' : ' · unconfirmed'}</div>
+        <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
       </div>`;
   }
-
   if (upcoming.length) {
     html += `<div class="hcards">` + upcoming.map(ev => {
       const v = venueById(ev.venue_id);
-      return `
-        <div class="hcard" data-open-venue="${ev.venue_id}">
-          <div class="tag violet">${fmtDate(ev.date)}</div>
-          <div style="font-size:12.5px;font-weight:700;margin-top:2px;">${esc(ev.title)}</div>
-          <div style="font-size:11px;color:var(--mute);">${esc(v ? v.name : '')} · ${fmtPrice(ev.price)}</div>
-        </div>`;
+      return v ? sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`) : '';
     }).join('') + `</div>`;
   }
+
+  if (late.length) {
+    html += `<div class="sec-h" style="color:var(--teal);">OPEN LATE · ເປີດເດິກ</div>
+      <div class="hcards">` +
+      late.map(v => {
+        const st = openStatus(v);
+        return sectionCard(v, st.label);
+      }).join('') + `</div>`;
+  }
+
+  html += `<div class="sec-h" style="color:var(--gold);">NEW ON MUAN · ມາໃໝ່</div>
+    <div class="hcards">` +
+    fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') +
+    `</div>`;
+
+  html += `
+    <div class="sec-soon">
+      <div>
+        <span class="sec-h" style="color:var(--flame);margin-top:0;display:inline-block;">🔥 ON FIRE · ໄຟລຸກ</span>
+        <div style="font-size:11px;color:var(--mute);margin-top:2px;">live rankings unlock when check-ins launch</div>
+      </div>
+      <span style="font-size:10px;color:var(--dim);">soon</span>
+    </div>`;
 
   setSheet(html);
 }
