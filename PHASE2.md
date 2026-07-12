@@ -24,14 +24,28 @@ deliberately; do not silently change them.
 
 - **Streak unit = calendar month.** ≥1 valid check-in in a month keeps the
   streak. Displayed as "N months" / "N years". Never resets Phai's level.
-- **Embers (XP):** earned per check-in. Base 10. +10 first-ever visit to that
-  venue. +5 the venue has a verified event that night. +5 a friend is checked
-  in at the same venue within ±2h. Values live in one config table so they can
-  be tuned without redeploys.
-- **Phai (avatar):** level derived from lifetime Embers (thresholds in config).
-  Stages: ember → flicker → flame → blaze → naga. Inactivity (no check-in in
-  60 days) sets a `dormant` display flag (sleepy Phai) — cosmetic only, cleared
-  by the next check-in. Accessories unlock from badges only.
+- **Embers (XP):** earned per check-in, weighted for exploration:
+  25 for a first-ever check-in at a venue, 5 for a repeat visit.
+  +5 the venue has a verified event that night. +5 a friend is checked in
+  at the same venue within ±2h. Values live in the config table.
+  Rationale: the flame rank must mean "how much of the city you've
+  explored", not "how often you sit in one bar".
+- **Identity unit (avatar + flame rank + receipt):**
+  - Avatar: mini cute character. Launch = 12–16 presets with Lao
+    personality (hairstyles, sinh, tees, glasses, helmet-under-arm).
+    Full avatar editor is out of scope for phase 2.
+  - Flame rank: the Phai flame REUSED AS A RANK BADGE next to the name,
+    not a pet. Stages from lifetime Embers (thresholds in config):
+    ember → flicker → flame → blaze → naga fire. No dormant/sleepy state —
+    ranks never decay or emote. Naga stage = cyan #55E0C8 + gold horns.
+  - Receipt: every comment displays "checked in here N×" for that venue
+    (or "first visit"). Computed from the checkins table; counts only,
+    never timestamps. This is the review-trust mechanism.
+  - Gear: earned accessory layers worn by the avatar. Category tier in
+    phase 2: mini cup (5 distinct cafés), mug (5 distinct bars),
+    ticket stub (5 events attended), moon (5 riverside venues).
+    Venue-exclusive gear (e.g. "10× at one venue → that venue's item")
+    is PHASE 3 — it is a venue-partnership feature, do not build early.
 - **Check-in validity:** GPS within 150m of venue (tunable per venue for big
   places like ITECC), max 1 check-in per venue per 4 hours, max 6 check-ins per
   night per user (anti-farming). Server recomputes distance; never trust the
@@ -176,3 +190,19 @@ Rule: do not start a slice until the previous one is deployed and used.
 
 Venue owner accounts, paid promotions, Phai cosmetic shop, photo uploads,
 push notifications, native apps. Phase 3 candidates, all gated on usage.
+
+## 8. Identity visual design (locked 2026-07-12, supersedes earlier Phai-as-pet design)
+
+- Avatar: round chibi head-and-shoulders in a circle frame, Muan palette,
+  ink #131019 features. Built as layered SVG: base + hair + skin tone +
+  outfit + gear layers. Presets are fixed combinations of these layers.
+- Flame rank badge: one teardrop flame path scaled/staged as before
+  (ember .45 → naga 1.5). Gold inner flame #FFC24B constant at flame
+  stage and above; ember/flicker stages render outer flame only at
+  reduced opacity. Renders legibly at 12px height (comment rows).
+- Gear = separate SVG layers toggled by unlock, never edits to the base.
+- Comment row layout: avatar (44px) | name + flame pill | gold receipt
+  line "✓ checked in here N×" | body | timestamp. Receipt in gold
+  #FFC24B — gold always means earned.
+- In API section 5, GET /venues/:id/comments author object becomes:
+  {handle, avatar_preset, gear_codes, flame_stage, venue_checkins}.
