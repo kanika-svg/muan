@@ -271,6 +271,43 @@
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9737332,102.6338178" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
+    },
+    {
+      "id": "vte-night-market",
+      "name": "Vientiane Night Market",
+      "short_name": "Night Market",
+      "name_lo": "ຕະຫຼາດກາງຄືນ",
+      "type": "venue",
+      "lat": 17.9628193,
+      "lng": 102.6061735,
+      "area": "Chao Anouvong Park, riverfront",
+      "short": "Riverside night market, every evening",
+      "description": "The nightly riverside market at Chao Anouvong Park — red-tent stalls with clothes, souvenirs and crafts, with street food vendors around the edges. Busiest Friday and Saturday evenings, when street performers often join. A standing anchor of the riverfront night.",
+      "photos": [],
+      "hours": {
+        "mon": "18:00-22:00", "tue": "18:00-22:00", "wed": "18:00-22:00",
+        "thu": "18:00-22:00", "fri": "18:00-22:00", "sat": "18:00-22:00", "sun": "18:00-22:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9628193,102.6061735" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-12"
+    },
+    {
+      "id": "night-street",
+      "name": "Night Street",
+      "short_name": "Night Street",
+      "name_lo": "ໄນສະຕຣີດ",
+      "type": "venue",
+      "lat": 17.9604,
+      "lng": 102.6085,
+      "area": "Mekong boardwalk, near the King Anouvong statue — exact spot needs confirming",
+      "short": "Open-air night zone on the riverbank — music, beer and food stalls",
+      "description": "Open-air nightlife zone on the Mekong boardwalk that took over from the old Cowboy Park — beer and finger-food stalls with a young local crowd, reportedly with free live music on busy nights. No official listing; location approximate.",
+      "photos": [],
+      "hours": null,
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9604,102.6085" },
+      "verified": false,
+      "source": "TripAdvisor reports 2026 + boardwalk coordinates estimated — confirm location and schedule in person"
     }
   ]
 }
