@@ -227,3 +227,9 @@ body {
 
   #sheet { transition: max-height .25s ease; }
 }
+
+/* crowded pins: hide label unless selected or zoomed close */
+.marker.label-crowded .m-label,
+.marker.label-crowded .m-sub { display: none; }
+.marker.label-crowded.is-selected .m-label { display: block; }
+#map.zoomed-close .marker.label-crowded .m-label { display: block; }

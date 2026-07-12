@@ -99,6 +99,7 @@ function initMap() {
   });
   state.map.on('zoom', () => {
     document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 13);
+    document.getElementById('map').classList.toggle('zoomed-close', state.map.getZoom() >= 15.5);
   });
   state.map.on('click', (e) => {
     if (e.originalEvent.target.closest('.marker')) return;
@@ -142,6 +143,12 @@ function renderMarkers() {
       return Math.abs(p.lat - v.lat) < 0.0004 && Math.abs(p.lng - v.lng) < 0.0004;
     }).length;
     const offLng = v.lng + seen * 0.00055;
+
+    const crowded = state.markers.some(m => {
+      const p = m.marker.getLngLat();
+      return Math.abs(p.lat - v.lat) < 0.0012 && Math.abs(p.lng - v.lng) < 0.0022;
+    });
+    if (crowded) el.classList.add('label-crowded');
 
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([offLng, v.lat])
