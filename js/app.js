@@ -273,54 +273,57 @@ function renderHomeSheet() {
   const late = state.venues.filter(opensLate);
   const fresh = state.venues.slice(-3).reverse();
 
+  const secH = (color, label, note) =>
+    `<div class="sec-h"><span class="dot" style="background:var(--${color});"></span>${label}${note ? `<span class="sec-note">${note}</span>` : ''}</div>`;
+
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
-    <div class="s-sub lao">ຄືນນີ້ໄປໃສດີ? · tap a pin to explore</div>`;
+    <div class="s-sub lao">ຄືນນີ້ໄປໃສດີ?</div>`;
 
-  html += `<div class="sec-h" style="color:var(--violet);">TONIGHT · ຄືນນີ້</div>`;
-  if (tonight.length === 0) {
-    html += `<div class="sec-empty">Nothing verified for tonight yet — new list every Thursday.</div>`;
-  }
-  for (const ev of tonight) {
-    const v = venueById(ev.venue_id);
-    if (!v) continue;
-    const st = openStatus(v);
-    html += `
-      <div class="card" data-open-venue="${v.id}">
-        <div class="row">
-          <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
-          <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
-        </div>
-        <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
-      </div>`;
-  }
-  if (upcoming.length) {
-    html += `<div class="hcards">` + upcoming.map(ev => {
+  if (tonight.length) {
+    html += secH('violet', 'Tonight · ຄືນນີ້');
+    for (const ev of tonight) {
       const v = venueById(ev.venue_id);
-      return v ? sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`) : '';
-    }).join('') + `</div>`;
+      if (!v) continue;
+      const st = openStatus(v);
+      html += `
+        <div class="card" data-open-venue="${v.id}">
+          <div class="row">
+            <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
+            <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
+          </div>
+          <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
+        </div>`;
+    }
   }
 
-  if (late.length) {
-    html += `<div class="sec-h" style="color:var(--teal);">OPEN LATE · ເປີດເດິກ</div>
-      <div class="hcards">` +
-      late.map(v => {
-        const st = openStatus(v);
-        return sectionCard(v, st.label);
+  if (upcoming.length) {
+    html += secH('violet', 'Upcoming · ກຳລັງມາ') + `<div class="hcards">` +
+      upcoming.map(ev => {
+        const v = venueById(ev.venue_id);
+        return v ? sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`) : '';
       }).join('') + `</div>`;
   }
 
-  html += `<div class="sec-h" style="color:var(--gold);">NEW ON MUAN · ມາໃໝ່</div>
-    <div class="hcards">` +
-    fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') +
-    `</div>`;
+  if (!tonight.length && !upcoming.length) {
+    html += secH('violet', 'Tonight · ຄືນນີ້') +
+      `<div class="sec-empty">Nothing verified yet — new list every Thursday.</div>`;
+  }
+
+  if (late.length) {
+    html += secH('teal', 'Open late · ເປີດເດິກ') + `<div class="hcards">` +
+      late.map(v => sectionCard(v, openStatus(v).label)).join('') + `</div>`;
+  }
+
+  html += secH('gold', 'New on Muan · ມາໃໝ່') + `<div class="hcards">` +
+    fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') + `</div>`;
 
   const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean);
   if (pickVenues.length) {
-    html += `<div class="sec-h" style="color:var(--flame);">🔥 ON FIRE · ໄຟລຸກ <span style="font-weight:400;color:var(--mute);letter-spacing:0;">· ${esc(state.picks.note_en)}</span></div>
-      <div class="hcards">` +
+    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks.note_en)) +
+      `<div class="hcards">` +
       pickVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
-      <div style="font-size:10.5px;color:var(--dim);margin-top:6px;">live check-in rankings coming soon</div>`;
+      <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
   setSheet(html);
