@@ -132,17 +132,25 @@ function initMap() {
     container: 'map',
     center: [VIENTIANE.lng, VIENTIANE.lat],
     zoom: 14,
-    minZoom: 11.5,
-    maxBounds: [[102.42, 17.83], [102.80, 18.10]],
+    minZoom: 12.4,
+    maxBounds: [[102.49, 17.88], [102.75, 18.05]],
     attributionControl: { compact: true },
     style: mapStyle(state.theme),
   });
   state.map.on('load', () => {
     state.map.resize();
-    requestAnimationFrame(() => { state.map.resize(); renderMarkers(); });
+    requestAnimationFrame(() => {
+      state.map.resize();
+      renderMarkers();
+      if (state.venues.length > 1) {
+        const b = new maplibregl.LngLatBounds();
+        state.venues.forEach(v => b.extend([v.lng, v.lat]));
+        state.map.fitBounds(b, { padding: { top: 90, bottom: 60, left: 70, right: 70 }, maxZoom: 14.5 });
+      }
+    });
   });
   state.map.on('zoom', () => {
-    document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 13);
+    document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 12.2);
     document.getElementById('map').classList.toggle('zoomed-close', state.map.getZoom() >= 15.5);
   });
   state.map.on('click', (e) => {
