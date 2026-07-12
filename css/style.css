@@ -247,3 +247,10 @@ body {
   #sheet.expanded { max-height: none; }
   #topbar { right: 436px; }
 }
+
+#avatarSlot svg { display:block; width:20px; height:20px; }
+#avatarSheet { text-align:center; }
+.av-grid { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+.av-opt { width:56px; height:56px; border-radius:50%; border:2px solid transparent; background:var(--ink3); cursor:pointer; padding:4px; }
+.av-opt.sel { border-color: var(--flame); }
+.av-opt svg { width:100%; height:100%; }

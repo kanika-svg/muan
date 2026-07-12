@@ -34,6 +34,8 @@ async function boot() {
 
   applyTheme();
   bindTheme();
+  refreshAvatarBtn();
+  document.getElementById('avatarBtn').addEventListener('click', openAvatarSheet);
   initMap();
   renderHomeSheet();
   bindChips();
@@ -75,6 +77,43 @@ function applyTheme() {
     (localStorage.getItem('muan-theme') || 'auto') === 'auto' ? 'auto' : theme;
   if (state.map && state.theme !== theme) state.map.setStyle(mapStyle(theme));
   state.theme = theme;
+}
+
+const AVATARS = ['#E8B98A|#1C1726','#C98E6B|#131019','#E8B98A|#7C5CE0','#C98E6B|#1FBF9C','#8A5A3B|#FF5A3C','#E8B98A|#FFC24B'];
+function avatarSVG(i, size) {
+  const [skin, shirt] = AVATARS[i].split('|');
+  return `<svg viewBox="0 0 44 44" width="${size}" height="${size}">
+    <circle cx="22" cy="22" r="21" fill="var(--ink3)"/>
+    <path d="M8 44 C8 34 14 30 22 30 C30 30 36 34 36 44 Z" fill="${shirt}"/>
+    <circle cx="22" cy="19" r="9" fill="${skin}"/>
+    <path d="M13 18 C13 11 17 8 22 8 C27 8 31 11 31 18 C31 14 27 12.5 22 12.5 C17 12.5 13 14 13 18 Z" fill="#131019"/>
+    <ellipse cx="18.8" cy="18.5" rx="1.3" ry="1.8" fill="#131019"/>
+    <ellipse cx="25.2" cy="18.5" rx="1.3" ry="1.8" fill="#131019"/>
+    <path d="M19.5 23 Q22 24.8 24.5 23" fill="none" stroke="#131019" stroke-width="1.2" stroke-linecap="round"/>
+  </svg>`;
+}
+function refreshAvatarBtn() {
+  const i = localStorage.getItem('muan-avatar');
+  document.getElementById('avatarSlot').innerHTML = i !== null ? avatarSVG(+i, 20) : '😊';
+}
+function openAvatarSheet() {
+  const cur = localStorage.getItem('muan-avatar');
+  setSheet(`<div id="avatarSheet" data-venue-detail hidden></div>
+    <div class="s-title" style="text-align:center;">Choose your avatar</div>
+    <div class="s-sub lao" style="text-align:center;">ເລືອກໂຕແທນຂອງເຈົ້າ</div>
+    <div class="av-grid">` +
+    AVATARS.map((_, i) =>
+      `<button class="av-opt ${String(i)===cur?'sel':''}" data-av="${i}">${avatarSVG(i, 44)}</button>`
+    ).join('') +
+    `</div>
+    <div style="text-align:center;font-size:11.5px;color:var(--mute);margin-top:14px;">your avatar joins check-ins, streaks & comments soon 🔥</div>
+    <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>`);
+  document.querySelectorAll('.av-opt').forEach(b => b.addEventListener('click', () => {
+    localStorage.setItem('muan-avatar', b.dataset.av);
+    document.querySelectorAll('.av-opt').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel');
+    refreshAvatarBtn();
+  }));
 }
 
 function bindTheme() {
