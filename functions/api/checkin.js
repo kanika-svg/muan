@@ -1,7 +1,26 @@
-import venuesData from '../../data/venues.json';
-
 const TEST_USER_ID = 1;
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
+
+/* coords duplicated from venues.json — keep in sync when adding venues */
+const VENUE_COORDS = {
+  "kong-view": { lat: 17.9678909, lng: 102.5805278, name: "Kong View" },
+  "chokdee-cafe": { lat: 17.9630719, lng: 102.6058379, name: "Chokdee Café Belgian Beer Bar" },
+  "sinouk-khemkhong": { lat: 17.9636131, lng: 102.6039109, name: "Café Sinouk Khemkhong" },
+  "itecc-hall": { lat: 17.9607924, lng: 102.6439024, name: "ITECC" },
+  "go-dunk": { lat: 17.9690462, lng: 102.6103675, name: "Go Dunk" },
+  "status-bar": { lat: 17.969079, lng: 102.609883, name: "Status" },
+  "rustic-white": { lat: 17.9582834, lng: 102.6107121, name: "Rustic" },
+  "baron": { lat: 17.9632547, lng: 102.6054528, name: "Baron" },
+  "mahasan": { lat: 17.9631989, lng: 102.6054431, name: "Mahasan" },
+  "treekoff-watchane": { lat: 17.9663429, lng: 102.6018097, name: "Treekoff" },
+  "tree-town": { lat: 17.9650688, lng: 102.6021906, name: "Tree Town" },
+  "common-grounds": { lat: 17.964785, lng: 102.6026191, name: "Common Grounds" },
+  "drip-1920s": { lat: 17.9695095, lng: 102.6052324, name: "Drip 1920s" },
+  "maomao-matcha": { lat: 17.9737332, lng: 102.6338178, name: "MaoMao" },
+  "vte-night-market": { lat: 17.9628193, lng: 102.6061735, name: "Vientiane Night Market" },
+  "night-street": { lat: 17.9604, lng: 102.6085, name: "Night Street" },
+  "farsai-cafe": { lat: 18.0083709, lng: 102.6436896, name: "Farsai Cafe & Restaurant" }
+};
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -32,7 +51,7 @@ export async function onRequest(context) {
       return Response.json({ ok: false, error: 'missing venue_id, lat or lng' }, { status: 400 });
     }
 
-    const venue = venuesData.venues.find((v) => v.id === venue_id);
+    const venue = VENUE_COORDS[venue_id];
     if (!venue) {
       return Response.json({ ok: false, error: 'unknown venue' }, { status: 404 });
     }
