@@ -40,6 +40,18 @@ async function boot() {
   renderHomeSheet();
   bindChips();
   bindLocate();
+
+  // TEMP check-in test — remove after verifying
+  window.testCheckin = async () => {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ venue_id: 'chokdee-cafe', lat: 17.9630719, lng: 102.6058379 }),
+    });
+    const data = await res.json();
+    console.log('CHECKIN RESULT:', data);
+    alert(JSON.stringify(data, null, 2));
+  };
 }
 
 /* ---------- theme ---------- */
