@@ -1,3 +1,5 @@
+import venuesData from '../../data/venues.json';
+
 const TEST_USER_ID = 1;
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 
@@ -30,9 +32,7 @@ export async function onRequest(context) {
       return Response.json({ ok: false, error: 'missing venue_id, lat or lng' }, { status: 400 });
     }
 
-    const vRes = await fetch(new URL('/data/venues.json', context.request.url));
-    const vData = await vRes.json();
-    const venue = (vData.venues || []).find((v) => v.id === venue_id);
+    const venue = venuesData.venues.find((v) => v.id === venue_id);
     if (!venue) {
       return Response.json({ ok: false, error: 'unknown venue' }, { status: 404 });
     }
