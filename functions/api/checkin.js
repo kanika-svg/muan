@@ -35,9 +35,13 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
 }
 
 export async function onRequest(context) {
+  console.log('checkin hit, method=', context.request.method);
+
   if (context.request.method !== 'POST') {
     return Response.json({ ok: false, error: 'method not allowed' }, { status: 405 });
   }
+
+  console.log('checkin: POST accepted, about to parse body');
 
   try {
     const body = await context.request.json().catch(() => null);
