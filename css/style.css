@@ -293,3 +293,59 @@ body {
 .thumb.thumb-ph {
   display: flex; align-items: center; justify-content: center;
 }
+
+/* check-in button */
+.btn-checkin {
+  flex: 1; height: 48px; background: var(--ink3); color: var(--mute);
+  border-radius: 14px; font-size: 15px; font-weight: 700; border: none;
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1), background .2s;
+}
+.btn-checkin.ready { background: var(--flame); color: var(--ink); box-shadow: 0 4px 0 #C6432A; }
+.btn-checkin.ready:active { transform: translateY(3px); box-shadow: 0 1px 0 #C6432A; }
+.btn-checkin:disabled { cursor: default; }
+
+/* celebration overlay */
+.celebrate {
+  position: fixed; inset: 0; z-index: 50; display: flex;
+  align-items: center; justify-content: center; padding: 24px;
+  background: rgba(11,9,16,.72); backdrop-filter: blur(6px);
+  opacity: 0; transition: opacity .3s; overflow: hidden;
+}
+.celebrate.show { opacity: 1; }
+.cel-card {
+  background: var(--ink2); border-radius: 26px; padding: 30px 24px 22px;
+  width: 100%; max-width: 340px; text-align: center;
+  transform: scale(.8) translateY(20px); transition: transform .42s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.celebrate.show .cel-card { transform: scale(1) translateY(0); }
+.cel-flame { font-size: 52px; animation: cel-pop .5s cubic-bezier(.34,1.7,.5,1) backwards; }
+@keyframes cel-pop { 0%{transform:scale(0)} 100%{transform:scale(1)} }
+.cel-title { font-size: 24px; font-weight: 700; color: var(--bone); margin-top: 6px; }
+.cel-venue { font-size: 14px; color: var(--mute); margin-top: 2px; }
+.cel-embers { margin: 18px 0 14px; }
+.cel-num { font-size: 52px; font-weight: 700; color: var(--gold); }
+.cel-unit { font-size: 16px; color: var(--gold); margin-left: 6px; }
+.cel-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.cel-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--ink3); border-radius: 14px; padding: 12px 16px;
+  font-size: 14px; color: var(--mute);
+  animation: cel-slide .4s cubic-bezier(.34,1.56,.64,1) backwards;
+}
+.cel-row b { color: var(--bone); }
+.cel-row:nth-child(1){animation-delay:.15s} .cel-row:nth-child(2){animation-delay:.25s} .cel-row:nth-child(3){animation-delay:.35s}
+.cel-row.cel-new b { color: var(--flame); }
+@keyframes cel-slide { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+.cel-done {
+  width: 100%; height: 50px; background: var(--flame); color: var(--ink);
+  border-radius: 16px; font-size: 16px; font-weight: 700; border: none;
+  box-shadow: 0 4px 0 #C6432A; transition: transform .1s;
+}
+.cel-done:active { transform: translateY(3px); box-shadow: 0 1px 0 #C6432A; }
+.confetti { position: absolute; top: -12px; width: 9px; height: 9px; z-index: 51; animation: cel-fall linear forwards; }
+@keyframes cel-fall { to { transform: translateY(105vh) rotate(560deg); opacity: .9; } }
+@media (prefers-reduced-motion: reduce) {
+  .cel-card, .cel-flame, .cel-row, .confetti { animation: none !important; transition: opacity .2s !important; }
+  .celebrate.show .cel-card { transform: none; }
+}

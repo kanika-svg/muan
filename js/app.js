@@ -40,18 +40,6 @@ async function boot() {
   renderHomeSheet();
   bindChips();
   bindLocate();
-
-  // TEMP check-in test — remove after verifying
-  window.testCheckin = async () => {
-    const res = await fetch('/api/checkin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ venue_id: 'chokdee-cafe', lat: 17.9630719, lng: 102.6058379 }),
-    });
-    const data = await res.json();
-    console.log('CHECKIN RESULT:', data);
-    alert(JSON.stringify(data, null, 2));
-  };
 }
 
 /* ---------- theme ---------- */
@@ -445,6 +433,9 @@ function openVenue(id) {
 
     <div class="btn-row">
       <button class="btn btn-back" data-home>←</button>
+      <button class="btn btn-checkin" id="checkinBtn" data-venue="${v.id}" disabled>
+        <span id="checkinLabel">Checking location…</span>
+      </button>
       <a class="btn btn-go" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">📍 Take me there</a>
       ${v.links.facebook ? `<a class="btn btn-fb" href="${esc(v.links.facebook)}" target="_blank" rel="noopener">Page</a>` : ''}
     </div>
@@ -454,7 +445,99 @@ function openVenue(id) {
   const ht = document.getElementById('hoursToggle');
   if (ht) ht.addEventListener('click', () =>
     document.getElementById('hoursWeek').classList.toggle('show'));
+
+  const cbtn = document.getElementById('checkinBtn');
+  if (cbtn) {
+    if (!state.userPos) {
+      document.getElementById('checkinLabel').textContent = 'Enable location to check in';
+    } else {
+      const d = haversine(state.userPos, v);
+      if (d <= 150) {
+        cbtn.disabled = false;
+        cbtn.classList.add('ready');
+        document.getElementById('checkinLabel').textContent = "You're here — check in";
+      } else {
+        document.getElementById('checkinLabel').textContent = `${fmtDist(d)} away — get closer`;
+      }
+    }
+    cbtn.addEventListener('click', () => doCheckin(v));
+  }
+
   state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
+}
+
+async function doCheckin(v) {
+  const btn = document.getElementById('checkinBtn');
+  if (btn) { btn.disabled = true; document.getElementById('checkinLabel').textContent = 'Checking in…'; }
+  try {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ venue_id: v.id, lat: state.userPos.lat, lng: state.userPos.lng }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showCelebration(data);
+    } else if (data.already) {
+      document.getElementById('checkinLabel').textContent = 'Already checked in tonight';
+    } else if (data.too_far) {
+      document.getElementById('checkinLabel').textContent = 'Too far to check in';
+    } else {
+      document.getElementById('checkinLabel').textContent = 'Check-in failed, try again';
+      if (btn) btn.disabled = false;
+    }
+  } catch (e) {
+    document.getElementById('checkinLabel').textContent = 'Connection error, try again';
+    if (btn) btn.disabled = false;
+  }
+}
+
+function showCelebration(data) {
+  const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
+  const ov = document.createElement('div');
+  ov.className = 'celebrate';
+  ov.innerHTML = `
+    <div class="cel-card">
+      <div class="cel-flame">🔥</div>
+      <div class="cel-title">Checked in!</div>
+      <div class="cel-venue">${esc(data.venue)}</div>
+      <div class="cel-embers"><span class="cel-num" data-target="${data.embers_earned}">0</span><span class="cel-unit">embers</span></div>
+      <div class="cel-rows">
+        <div class="cel-row"><span>Streak</span><b>${data.streak_months} month${data.streak_months>1?'s':''}</b></div>
+        <div class="cel-row"><span>Your flame</span><b>${stageLabels[data.phai_stage]||data.phai_stage}</b></div>
+        ${data.first_visit ? '<div class="cel-row cel-new"><span>First visit here</span><b>+bonus</b></div>' : `<div class="cel-row"><span>Visits here</span><b>${data.venue_checkins}</b></div>`}
+      </div>
+      <button class="btn cel-done">Nice</button>
+    </div>`;
+  document.body.appendChild(ov);
+  requestAnimationFrame(() => ov.classList.add('show'));
+  fireConfetti(ov);
+  // count-up
+  const num = ov.querySelector('.cel-num');
+  const target = +num.dataset.target;
+  let n = 0;
+  const step = Math.max(1, Math.round(target/20));
+  const t = setInterval(() => { n = Math.min(target, n+step); num.textContent = n; if (n>=target) clearInterval(t); }, 40);
+  ov.querySelector('.cel-done').addEventListener('click', () => {
+    ov.classList.remove('show');
+    setTimeout(() => ov.remove(), 300);
+    renderHomeSheet();
+  });
+}
+
+function fireConfetti(container) {
+  const colors = ['#FF5A3C','#FFC24B','#7C5CE0','#1FBF9C','#F5F1E8'];
+  for (let i=0;i<50;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    c.style.left=Math.random()*100+'%';
+    c.style.background=colors[i%colors.length];
+    c.style.borderRadius=i%2?'50%':'2px';
+    c.style.animationDuration=(1.4+Math.random()*1.4)+'s';
+    c.style.animationDelay=Math.random()*0.3+'s';
+    container.appendChild(c);
+    setTimeout(()=>c.remove(),3200);
+  }
 }
 
 /* ---------- helpers ---------- */
