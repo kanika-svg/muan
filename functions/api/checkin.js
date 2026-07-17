@@ -35,13 +35,9 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
 }
 
 export async function onRequest(context) {
-  console.log('checkin hit, method=', context.request.method);
-
   if (context.request.method !== 'POST') {
     return Response.json({ ok: false, error: 'method not allowed' }, { status: 405 });
   }
-
-  console.log('checkin: POST accepted, about to parse body');
 
   try {
     const body = await context.request.json().catch(() => null);
@@ -153,6 +149,7 @@ export async function onRequest(context) {
       venue_checkins: priorVisits.c + 1,
     });
   } catch (e) {
-    return Response.json({ ok: false, error: e.message, stack: e.stack }, { status: 500 });
+    console.error(e);
+    return Response.json({ ok: false, error: "check-in failed" }, { status: 500 });
   }
 }
