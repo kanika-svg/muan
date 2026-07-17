@@ -115,15 +115,18 @@ export async function onRequest(context) {
     const user = await context.env.DB.prepare(
       `SELECT embers_total, streak_months, last_checkin_month FROM users WHERE id = ?`
     ).bind(TEST_USER_ID).first();
+    const priorEmbersTotal = user?.embers_total ?? 0;
+    const priorStreakMonths = user?.streak_months ?? 0;
+    const priorLastCheckinMonth = user?.last_checkin_month ?? null;
 
     await context.env.DB.prepare(
       `INSERT INTO checkins (user_id, venue_id, created_at, lat, lng, embers) VALUES (?, ?, ?, ?, ?, ?)`
     ).bind(TEST_USER_ID, venue_id, nowIso, lat, lng, embersEarned).run();
 
-    const embersTotal = user.embers_total + embersEarned;
+    const embersTotal = priorEmbersTotal + embersEarned;
     const currentMonth = nowIso.slice(0, 7);
-    let streakMonths = user.streak_months;
-    let lastCheckinMonth = user.last_checkin_month;
+    let streakMonths = priorStreakMonths;
+    let lastCheckinMonth = priorLastCheckinMonth;
     if (lastCheckinMonth !== currentMonth) {
       streakMonths += 1;
       lastCheckinMonth = currentMonth;
@@ -150,6 +153,6 @@ export async function onRequest(context) {
       venue_checkins: priorVisits.c + 1,
     });
   } catch (e) {
-    return Response.json({ ok: false, error: e.message }, { status: 500 });
+    return Response.json({ ok: false, error: e.message, stack: e.stack }, { status: 500 });
   }
 }
