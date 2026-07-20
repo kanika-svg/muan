@@ -334,7 +334,7 @@ function renderHomeSheet() {
       late.map(v => sectionCard(v, openStatus(v).label)).join('') + `</div>`;
   }
 
-  html += secH('gold', 'New on Muan · ມາໃໝ່') + `<div class="hcards">` +
+  html += secH('gold', 'New on Paisaidee · ມາໃໝ່') + `<div class="hcards">` +
     fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') + `</div>`;
 
   const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean);

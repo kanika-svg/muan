@@ -3,6 +3,9 @@
 Muan is a map-first web app answering "where should we go tonight?" in Vientiane.
 Phase 1: map + curated venues/events, no backend. Phase 2: check-ins via Cloudflare Workers + D1.
 
+Display name is Paisaidee. Internal names (muan-db, repo, muan.pages.dev,
+file/variable names) intentionally remain "muan" — do not rename them.
+
 ## Workflow rules
 - NEVER commit. All changes are reviewed manually in Cursor before commit. Do not run git add/commit/push.
 - Make surgical edits: find/replace the specific documented change only. No full-block rewrites — they introduce silent edits.
