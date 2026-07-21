@@ -35,7 +35,7 @@ async function boot() {
   applyTheme();
   bindTheme();
   refreshAvatarBtn();
-  document.getElementById('avatarBtn').addEventListener('click', openAvatarSheet);
+  document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
   initMap();
   renderHomeSheet();
   bindChips();
@@ -107,13 +107,75 @@ function openAvatarSheet() {
     ).join('') +
     `</div>
     <div style="text-align:center;font-size:11.5px;color:var(--mute);margin-top:14px;">your avatar joins check-ins, streaks & comments soon 🔥</div>
-    <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>`);
+    <div class="btn-row"><button class="btn btn-back" data-back-flame style="flex:1;">Done</button></div>`);
   document.querySelectorAll('.av-opt').forEach(b => b.addEventListener('click', () => {
     localStorage.setItem('muan-avatar', b.dataset.av);
     document.querySelectorAll('.av-opt').forEach(x => x.classList.remove('sel'));
     b.classList.add('sel');
     refreshAvatarBtn();
   }));
+  document.querySelector('[data-back-flame]')?.addEventListener('click', openFlameSheet);
+}
+
+async function openFlameSheet() {
+  setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Loading your flame…</div>');
+  let me = null;
+  try { me = await (await fetch('/api/me')).json(); } catch(e) {}
+  if (!me || !me.ok) { setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Could not load — try again.</div>'); return; }
+
+  const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
+  const stageLo = { ember:'ຖ່ານໄຟ', flicker:'ໄຟວິບວັບ', flame:'ແປວໄຟ', blaze:'ໄຟລຸກ', naga:'ໄຟນາກ' };
+
+  // month calendar
+  const now = new Date();
+  const yearMonth = me.month;
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const firstDow = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+  const checkinSet = new Set(me.checkin_days);
+  let cal = '<div class="fl-cal">';
+  for (let i=0; i<firstDow; i++) cal += '<span class="fl-day empty"></span>';
+  for (let d=1; d<=daysInMonth; d++) {
+    const iso = `${yearMonth}-${String(d).padStart(2,'0')}`;
+    const lit = checkinSet.has(iso);
+    const today = d === now.getDate();
+    cal += `<span class="fl-day ${lit?'lit':''} ${today?'today':''}">${lit?'🔥':d}</span>`;
+  }
+  cal += '</div>';
+
+  const monthName = now.toLocaleString('en',{month:'long'});
+  const i = localStorage.getItem('muan-avatar');
+
+  setSheet(`
+    <div class="fl-wrap">
+      <div class="fl-flame">
+        <svg viewBox="0 0 120 140" width="110" height="128">
+          <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
+          </linearGradient></defs>
+          <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
+        </svg>
+        <div class="fl-streak">${me.streak_months}</div>
+      </div>
+      <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
+      <div class="fl-sub">${me.streak_months} month streak — every month out keeps it lit</div>
+
+      <div class="fl-embers"><b>${me.embers_total}</b> embers</div>
+
+      <div class="fl-month">${monthName}</div>
+      ${cal}
+
+      <div class="fl-stats">
+        <div class="fl-stat"><b>${me.venues_explored}</b><span>places explored</span></div>
+        <div class="fl-stat"><b>${me.total_checkins}</b><span>check-ins</span></div>
+      </div>
+
+      <button class="btn fl-avatar" data-open-avatar>
+        ${i !== null ? avatarSVG(+i, 22) : '😊'} <span>Change avatar</span>
+      </button>
+      <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
+    </div>
+  `);
+  document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
 }
 
 function bindTheme() {
