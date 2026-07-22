@@ -325,6 +325,46 @@
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=18.0083709,102.6436896" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-13"
+    },
+    {
+      "id": "corebeer",
+      "name": "Corebeer Brewery",
+      "short_name": "Corebeer",
+      "name_lo": "ຄໍເບຍ",
+      "type": "bar",
+      "lat": 17.9491828,
+      "lng": 102.6190028,
+      "area": "Rue Thadeua, south riverside",
+      "short": "Craft brewery — Thursday meetup night",
+      "description": "Vientiane's craft brewery — kölsch, IPAs and stouts brewed on site, cozy low-lit taproom. Hosts the big Make Friends + language exchange meetup every Thursday evening. The town's best answer to one-more-Beerlao fatigue.",
+      "photos": [],
+      "hours": {
+        "mon": "11:00-22:30", "tue": "11:00-22:30", "wed": "11:00-22:30",
+        "thu": "11:00-23:00", "fri": "11:00-23:00", "sat": "11:00-23:00", "sun": "11:00-22:30"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9491828,102.6190028" },
+      "verified": true,
+      "source": "Google Maps listing + FB events, 2026-07-22"
+    },
+    {
+      "id": "parkson-laos",
+      "name": "Parkson (Naga Mall)",
+      "short_name": "Parkson",
+      "name_lo": "ພາກສັນ",
+      "type": "venue",
+      "lat": 17.9613647,
+      "lng": 102.61853,
+      "area": "Khouvieng Rd, Nongchan",
+      "short": "Mall — events, food court, cinema crowd",
+      "description": "The big air-conditioned mall on Khouvieng — shops, food court, kids' zone, and a regular stage for contests and brand events.",
+      "photos": [],
+      "hours": {
+        "mon": "09:30-21:00", "tue": "09:30-21:00", "wed": "09:30-21:00",
+        "thu": "09:30-21:00", "fri": "09:30-21:00", "sat": "09:30-21:00", "sun": "09:30-21:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9613647,102.61853" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-22"
     }
   ]
 }

@@ -379,7 +379,7 @@ function renderHomeSheet() {
               <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
               <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
             </div>
-            <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
+            <div class="t-sub">${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
           </div>
         </div>`;
     }
@@ -492,7 +492,7 @@ function openVenue(id) {
       <div class="card" style="cursor:default;">
         <span class="tag violet">${ev.date === todayISO() ? 'TONIGHT' : fmtDate(ev.date)}</span>
         <div style="font-size:13px;font-weight:700;margin-top:3px;">${esc(ev.title)}</div>
-        <div class="t-sub">${fmtTime(toMins(ev.start_time))} · ${fmtPrice(ev.price)}${ev.verified ? '' : ' · unconfirmed'}</div>
+        <div class="t-sub">${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}${ev.verified ? '' : ' · unconfirmed'}</div>
       </div>`;
   }
 

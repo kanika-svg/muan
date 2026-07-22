@@ -2,18 +2,6 @@
   "_schema_notes": "PLACEHOLDER DATA — this file is the weekly curation output. Every event needs a source_url (the venue post or page you verified it from) before verified can be true. date: YYYY-MM-DD. Expired events are hidden automatically by the app, so it is safe to leave past events in the file for a while. price: 0 = free, null = unknown.",
   "events": [
     {
-      "id": "binance-meetup-0718",
-      "venue_id": "farsai-cafe",
-      "title": "Binance Academy Laotian Meetup",
-      "title_lo": "ມີດອັບ Binance Academy",
-      "date": "2026-07-18",
-      "start_time": "13:30",
-      "price": null,
-      "short": "Crypto community meetup — #BinanceTurns9, 1:30–4pm",
-      "source_url": "https://ewent.la",
-      "verified": true
-    },
-    {
       "id": "wonder-festival-0808",
       "venue_id": "itecc-hall",
       "title": "Vientiane Wonder Music Festival",
@@ -23,6 +11,30 @@
       "price": null,
       "short": "Music festival at ITECC, 5pm till midnight",
       "source_url": "https://ewent.la",
+      "verified": true
+    },
+    {
+      "id": "makefriends-0723",
+      "venue_id": "corebeer",
+      "title": "Make Friends meetup",
+      "title_lo": "ມີດອັບຫາໝູ່ໃໝ່",
+      "date": "2026-07-23",
+      "start_time": "19:00",
+      "price": 0,
+      "short": "Social mixer + language exchange, every Thursday — just order a drink to join",
+      "source_url": "https://www.facebook.com/events/888903243774486/",
+      "verified": true
+    },
+    {
+      "id": "dance-contest-0725",
+      "venue_id": "parkson-laos",
+      "title": "Cover Dance Contest",
+      "title_lo": "ປະກວດເຕັ້ນ Cover Dance",
+      "date": "2026-07-25",
+      "start_time": null,
+      "price": 0,
+      "short": "Vaseline cover-dance contest, Sat–Sun — times TBC",
+      "source_url": "https://www.facebook.com/events/search?q=vientiane",
       "verified": true
     }
   ]
