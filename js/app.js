@@ -40,6 +40,13 @@ async function boot() {
   renderHomeSheet();
   bindChips();
   bindLocate();
+
+  const params = new URLSearchParams(location.search);
+  const vid = params.get('v');
+  if (vid && venueById(vid)) {
+    openVenue(vid);
+    if (state.map) state.map.flyTo({ center: [venueById(vid).lng, venueById(vid).lat], zoom: 15.5 });
+  }
 }
 
 /* ---------- theme ---------- */
@@ -408,6 +415,7 @@ function renderHomeSheet() {
   }
 
   setSheet(html);
+  history.replaceState(null, '', location.pathname);
   const sh = document.getElementById('sheet');
   sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
 }
@@ -502,10 +510,23 @@ function openVenue(id) {
       </button>
       <a class="btn btn-go" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">📍 Take me there</a>
       ${v.links.facebook ? `<a class="btn btn-fb" href="${esc(v.links.facebook)}" target="_blank" rel="noopener">Page</a>` : ''}
+      <button class="btn btn-share" id="shareBtn" aria-label="Share this place">↗</button>
     </div>
     ${v.verified ? '' : '<div class="hint">details unconfirmed — hours may differ</div>'}`;
 
   setSheet(html);
+  history.replaceState(null, '', '?v=' + v.id);
+  document.getElementById('shareBtn')?.addEventListener('click', async () => {
+    const url = location.origin + '/?v=' + v.id;
+    const title = (v.short_name || v.name) + ' — Paisaidee';
+    if (navigator.share) {
+      try { await navigator.share({ title, url }); } catch(e) {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      const b = document.getElementById('shareBtn');
+      b.textContent = '✓'; setTimeout(() => b.textContent = '↗', 1500);
+    }
+  });
   const ht = document.getElementById('hoursToggle');
   if (ht) ht.addEventListener('click', () =>
     document.getElementById('hoursWeek').classList.toggle('show'));
