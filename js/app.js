@@ -408,6 +408,8 @@ function renderHomeSheet() {
   }
 
   setSheet(html);
+  const sh = document.getElementById('sheet');
+  sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
 }
 
 /* ---------- sheet: venue detail ---------- */
