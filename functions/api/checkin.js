@@ -1,4 +1,5 @@
-const TEST_USER_ID = 1;
+import { getSessionUser } from './_auth.js';
+
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 
 /* coords duplicated from venues.json — keep in sync when adding venues */
@@ -40,6 +41,9 @@ export async function onRequest(context) {
   }
 
   try {
+    const user = await getSessionUser(context);
+    if (!user) return Response.json({ ok: false, need_auth: true }, { status: 401 });
+
     const body = await context.request.json().catch(() => null);
     const venue_id = body ? body.venue_id : undefined;
     const lat = body ? body.lat : undefined;
@@ -83,7 +87,7 @@ export async function onRequest(context) {
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
     const recentAtVenue = await context.env.DB.prepare(
       `SELECT id FROM checkins WHERE user_id = ? AND venue_id = ? AND created_at > ? LIMIT 1`
-    ).bind(TEST_USER_ID, venue_id, fourHoursAgo).first();
+    ).bind(user.id, venue_id, fourHoursAgo).first();
     if (recentAtVenue) {
       return Response.json({ ok: false, already: true, message: 'already checked in here recently' });
     }
@@ -91,33 +95,26 @@ export async function onRequest(context) {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const tonightCount = await context.env.DB.prepare(
       `SELECT COUNT(*) as c FROM checkins WHERE user_id = ? AND created_at > ?`
-    ).bind(TEST_USER_ID, sixHoursAgo).first();
+    ).bind(user.id, sixHoursAgo).first();
     if (tonightCount.c >= 6) {
       return Response.json({ ok: false, limit: true, message: 'check-in limit reached for tonight' });
     }
 
     const priorVisits = await context.env.DB.prepare(
       `SELECT COUNT(*) as c FROM checkins WHERE user_id = ? AND venue_id = ?`
-    ).bind(TEST_USER_ID, venue_id).first();
+    ).bind(user.id, venue_id).first();
     const firstVisit = priorVisits.c === 0;
     const embersEarned = firstVisit ? emberNewVenue : emberRepeat;
 
     const nowIso = new Date().toISOString();
 
-    await context.env.DB.prepare(
-      `INSERT OR IGNORE INTO users (id, google_sub, handle, created_at) VALUES (?, 'test-user-1', 'tester', ?)`
-    ).bind(TEST_USER_ID, nowIso).run();
-
-    const user = await context.env.DB.prepare(
-      `SELECT embers_total, streak_months, last_checkin_month FROM users WHERE id = ?`
-    ).bind(TEST_USER_ID).first();
-    const priorEmbersTotal = user?.embers_total ?? 0;
-    const priorStreakMonths = user?.streak_months ?? 0;
-    const priorLastCheckinMonth = user?.last_checkin_month ?? null;
+    const priorEmbersTotal = user.embers_total ?? 0;
+    const priorStreakMonths = user.streak_months ?? 0;
+    const priorLastCheckinMonth = user.last_checkin_month ?? null;
 
     await context.env.DB.prepare(
       `INSERT INTO checkins (user_id, venue_id, created_at, lat, lng, embers) VALUES (?, ?, ?, ?, ?, ?)`
-    ).bind(TEST_USER_ID, venue_id, nowIso, lat, lng, embersEarned).run();
+    ).bind(user.id, venue_id, nowIso, lat, lng, embersEarned).run();
 
     const embersTotal = priorEmbersTotal + embersEarned;
     const currentMonth = nowIso.slice(0, 7);
@@ -130,7 +127,7 @@ export async function onRequest(context) {
 
     await context.env.DB.prepare(
       `UPDATE users SET embers_total = ?, streak_months = ?, last_checkin_month = ? WHERE id = ?`
-    ).bind(embersTotal, streakMonths, lastCheckinMonth, TEST_USER_ID).run();
+    ).bind(embersTotal, streakMonths, lastCheckinMonth, user.id).run();
 
     let stageIndex = 0;
     for (let i = 0; i < phaiThresholds.length; i++) {

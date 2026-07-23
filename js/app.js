@@ -6,6 +6,7 @@
 
 const COLORS = { bar: '#FF5A3C', cafe: '#1FBF9C', event: '#7C5CE0', venue: '#7C5CE0' };
 const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
+const GOOGLE_CLIENT_ID = '768624583305-553qrbhib2mqbbi10ifsr18b8uqu4uvk.apps.googleusercontent.com';
 
 const state = {
   venues: [],
@@ -124,11 +125,57 @@ function openAvatarSheet() {
   document.querySelector('[data-back-flame]')?.addEventListener('click', openFlameSheet);
 }
 
+function initGoogleSignIn(containerId) {
+  if (!window.google?.accounts?.id) { setTimeout(() => initGoogleSignIn(containerId), 400); return; }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: async (resp) => {
+      try {
+        const r = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: resp.credential }),
+        });
+        const data = await r.json();
+        if (data.ok) openFlameSheet();
+      } catch (e) {}
+    },
+  });
+  const el = document.getElementById(containerId);
+  if (el) google.accounts.id.renderButton(el, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with' });
+}
+
+async function signOut() {
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+  openFlameSheet();
+}
+
 async function openFlameSheet() {
   setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Loading your flame…</div>');
   let me = null;
   try { me = await (await fetch('/api/me')).json(); } catch(e) {}
   if (!me || !me.ok) { setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Could not load — try again.</div>'); return; }
+
+  if (me.signed_out) {
+    setSheet(`
+      <div class="fl-wrap">
+        <div class="fl-flame" style="opacity:.4;">
+          <svg viewBox="0 0 120 140" width="110" height="128">
+            <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
+            </linearGradient></defs>
+            <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
+          </svg>
+        </div>
+        <div class="fl-stage">Your flame starts here</div>
+        <div class="fl-sub">Sign in to check in, keep streaks and earn embers</div>
+        <div id="gsi-btn" style="display:flex;justify-content:center;margin:18px 0;"></div>
+        <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
+      </div>
+    `);
+    initGoogleSignIn('gsi-btn');
+    return;
+  }
 
   const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
   const stageLo = { ember:'ຖ່ານໄຟ', flicker:'ໄຟວິບວັບ', flame:'ແປວໄຟ', blaze:'ໄຟລຸກ', naga:'ໄຟນາກ' };
@@ -154,6 +201,7 @@ async function openFlameSheet() {
 
   setSheet(`
     <div class="fl-wrap">
+      ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
       <div class="fl-flame">
         <svg viewBox="0 0 120 140" width="110" height="128">
           <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
@@ -180,9 +228,11 @@ async function openFlameSheet() {
         ${i !== null ? avatarSVG(+i, 22) : '😊'} <span>Change avatar</span>
       </button>
       <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
+      <button class="fl-signout" data-sign-out>Sign out</button>
     </div>
   `);
   document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
+  document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
 }
 
 function bindTheme() {
@@ -561,7 +611,11 @@ async function doCheckin(v) {
       body: JSON.stringify({ venue_id: v.id, lat: state.userPos.lat, lng: state.userPos.lng }),
     });
     const data = await res.json();
-    if (data.ok) {
+    if (res.status === 401 || data.need_auth) {
+      document.getElementById('checkinLabel').textContent = 'Sign in to check in';
+      if (btn) btn.disabled = false;
+      openFlameSheet();
+    } else if (data.ok) {
       showCelebration(data);
     } else if (data.already) {
       document.getElementById('checkinLabel').textContent = 'Already checked in tonight';

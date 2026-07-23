@@ -390,6 +390,11 @@ body {
 }
 
 .fl-wrap { text-align: center; padding-top: 6px; }
+.fl-handle { font-size: 12px; font-weight: 700; color: var(--mute); margin-bottom: 8px; }
+.fl-signout {
+  display: block; margin: 10px auto 0; background: none; border: none;
+  color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;
+}
 .fl-flame { position: relative; display: inline-block; animation: fl-pulse 2.6s ease-in-out infinite; }
 @keyframes fl-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.045)} }
 .fl-streak {
