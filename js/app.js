@@ -576,23 +576,34 @@ function openVenue(id) {
   let html = `
     <span data-venue-detail hidden></span>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <div class="s-title">${esc(v.name)} <span class="lao" style="font-size:13px;color:var(--mute);">${esc(v.name_lo || '')}</span></div>
-        <div class="s-sub">${esc(v.short || '')}</div>
-      </div>
+      <button class="sheet-x" data-home aria-label="Back">←</button>
       <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
         ${isNo1(v) ? '<span class="tag flame" style="background:var(--ink3);padding:5px 10px;border-radius:12px;">TONIGHT</span>' : ''}
         <button class="sheet-x" data-home aria-label="Close">✕</button>
       </div>
     </div>
+    <div class="s-title">${esc(v.name)} <span class="lao" style="font-size:13px;color:var(--mute);">${esc(v.name_lo || '')}</span></div>
+    <div class="s-sub">${esc(v.short || '')}</div>
 
     ${galleryHtml}
 
-    <div class="info-row">
+    <div class="act-row">
+      <button class="act" id="checkinBtn" data-venue="${v.id}" disabled>
+        <span class="act-ico">🔥</span><span class="act-lbl" id="checkinLabel">Check in</span>
+      </button>
+      <a class="act" href="${esc(v.links?.maps || '#')}" target="_blank" rel="noopener">
+        <span class="act-ico">➤</span><span class="act-lbl">Directions</span>
+      </a>
+      <button class="act" id="shareBtn">
+        <span class="act-ico">↗</span><span class="act-lbl">Share</span>
+      </button>
+    </div>
+
+    <div class="v-fact">
       <div class="info-ic">📍</div>
       <div class="info-main">${esc(v.area || '')}<div class="sub">${travel}</div></div>
     </div>
-    <div class="info-row">
+    <div class="v-fact">
       <div class="info-ic">🕐</div>
       <div class="info-main">
         <span style="color:var(--${st.open ? 'teal' : 'dim'});font-weight:700;">${st.label}</span>
@@ -601,9 +612,14 @@ function openVenue(id) {
       </div>
     </div>
     ${v.description ? `
-    <div class="info-row">
+    <div class="v-fact">
       <div class="info-ic">ℹ️</div>
       <div class="info-main">${esc(v.description)}</div>
+    </div>` : ''}
+    ${v.links.facebook ? `
+    <div class="v-fact">
+      <div class="info-ic">📘</div>
+      <div class="info-main"><a href="${esc(v.links.facebook)}" target="_blank" rel="noopener" style="color:var(--bone);">Facebook page</a></div>
     </div>` : ''}`;
 
   for (const ev of evs) {
@@ -620,16 +636,6 @@ function openVenue(id) {
     <div class="comment-empty">
       No comments yet.<br>
       Comments open when check-ins launch — be the first regular. 🔥
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-back" data-home>←</button>
-      <button class="btn btn-checkin" id="checkinBtn" data-venue="${v.id}" disabled>
-        <span id="checkinLabel">Checking location…</span>
-      </button>
-      <a class="btn btn-go" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">📍 Take me there</a>
-      ${v.links.facebook ? `<a class="btn btn-fb" href="${esc(v.links.facebook)}" target="_blank" rel="noopener">Page</a>` : ''}
-      <button class="btn btn-share" id="shareBtn" aria-label="Share this place">↗</button>
     </div>
     ${v.verified ? '' : '<div class="hint">details unconfirmed — hours may differ</div>'}`;
 
@@ -652,8 +658,8 @@ function openVenue(id) {
       try { await navigator.share({ title, url }); } catch(e) {}
     } else {
       await navigator.clipboard.writeText(url);
-      const b = document.getElementById('shareBtn');
-      b.textContent = '✓'; setTimeout(() => b.textContent = '↗', 1500);
+      const ico = document.querySelector('#shareBtn .act-ico');
+      if (ico) { ico.textContent = '✓'; setTimeout(() => ico.textContent = '↗', 1500); }
     }
   });
   const ht = document.getElementById('hoursToggle');
