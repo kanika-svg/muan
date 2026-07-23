@@ -408,8 +408,19 @@ function renderHomeSheet() {
   const today = todayISO();
   const tonight = state.events.filter(ev => ev.date === today).sort(byTime);
   const upcoming = state.events.filter(ev => ev.date > today).sort(byTime);
-  const late = state.venues.filter(opensLate);
-  const fresh = state.venues.slice(-3).reverse();
+
+  const f = state.filter || 'all';
+  const matchType = v => f === 'all'
+    || (f === 'bar' && v.type === 'bar')
+    || (f === 'cafe' && v.type === 'cafe');
+    // 'event' filter shows no venue-driven sections; handled via showEvents/showVenueSections
+
+  const late = state.venues.filter(v => opensLate(v) && matchType(v));
+  const fresh = state.venues.filter(matchType).slice(-3).reverse();
+  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType);
+
+  const showEvents = (f === 'all' || f === 'event');
+  const showVenueSections = (f !== 'event');
 
   const secH = (color, label, note) =>
     `<div class="sec-h"><span class="dot" style="background:var(--${color});"></span>${label}${note ? `<span class="sec-note">${note}</span>` : ''}</div>`;
@@ -417,8 +428,10 @@ function renderHomeSheet() {
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">ຄືນນີ້ໄປໃສດີ?</div>`;
+  let rendered = false;
 
-  if (tonight.length) {
+  if (showEvents && tonight.length) {
+    rendered = true;
     html += secH('violet', 'Tonight · ຄືນນີ້');
     for (const ev of tonight) {
       const v = venueById(ev.venue_id);
@@ -438,20 +451,22 @@ function renderHomeSheet() {
     }
   }
 
-  if (!tonight.length && !upcoming.length) {
+  if (showEvents && !tonight.length && !upcoming.length) {
+    rendered = true;
     html += secH('violet', 'Tonight · ຄືນນີ້') +
       `<div class="sec-empty">Nothing verified yet — new list every Thursday.</div>`;
   }
 
-  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean);
-  if (pickVenues.length) {
+  if (showVenueSections && pickVenues.length) {
+    rendered = true;
     html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks.note_en)) +
       `<div class="hcards">` +
       pickVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
       <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
-  if (upcoming.length) {
+  if (showEvents && upcoming.length) {
+    rendered = true;
     html += secH('violet', 'Upcoming · ກຳລັງມາ') + `<div class="hcards">` +
       upcoming.map(ev => {
         const v = venueById(ev.venue_id);
@@ -459,13 +474,21 @@ function renderHomeSheet() {
       }).join('') + `</div>`;
   }
 
-  if (late.length) {
+  if (showVenueSections && late.length) {
+    rendered = true;
     html += secH('teal', 'Open late · ເປີດເດິກ') + `<div class="hcards">` +
       late.map(v => sectionCard(v, openStatus(v).label)).join('') + `</div>`;
   }
 
-  html += secH('gold', 'New on Paisaidee · ມາໃໝ່') + `<div class="hcards">` +
-    fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') + `</div>`;
+  if (showVenueSections && fresh.length) {
+    rendered = true;
+    html += secH('gold', 'New on Paisaidee · ມາໃໝ່') + `<div class="hcards">` +
+      fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') + `</div>`;
+  }
+
+  if (!rendered) {
+    html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
+  }
 
   setSheet(html);
   history.replaceState(null, '', location.pathname);
@@ -723,6 +746,7 @@ function bindChips() {
       ch.classList.add('on');
       state.filter = ch.dataset.filter;
       renderMarkers();
+      if (!state.selectedId) renderHomeSheet();
     });
   });
 }
