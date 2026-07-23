@@ -1,6 +1,7 @@
 import { getSessionUser } from './_auth.js';
 
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 /* coords duplicated from venues.json — keep in sync when adding venues */
 const VENUE_COORDS = {
@@ -23,6 +24,63 @@ const VENUE_COORDS = {
   "farsai-cafe": { lat: 18.0083709, lng: 102.6436896, name: "Farsai Cafe & Restaurant" }
 };
 
+/* hours duplicated from venues.json — keep in sync when adding venues */
+const VENUE_HOURS = {
+  "kong-view": {
+    mon: "16:30-23:30", tue: "16:30-23:30", wed: "16:30-23:30",
+    thu: "16:30-23:30", fri: "16:30-23:30", sat: "16:30-23:30", sun: "16:30-23:30"
+  },
+  "chokdee-cafe": {
+    mon: "10:00-23:30", tue: "10:00-23:30", wed: "10:00-23:30",
+    thu: "10:00-23:30", fri: "10:00-23:30", sat: "10:00-23:30", sun: "10:00-23:30"
+  },
+  "sinouk-khemkhong": {
+    mon: "07:00-22:00", tue: "07:00-22:00", wed: "07:00-22:00",
+    thu: "07:00-22:00", fri: "07:00-22:00", sat: "07:00-22:00", sun: "07:00-22:00"
+  },
+  "itecc-hall": null,
+  "go-dunk": null,
+  "status-bar": null,
+  "rustic-white": {
+    mon: "19:00-24:00", tue: "19:00-24:00", wed: "19:00-24:00",
+    thu: "19:00-24:00", fri: "19:00-24:00", sat: "19:00-24:00", sun: "19:00-24:00"
+  },
+  "baron": {
+    mon: "20:00-26:00", tue: null, wed: "20:00-26:00",
+    thu: "20:00-26:00", fri: "20:00-27:00", sat: "20:00-27:00", sun: "20:00-26:00"
+  },
+  "mahasan": null,
+  "treekoff-watchane": {
+    mon: "06:30-22:00", tue: "06:30-22:00", wed: "06:30-22:00",
+    thu: "06:30-22:00", fri: "06:30-22:00", sat: "06:30-22:00", sun: "06:30-22:00"
+  },
+  "tree-town": {
+    mon: null, tue: "09:00-22:00", wed: "09:00-22:00",
+    thu: "09:00-22:00", fri: "09:00-22:00", sat: "09:00-22:00", sun: "09:00-22:00"
+  },
+  "common-grounds": {
+    mon: "07:00-20:00", tue: "07:00-20:00", wed: "07:00-20:00",
+    thu: "07:00-20:00", fri: "07:00-20:00", sat: "07:00-20:00", sun: null
+  },
+  "drip-1920s": {
+    mon: "07:00-20:00", tue: "07:00-20:00", wed: "07:00-20:00",
+    thu: "07:00-24:00", fri: "07:00-24:00", sat: "07:00-24:00", sun: "07:00-24:00"
+  },
+  "maomao-matcha": {
+    mon: "07:30-16:30", tue: "07:30-16:30", wed: "07:30-16:30",
+    thu: "07:30-16:30", fri: "07:30-16:30", sat: null, sun: "07:30-16:30"
+  },
+  "vte-night-market": {
+    mon: "18:00-22:00", tue: "18:00-22:00", wed: "18:00-22:00",
+    thu: "18:00-22:00", fri: "18:00-22:00", sat: "18:00-22:00", sun: "18:00-22:00"
+  },
+  "night-street": null,
+  "farsai-cafe": {
+    mon: "10:00-22:00", tue: "10:00-22:00", wed: "10:00-22:00",
+    thu: "10:00-22:00", fri: "10:00-22:00", sat: "10:00-22:00", sun: "10:00-22:00"
+  }
+};
+
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const toRad = (d) => (d * Math.PI) / 180;
@@ -33,6 +91,32 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+function parseHoursRange(str) {
+  if (!str) return null;
+  const [a, b] = str.split('-');
+  const toMins = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+  return { open: toMins(a), close: toMins(b) };
+}
+
+/* Vientiane is UTC+7 year-round (no DST) — shift the UTC clock and read it
+   back with the UTC getters so this doesn't depend on the server's own TZ. */
+function isVenueOpen(hours) {
+  if (!hours) return true;
+  const vt = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const today = DAYS[vt.getUTCDay()];
+  const yesterday = DAYS[(vt.getUTCDay() + 6) % 7];
+  const mins = vt.getUTCHours() * 60 + vt.getUTCMinutes();
+
+  const y = parseHoursRange(hours[yesterday]);
+  if (y && y.close > 1440 && mins < y.close - 1440) return true;
+
+  const t = parseHoursRange(hours[today]);
+  if (!t) return false;
+  if (mins < t.open) return false;
+  if (mins < Math.min(t.close, 1440) || t.close > 1440) return true;
+  return false;
 }
 
 export async function onRequest(context) {
@@ -100,13 +184,52 @@ export async function onRequest(context) {
       return Response.json({ ok: false, limit: true, message: 'check-in limit reached for tonight' });
     }
 
+    if (!isVenueOpen(VENUE_HOURS[venue_id])) {
+      return Response.json({ ok: false, closed: true, message: 'that place is closed right now' });
+    }
+
+    const lastCheckin = await context.env.DB.prepare(
+      `SELECT lat, lng, created_at FROM checkins WHERE user_id = ? ORDER BY created_at DESC LIMIT 1`
+    ).bind(user.id).first();
+    if (lastCheckin) {
+      const minutesSince = (Date.now() - new Date(lastCheckin.created_at).getTime()) / 60000;
+      if (minutesSince < 60) {
+        const movedM = haversineMeters(lastCheckin.lat, lastCheckin.lng, lat, lng);
+        if (movedM < 200) {
+          return Response.json({ ok: false, same_spot: true, message: "you haven't moved since your last check-in" });
+        }
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const currentMonth = nowIso.slice(0, 7);
+
     const priorVisits = await context.env.DB.prepare(
       `SELECT COUNT(*) as c FROM checkins WHERE user_id = ? AND venue_id = ?`
     ).bind(user.id, venue_id).first();
     const firstVisit = priorVisits.c === 0;
-    const embersEarned = firstVisit ? emberNewVenue : emberRepeat;
 
-    const nowIso = new Date().toISOString();
+    const monthlyVisits = await context.env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM checkins WHERE user_id = ? AND venue_id = ? AND substr(created_at,1,7) = ?`
+    ).bind(user.id, venue_id, currentMonth).first();
+
+    let embersEarned;
+    if (firstVisit) {
+      embersEarned = emberNewVenue;
+    } else if (monthlyVisits.c <= 2) {
+      embersEarned = emberRepeat;
+    } else if (monthlyVisits.c <= 6) {
+      embersEarned = 2;
+    } else {
+      embersEarned = 1;
+    }
+
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const dailyEmbers = await context.env.DB.prepare(
+      `SELECT COALESCE(SUM(embers),0) AS s FROM checkins WHERE user_id = ? AND created_at > ?`
+    ).bind(user.id, oneDayAgo).first();
+    const capped = dailyEmbers.s >= 100;
+    if (capped) embersEarned = 0;
 
     const priorEmbersTotal = user.embers_total ?? 0;
     const priorStreakMonths = user.streak_months ?? 0;
@@ -117,7 +240,6 @@ export async function onRequest(context) {
     ).bind(user.id, venue_id, nowIso, lat, lng, embersEarned).run();
 
     const embersTotal = priorEmbersTotal + embersEarned;
-    const currentMonth = nowIso.slice(0, 7);
     let streakMonths = priorStreakMonths;
     let lastCheckinMonth = priorLastCheckinMonth;
     if (lastCheckinMonth !== currentMonth) {
@@ -144,6 +266,7 @@ export async function onRequest(context) {
       streak_months: streakMonths,
       phai_stage: phaiStage,
       venue_checkins: priorVisits.c + 1,
+      capped,
     });
   } catch (e) {
     console.error(e);

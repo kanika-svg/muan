@@ -706,6 +706,10 @@ async function doCheckin(v) {
       document.getElementById('checkinLabel').textContent = 'Already checked in tonight';
     } else if (data.too_far) {
       document.getElementById('checkinLabel').textContent = 'Too far to check in';
+    } else if (data.closed) {
+      document.getElementById('checkinLabel').textContent = data.message || 'that place is closed right now';
+    } else if (data.same_spot) {
+      document.getElementById('checkinLabel').textContent = data.message || "you haven't moved since your last check-in";
     } else {
       document.getElementById('checkinLabel').textContent = 'Check-in failed, try again';
       if (btn) btn.disabled = false;
@@ -731,6 +735,7 @@ function showCelebration(data) {
         <div class="cel-row"><span>Your flame</span><b>${stageLabels[data.phai_stage]||data.phai_stage}</b></div>
         ${data.first_visit ? '<div class="cel-row cel-new"><span>First visit here</span><b>+bonus</b></div>' : `<div class="cel-row"><span>Visits here</span><b>${data.venue_checkins}</b></div>`}
       </div>
+      ${data.capped ? '<div class="cel-capped">daily ember cap reached — check-in still counted</div>' : ''}
       <button class="btn cel-done">Nice</button>
     </div>`;
   document.body.appendChild(ov);
