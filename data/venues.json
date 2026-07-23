@@ -123,7 +123,7 @@
       "area": "Riverside area",
       "short": "90s music bar with live folk sets and DJ",
       "description": "Music bar built around 90s hits, live folk sets and a DJ. Draws a young crowd — going early gets you a seat. Best with a group.",
-      "photos": [],
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/rustic1_xinqvh.jpg"],
       "hours": {
         "mon": "19:00-24:00", "tue": "19:00-24:00", "wed": "19:00-24:00",
         "thu": "19:00-24:00", "fri": "19:00-24:00", "sat": "19:00-24:00", "sun": "19:00-24:00"
@@ -373,6 +373,23 @@
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9613647,102.61853" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-22"
+    },
+    {
+      "id": "kokkok-mega-mall",
+      "name": "KOKKOK Mega Mall Patuxay",
+      "short_name": "KOKKOK Mega Mall",
+      "name_lo": "ກົກກົກ ເມກາມໍ",
+      "type": "venue",
+      "lat": 17.9760734,
+      "lng": 102.6247692,
+      "area": "Kaysone Phomvihane Rd, by Patuxay",
+      "short": "Laos' biggest mall — opening soon",
+      "description": "The huge new Kolao-built mall rising next to Patuxay — set to be the largest in Laos, right on the BRT line in the middle of town. The building is finished and the opening keeps slipping ('soon', per the signs) — when the doors finally open, expect the whole city to show up. We'll be watching.",
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784845182/kokkok_mega_mart1_o9wagt.png"],
+      "hours": null,
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
+      "verified": true,
+      "source": "Google Maps listing + reviews confirming not yet open, 2026-07-24"
     }
   ]
 }
