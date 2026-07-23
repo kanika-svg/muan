@@ -72,7 +72,7 @@
       "area": "Ban Phonthan",
       "short": "Mall and exhibition halls, hosts concerts and events",
       "description": "Vientiane's main hall for concerts, fairs and big events. Check the event listing for dates — the building itself is a mall during the day.",
-      "photos": [],
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/iteccmall1_smreva.jpg"],
       "hours": null,
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9607924,102.6439024" },
       "verified": true,
@@ -106,7 +106,7 @@
       "area": "City center",
       "short": "The late-night spot of the moment",
       "description": "Restaurant-bar next door to Go Dunk that picked up the late-night crowd while its neighbour rebuilds. Live bands nightly — The Late play the early set daily, Felicia X VIP take the weekend — with acoustic, hiphop and DJ sets through the night. Table booking: 020 5236 6087.",
-      "photos": [],
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844331/status1_bxa76f.jpg"],
       "hours": null,
       "links": { "facebook": "https://www.facebook.com/profile.php?id=61551085054102", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.969079,102.609883" },
       "verified": true,
@@ -143,7 +143,7 @@
       "area": "2nd floor above Starbucks, riverside",
       "short": "Cocktail and DJ lounge, 90s and 2000s pop",
       "description": "Upstairs cocktail lounge with DJ sets leaning 90s and 2000s pop. Dressier and pricier than the average Vientiane bar — bottle service for tables — with a big-city club feel. Closed Tuesdays, open late on weekends.",
-      "photos": [],
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/baronpf_nolj3c.jpg"],
       "hours": {
         "mon": "20:00-26:00", "tue": null, "wed": "20:00-26:00",
         "thu": "20:00-26:00", "fri": "20:00-27:00", "sat": "20:00-27:00", "sun": "20:00-26:00"
@@ -163,7 +163,11 @@
       "area": "2nd floor area above Starbucks, same building as Baron",
       "short": "Live band and DJ bar",
       "description": "Live music bar with bands and a DJ, decorated interior, food worth trying. Friendly to both locals and visitors.",
-      "photos": [],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/mahasan.bar_x77hwf.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/mahasan1_na3nk0.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/mahasanpf_rzgfg8.jpg"
+      ],
       "hours": null,
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9631989,102.6054431" },
       "verified": true,
@@ -180,7 +184,11 @@
       "area": "Khun Bu Lom Rd, opposite Wat Chan",
       "short": "Affordable specialty coffee, often a queue",
       "description": "Small, popular coffee shop opposite the temple on Khun Bu Lom Road. Affordable, good beans, cozy wooden upstairs that fills fast — expect a queue at peak hours.",
-      "photos": [],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/treecoff1_thll08.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/treecoff2_c5heyj.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/treecoff3_pwp3iq.jpg"
+      ],
       "hours": {
         "mon": "06:30-22:00", "tue": "06:30-22:00", "wed": "06:30-22:00",
         "thu": "06:30-22:00", "fri": "06:30-22:00", "sat": "06:30-22:00", "sun": "06:30-22:00"
@@ -357,7 +365,7 @@
       "area": "Khouvieng Rd, Nongchan",
       "short": "Mall — events, food court, cinema crowd",
       "description": "The big air-conditioned mall on Khouvieng — shops, food court, kids' zone, and a regular stage for contests and brand events.",
-      "photos": [],
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/parkson1_nsxhnl.jpg"],
       "hours": {
         "mon": "09:30-21:00", "tue": "09:30-21:00", "wed": "09:30-21:00",
         "thu": "09:30-21:00", "fri": "09:30-21:00", "sat": "09:30-21:00", "sun": "09:30-21:00"
