@@ -42,9 +42,6 @@ async function boot() {
   bindChips();
   bindLocate();
 
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#sheetHandle')) { toggleSheet(); }
-  });
   const st = document.getElementById('sheetToggle');
   st.addEventListener('click', () => {
     toggleSheet();
@@ -427,9 +424,11 @@ function renderHomeSheet() {
     || (f === 'cafe' && v.type === 'cafe');
     // 'event' filter shows no venue-driven sections; handled via showEvents/showVenueSections
 
-  const late = state.venues.filter(v => opensLate(v) && matchType(v));
-  const fresh = state.venues.filter(matchType).slice(-3).reverse();
-  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType);
+  const hasPhoto = v => Array.isArray(v.photos) && v.photos.length > 0;
+
+  const late = state.venues.filter(v => opensLate(v) && matchType(v) && hasPhoto(v));
+  const fresh = state.venues.filter(v => matchType(v) && hasPhoto(v)).slice(-3).reverse();
+  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(hasPhoto);
 
   const showEvents = (f === 'all' || f === 'event');
   const showVenueSections = (f !== 'event');
@@ -749,7 +748,7 @@ function toggleSheet(force) {
 function setSheet(html) {
   document.getElementById('sheet').classList.toggle('expanded', html.includes('data-venue-detail'));
   const sheet = document.getElementById('sheet');
-  sheet.innerHTML = `<div id="sheetHandle" role="button" tabindex="0" aria-label="Collapse or expand the list"></div>` + html;
+  sheet.innerHTML = `<div id="sheetHandle" aria-hidden="true"></div>` + html;
   sheet.classList.remove('anim');
   void sheet.offsetWidth;
   sheet.classList.add('anim');

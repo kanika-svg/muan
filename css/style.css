@@ -459,7 +459,7 @@ body {
 }
 @media (prefers-reduced-motion: reduce) { .fl-flame { animation: none; } }
 
-#sheetHandle { cursor: pointer; padding: 10px 0 6px; margin-top: -10px; }
+#sheetHandle { cursor: default; padding: 10px 0 6px; margin-top: -10px; }
 #sheet.collapsed {
   max-height: 74px !important;
   overflow: hidden;
