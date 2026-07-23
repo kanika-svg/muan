@@ -42,6 +42,12 @@ async function boot() {
   bindChips();
   bindLocate();
 
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#sheetHandle')) { toggleSheet(); }
+  });
+  // restore last state on load, but only for the home sheet
+  if (localStorage.getItem('psd-sheet-collapsed') === '1') toggleSheet(true);
+
   const params = new URLSearchParams(location.search);
   const vid = params.get('v');
   if (vid && venueById(vid)) {
@@ -275,6 +281,7 @@ function initMap() {
   state.map.on('click', (e) => {
     if (e.originalEvent.target.closest('.marker')) return;
     if (state.selectedId) { stopTracking(); renderHomeSheet(); }
+    if (window.innerWidth < 768) toggleSheet(true);
   });
 }
 
@@ -500,6 +507,7 @@ function renderHomeSheet() {
 function openVenue(id) {
   const v = venueById(id);
   if (!v) return;
+  toggleSheet(false);
   state.selectedId = id; updateSelection();
   const st = openStatus(v);
   const evs = venueEvents(id);
@@ -726,10 +734,17 @@ function fireConfetti(container) {
 }
 
 /* ---------- helpers ---------- */
+function toggleSheet(force) {
+  const sh = document.getElementById('sheet');
+  const collapsed = force !== undefined ? force : !sh.classList.contains('collapsed');
+  sh.classList.toggle('collapsed', collapsed);
+  localStorage.setItem('psd-sheet-collapsed', collapsed ? '1' : '0');
+}
+
 function setSheet(html) {
   document.getElementById('sheet').classList.toggle('expanded', html.includes('data-venue-detail'));
   const sheet = document.getElementById('sheet');
-  sheet.innerHTML = html;
+  sheet.innerHTML = `<div id="sheetHandle" role="button" tabindex="0" aria-label="Collapse or expand the list"></div>` + html;
   sheet.classList.remove('anim');
   void sheet.offsetWidth;
   sheet.classList.add('anim');

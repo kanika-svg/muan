@@ -90,8 +90,8 @@ body {
   max-height: 44vh; overflow-y: auto; z-index: 6;
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
 }
-#sheet::before {
-  content: ''; display: block; width: 44px; height: 5px;
+#sheetHandle {
+  display: block; width: 44px; height: 5px;
   background: var(--ink4); border-radius: 3px; margin: 0 auto 10px;
 }
 
@@ -458,3 +458,33 @@ body {
   color: var(--dim); font-size: 12.5px; margin: 12px 0 4px;
 }
 @media (prefers-reduced-motion: reduce) { .fl-flame { animation: none; } }
+
+#sheetHandle { cursor: pointer; padding: 10px 0 6px; margin-top: -10px; }
+#sheet.collapsed {
+  max-height: 74px !important;
+  overflow: hidden;
+}
+#sheet.collapsed .s-title { font-size: 15px; }
+#sheet.collapsed .s-sub,
+#sheet.collapsed .sec-h,
+#sheet.collapsed .card,
+#sheet.collapsed .hcards,
+#sheet.collapsed .sec-empty,
+#sheet.collapsed .fl-wrap { display: none; }
+#sheet.collapsed::after {
+  content: 'tap to open';
+  position: absolute; right: 16px; top: 22px;
+  font-size: 11px; color: var(--dim);
+}
+
+@media (min-width: 768px) {
+  /* desktop: collapse slides the panel off-canvas instead of shrinking */
+  #sheet.collapsed {
+    max-height: none !important;
+    transform: translateX(-100%);
+  }
+  #sheet.collapsed::after { display: none; }
+  #topbar { transition: left .45s cubic-bezier(.32,1.25,.5,1); }
+  #sheet.collapsed ~ #topbar,
+  body:has(#sheet.collapsed) #topbar { left: 16px; }
+}
