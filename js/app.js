@@ -45,8 +45,13 @@ async function boot() {
   document.addEventListener('click', (e) => {
     if (e.target.closest('#sheetHandle')) { toggleSheet(); }
   });
+  const st = document.getElementById('sheetToggle');
+  st.addEventListener('click', () => {
+    toggleSheet();
+    st.textContent = document.getElementById('sheet').classList.contains('collapsed') ? '›' : '‹';
+  });
   // restore last state on load, but only for the home sheet
-  if (localStorage.getItem('psd-sheet-collapsed') === '1') toggleSheet(true);
+  if (localStorage.getItem('psd-sheet-collapsed') === '1') { toggleSheet(true); st.textContent = '›'; }
 
   const params = new URLSearchParams(location.search);
   const vid = params.get('v');

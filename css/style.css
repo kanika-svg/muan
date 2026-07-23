@@ -488,3 +488,25 @@ body {
   #sheet.collapsed ~ #topbar,
   body:has(#sheet.collapsed) #topbar { left: 16px; }
 }
+
+#sheetToggle {
+  position: fixed; z-index: 30; left: 420px; top: 50%;
+  transform: translateY(-50%);
+  width: 26px; height: 54px; border: none;
+  border-radius: 0 12px 12px 0;
+  background: var(--ink2); color: var(--mute);
+  font-size: 15px; cursor: pointer;
+  box-shadow: 3px 0 12px rgba(0,0,0,.35);
+  transition: left .45s cubic-bezier(.32,1.25,.5,1);
+}
+body:has(#sheet.collapsed) #sheetToggle { left: 0; }
+
+@media (max-width: 767px) {
+  #sheetToggle { display: none; }   /* phone uses the handle + map tap */
+}
+
+/* double-line section dividers */
+.sec-h {
+  border-top: 1px solid var(--ink3);
+  box-shadow: 0 -4px 0 -3px var(--ink3);   /* second hairline above */
+}
