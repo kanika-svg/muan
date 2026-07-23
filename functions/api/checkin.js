@@ -2,6 +2,10 @@ import { getSessionUser } from './_auth.js';
 
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const RIVERSIDE_VENUES = [
+  'chokdee-cafe', 'kong-view', 'sinouk-khemkhong', 'night-street',
+  'vte-night-market', 'baron', 'mahasan', 'rustic-white'
+];
 
 /* IMPORTANT: this table must be kept in sync with data/venues.json.
    Every new venue added there must be added here too, or check-ins at it
@@ -116,9 +120,13 @@ function parseHoursRange(str) {
 
 /* Vientiane is UTC+7 year-round (no DST) — shift the UTC clock and read it
    back with the UTC getters so this doesn't depend on the server's own TZ. */
+function vientianeNow() {
+  return new Date(Date.now() + 7 * 60 * 60 * 1000);
+}
+
 function isVenueOpen(hours) {
   if (!hours) return true;
-  const vt = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const vt = vientianeNow();
   const today = DAYS[vt.getUTCDay()];
   const yesterday = DAYS[(vt.getUTCDay() + 6) % 7];
   const mins = vt.getUTCHours() * 60 + vt.getUTCMinutes();
@@ -265,6 +273,42 @@ export async function onRequest(context) {
       `UPDATE users SET embers_total = ?, streak_months = ?, last_checkin_month = ? WHERE id = ?`
     ).bind(embersTotal, streakMonths, lastCheckinMonth, user.id).run();
 
+    const badgeCandidates = [];
+
+    const totalCheckins = await context.env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM checkins WHERE user_id = ?`
+    ).bind(user.id).first();
+    if (totalCheckins.c === 1) badgeCandidates.push('first-fire');
+
+    const distinctVenues = await context.env.DB.prepare(
+      `SELECT COUNT(DISTINCT venue_id) AS c FROM checkins WHERE user_id = ?`
+    ).bind(user.id).first();
+    if (distinctVenues.c >= 10) badgeCandidates.push('explorer');
+
+    if (priorVisits.c + 1 >= 5) badgeCandidates.push('regular');
+
+    const vientianeHour = vientianeNow().getUTCHours();
+    if (vientianeHour < 5) badgeCandidates.push('night-owl');
+
+    const riversidePlaceholders = RIVERSIDE_VENUES.map(() => '?').join(',');
+    const riversideVisits = await context.env.DB.prepare(
+      `SELECT COUNT(DISTINCT venue_id) AS c FROM checkins WHERE user_id = ? AND venue_id IN (${riversidePlaceholders})`
+    ).bind(user.id, ...RIVERSIDE_VENUES).first();
+    if (riversideVisits.c >= 3) badgeCandidates.push('riverside');
+
+    const newBadges = [];
+    for (const code of badgeCandidates) {
+      const insertResult = await context.env.DB.prepare(
+        `INSERT OR IGNORE INTO user_badges (user_id, badge_code, earned_at) VALUES (?, ?, ?)`
+      ).bind(user.id, code, nowIso).run();
+      if (insertResult.meta?.changes > 0) {
+        const badge = await context.env.DB.prepare(
+          `SELECT code AS id, name, name_lo, icon FROM badges WHERE code = ?`
+        ).bind(code).first();
+        if (badge) newBadges.push(badge);
+      }
+    }
+
     let stageIndex = 0;
     for (let i = 0; i < phaiThresholds.length; i++) {
       if (embersTotal >= phaiThresholds[i]) stageIndex = i;
@@ -281,6 +325,7 @@ export async function onRequest(context) {
       phai_stage: phaiStage,
       venue_checkins: priorVisits.c + 1,
       capped,
+      new_badges: newBadges,
     });
   } catch (e) {
     console.error(e);

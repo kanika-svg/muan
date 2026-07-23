@@ -19,6 +19,12 @@ export async function onRequest(context) {
       'SELECT COUNT(*) AS c FROM checkins WHERE user_id=?'
     ).bind(user.id).first();
 
+    const badgeRows = await db.prepare(
+      `SELECT b.code AS id, b.name, b.name_lo, b.icon, b.rule AS description, ub.earned_at
+       FROM user_badges ub JOIN badges b ON b.code = ub.badge_code
+       WHERE ub.user_id = ? ORDER BY ub.earned_at`
+    ).bind(user.id).all();
+
     const cfg = await db.prepare("SELECT value FROM config WHERE key='phai_thresholds'").first();
     const thresholds = JSON.parse(cfg?.value || '[0,100,400,1200,3000]');
     const stages = ['ember','flicker','flame','blaze','naga'];
@@ -34,6 +40,7 @@ export async function onRequest(context) {
       checkin_days: days.results.map(r => r.d),
       venues_explored: venues?.c || 0,
       total_checkins: total?.c || 0,
+      badges: badgeRows.results,
       month
     });
   } catch (e) {

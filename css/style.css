@@ -392,6 +392,7 @@ body {
 .cel-row b { color: var(--bone); }
 .cel-row:nth-child(1){animation-delay:.15s} .cel-row:nth-child(2){animation-delay:.25s} .cel-row:nth-child(3){animation-delay:.35s}
 .cel-row.cel-new b { color: var(--flame); }
+.cel-badge b { color: var(--gold); }
 .cel-capped { text-align: center; font-size: 11.5px; color: var(--dim); margin: -8px 0 16px; }
 @keyframes cel-slide { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 .cel-done {
@@ -444,6 +445,10 @@ body {
 .fl-stat:nth-child(2) { animation-delay: .1s; }
 .fl-stat b { display: block; font-size: 20px; color: var(--bone); }
 .fl-stat span { font-size: 11px; color: var(--mute); }
+.fl-badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; }
+.fl-badge { background:var(--ink3); border-radius:12px; padding:8px 12px; text-align:center; }
+.fl-badge-ico { display:block; font-size:18px; }
+.fl-badge-name { font-size:10.5px; color:var(--mute); }
 .fl-avatar {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
   background: var(--ink3); color: var(--mute); border-radius: 14px;

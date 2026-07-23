@@ -232,6 +232,14 @@ async function openFlameSheet() {
         <div class="fl-stat"><b>${me.total_checkins}</b><span>check-ins</span></div>
       </div>
 
+      ${me.badges?.length ? `
+      <div class="fl-badges">
+        ${me.badges.map(b => `<div class="fl-badge" title="${esc(b.description||'')}">
+           <span class="fl-badge-ico">${b.icon}</span>
+           <span class="fl-badge-name">${esc(b.name)}</span>
+         </div>`).join('')}
+      </div>` : ''}
+
       <button class="btn fl-avatar" data-open-avatar>
         ${i !== null ? avatarSVG(+i, 22) : '😊'} <span>Change avatar</span>
       </button>
@@ -734,6 +742,9 @@ function showCelebration(data) {
         <div class="cel-row"><span>Streak</span><b>${data.streak_months} month${data.streak_months>1?'s':''}</b></div>
         <div class="cel-row"><span>Your flame</span><b>${stageLabels[data.phai_stage]||data.phai_stage}</b></div>
         ${data.first_visit ? '<div class="cel-row cel-new"><span>First visit here</span><b>+bonus</b></div>' : `<div class="cel-row"><span>Visits here</span><b>${data.venue_checkins}</b></div>`}
+        ${data.new_badges?.length ? data.new_badges.map(b =>
+          `<div class="cel-row cel-badge"><span>${b.icon} ${esc(b.name)}</span><b>unlocked</b></div>`
+        ).join('') : ''}
       </div>
       ${data.capped ? '<div class="cel-capped">daily ember cap reached — check-in still counted</div>' : ''}
       <button class="btn cel-done">Nice</button>
