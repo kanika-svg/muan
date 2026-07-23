@@ -402,9 +402,12 @@ function sectionCard(v, sub) {
 
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
+  const byTime = (a,b) => (a.date === b.date)
+    ? ((a.start_time || '99:99') < (b.start_time || '99:99') ? -1 : 1)
+    : (a.date < b.date ? -1 : 1);
   const today = todayISO();
-  const tonight = state.events.filter(ev => ev.date === today);
-  const upcoming = state.events.filter(ev => ev.date > today).slice(0, 6);
+  const tonight = state.events.filter(ev => ev.date === today).sort(byTime);
+  const upcoming = state.events.filter(ev => ev.date > today).sort(byTime);
   const late = state.venues.filter(opensLate);
   const fresh = state.venues.slice(-3).reverse();
 
@@ -435,17 +438,25 @@ function renderHomeSheet() {
     }
   }
 
+  if (!tonight.length && !upcoming.length) {
+    html += secH('violet', 'Tonight · ຄືນນີ້') +
+      `<div class="sec-empty">Nothing verified yet — new list every Thursday.</div>`;
+  }
+
+  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean);
+  if (pickVenues.length) {
+    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks.note_en)) +
+      `<div class="hcards">` +
+      pickVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
+      <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
+  }
+
   if (upcoming.length) {
     html += secH('violet', 'Upcoming · ກຳລັງມາ') + `<div class="hcards">` +
       upcoming.map(ev => {
         const v = venueById(ev.venue_id);
         return v ? sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`) : '';
       }).join('') + `</div>`;
-  }
-
-  if (!tonight.length && !upcoming.length) {
-    html += secH('violet', 'Tonight · ຄືນນີ້') +
-      `<div class="sec-empty">Nothing verified yet — new list every Thursday.</div>`;
   }
 
   if (late.length) {
@@ -455,14 +466,6 @@ function renderHomeSheet() {
 
   html += secH('gold', 'New on Paisaidee · ມາໃໝ່') + `<div class="hcards">` +
     fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') + `</div>`;
-
-  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean);
-  if (pickVenues.length) {
-    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks.note_en)) +
-      `<div class="hcards">` +
-      pickVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
-      <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
-  }
 
   setSheet(html);
   history.replaceState(null, '', location.pathname);
