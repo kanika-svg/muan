@@ -1,6 +1,6 @@
 # Muan — Phase 2 spec: check-ins, Embers & Phai
 
-Status: SPEC ONLY — do not build until phase 1 has real weekly users.
+STATUS: Gate 1 passed (friends validation). Slice A built and live. Slices B–E remain gated on Gate 2 numbers.
 This document is the source of truth for phase 2. Claude Code sessions should
 read this before touching any phase 2 work. Design decisions here were made
 deliberately; do not silently change them.

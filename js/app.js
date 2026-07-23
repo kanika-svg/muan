@@ -478,10 +478,20 @@ function openVenue(id) {
   const st = openStatus(v);
   const evs = venueEvents(id);
 
-  const photos = (v.photos && v.photos.length)
-    ? v.photos.map(p => `<img src="${esc(p)}" alt="${esc(v.name)}" loading="lazy">`).join('')
-    : `<div class="photo-ph">📷<span>photos coming soon</span></div>
-       <div class="photo-ph">🖼️<span>ຮູບກຳລັງມາ</span></div>`;
+  const photos = v.photos || [];
+  let galleryHtml;
+  if (!photos.length) {
+    galleryHtml = `<div class="ph-empty"><span>📷</span> photos coming soon · <span class="lao">ຮູບກຳລັງມາ</span></div>`;
+  } else {
+    galleryHtml = `
+      <div class="gal">
+        <img class="gal-hero" id="galHero" src="${esc(photos[0])}" alt="${esc(v.name)}" loading="lazy">
+        ${photos.length > 1 ? `<div class="gal-thumbs">` +
+          photos.map((p, i) =>
+            `<img class="gal-thumb ${i===0?'sel':''}" src="${esc(p)}" data-gi="${i}" alt="" loading="lazy">`
+          ).join('') + `</div>` : ''}
+      </div>`;
+  }
 
   let travel;
   if (state.userPos) {
@@ -517,7 +527,7 @@ function openVenue(id) {
       </div>
     </div>
 
-    <div class="photo-strip">${photos}</div>
+    ${galleryHtml}
 
     <div class="info-row">
       <div class="info-ic">📍</div>
@@ -566,6 +576,16 @@ function openVenue(id) {
 
   setSheet(html);
   history.replaceState(null, '', '?v=' + v.id);
+  document.querySelectorAll('.gal-thumb').forEach(t => t.addEventListener('click', () => {
+    const hero = document.getElementById('galHero');
+    hero.classList.add('fading');
+    setTimeout(() => {
+      hero.src = photos[+t.dataset.gi];
+      hero.onload = () => hero.classList.remove('fading');
+    }, 140);
+    document.querySelectorAll('.gal-thumb').forEach(x => x.classList.remove('sel'));
+    t.classList.add('sel');
+  }));
   document.getElementById('shareBtn')?.addEventListener('click', async () => {
     const url = location.origin + '/?v=' + v.id;
     const title = (v.short_name || v.name) + ' — Paisaidee';
