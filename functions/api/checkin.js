@@ -3,7 +3,9 @@ import { getSessionUser } from './_auth.js';
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-/* coords duplicated from venues.json — keep in sync when adding venues */
+/* IMPORTANT: this table must be kept in sync with data/venues.json.
+   Every new venue added there must be added here too, or check-ins at it
+   will fail with "unknown venue". */
 const VENUE_COORDS = {
   "kong-view": { lat: 17.9678909, lng: 102.5805278, name: "Kong View" },
   "chokdee-cafe": { lat: 17.9630719, lng: 102.6058379, name: "Chokdee Café Belgian Beer Bar" },
@@ -21,7 +23,10 @@ const VENUE_COORDS = {
   "maomao-matcha": { lat: 17.9737332, lng: 102.6338178, name: "MaoMao" },
   "vte-night-market": { lat: 17.9628193, lng: 102.6061735, name: "Vientiane Night Market" },
   "night-street": { lat: 17.9604, lng: 102.6085, name: "Night Street" },
-  "farsai-cafe": { lat: 18.0083709, lng: 102.6436896, name: "Farsai Cafe & Restaurant" }
+  "farsai-cafe": { lat: 18.0083709, lng: 102.6436896, name: "Farsai Cafe & Restaurant" },
+  "corebeer": { lat: 17.9491828, lng: 102.6190028, name: "Corebeer Brewery" },
+  "parkson-laos": { lat: 17.9613647, lng: 102.61853, name: "Parkson (Naga Mall)" },
+  "kokkok-mega-mall": { lat: 17.9760734, lng: 102.6247692, name: "KOKKOK Mega Mall Patuxay" }
 };
 
 /* hours duplicated from venues.json — keep in sync when adding venues */
@@ -78,7 +83,16 @@ const VENUE_HOURS = {
   "farsai-cafe": {
     mon: "10:00-22:00", tue: "10:00-22:00", wed: "10:00-22:00",
     thu: "10:00-22:00", fri: "10:00-22:00", sat: "10:00-22:00", sun: "10:00-22:00"
-  }
+  },
+  "corebeer": {
+    mon: "11:00-22:30", tue: "11:00-22:30", wed: "11:00-22:30",
+    thu: "11:00-23:00", fri: "11:00-23:00", sat: "11:00-23:00", sun: "11:00-22:30"
+  },
+  "parkson-laos": {
+    mon: "09:30-21:00", tue: "09:30-21:00", wed: "09:30-21:00",
+    thu: "09:30-21:00", fri: "09:30-21:00", sat: "09:30-21:00", sun: "09:30-21:00"
+  },
+  "kokkok-mega-mall": null
 };
 
 function haversineMeters(lat1, lng1, lat2, lng2) {

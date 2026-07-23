@@ -17,6 +17,10 @@ file/variable names) intentionally remain "muan" — do not rename them.
 - Never fabricate popularity numbers, review counts, or "X people here" — check-in counts arrive in phase 2 from real data only.
 - No unattributed superlatives ("the best bar in Vientiane") as fact.
 - No photo > wrong photo. Never hotlink or guess venue images.
+- functions/api/checkin.js keeps its own VENUE_COORDS and VENUE_HOURS tables,
+  duplicated from data/venues.json. Every new venue added to venues.json must
+  also be added to both tables in checkin.js, or check-ins at it will fail
+  with "unknown venue".
 
 ## Design tokens (do not drift)
 - Ink #131019 / #1C1726 / #241E31 / #2E2740
