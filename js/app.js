@@ -446,7 +446,19 @@ function renderHomeSheet() {
     html += secH('violet', 'Tonight · ຄືນນີ້');
     for (const ev of tonight) {
       const v = venueById(ev.venue_id);
-      if (!v) continue;
+      if (!v) {
+        html += `
+          <div class="card">
+            <div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>
+            <div class="card-body">
+              <div class="row">
+                <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)}</span>
+              </div>
+              <div class="t-sub">${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}${ev.short ? ' · ' + esc(ev.short) : ''}${ev.verified ? '' : ' · unconfirmed'}</div>
+            </div>
+          </div>`;
+        continue;
+      }
       const st = openStatus(v);
       html += `
         <div class="card" data-open-venue="${v.id}">
@@ -481,7 +493,16 @@ function renderHomeSheet() {
     html += secH('violet', 'Upcoming · ກຳລັງມາ') + `<div class="hcards">` +
       upcoming.map(ev => {
         const v = venueById(ev.venue_id);
-        return v ? sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`) : '';
+        if (!v) {
+          return `<div class="hcard">
+            <div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>
+            <div>
+              <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
+              <div style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
+            </div>
+          </div>`;
+        }
+        return sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`);
       }).join('') + `</div>`;
   }
 

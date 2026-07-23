@@ -48,6 +48,18 @@
       "short": "Weekend live lineup — plays Fri, Sat & Sun every week",
       "source_url": "https://www.facebook.com/profile.php?id=61551085054102",
       "verified": true
+    },
+    {
+      "id": "mekong-half-0927",
+      "venue_id": null,
+      "title": "Mekong Half Marathon 2026",
+      "title_lo": "ແລ່ນມາຣາທອນ ແມ່ນ້ຳຂອງ",
+      "date": "2026-09-27",
+      "start_time": "05:00",
+      "price": null,
+      "short": "Half marathon at Xaysetha development zone — registration open now",
+      "source_url": "https://ewent.la",
+      "verified": true
     }
   ]
 }
