@@ -69,12 +69,43 @@ engagement + the first step toward venues submitting their own.
 - If a venue asks to be included: yes, free, if real — that's the goal working.
   Mark nothing as "sponsored" unless money actually changed hands (none yet).
 
-## Success bar (decided in advance — do not move the goalposts)
+## Success bar — friends launch (decided in advance, do not move the goalposts)
 
-After 8 consecutive weekly posts (~2 months):
-- ~300+ followers on either platform, OR
-- consistent shares/saves from Vientiane locals, OR
-- ≥2 venues have contacted us to be listed.
-Any of these → build Phase 2 Slice A. None → rethink the angle before
-writing backend code. Missing a Thursday resets nothing, but consistency
-is the experiment — 8 posts, then judge.
+Start date: ___________  (fill in the day the link goes out)
+Check the numbers at: 3 weeks after start, then 6 weeks.
+
+What we're testing: whether real people in Vientiane will use a check-in app
+for going out — not whether friends will say nice things about it.
+
+### At 3 weeks, we need ALL of:
+- 10+ people have signed in at least once
+- 5+ of those have checked in more than once (not just tried it and left)
+- 2+ people who are NOT in the original invited group have signed in
+  (friends-of-friends = word of mouth is working)
+
+### At 6 weeks, we need ALL of:
+- 15+ signed-in users
+- 8+ with 3 or more check-ins each
+- At least one week where 5+ different people checked in
+
+### What counts as failure
+Missing the 3-week bar on any line. Not "close enough" — missing it.
+
+### If it fails, the diagnosis questions (answer honestly before deciding):
+- Did people open it once and never return? → the app isn't useful, not a
+  marketing problem
+- Did people never open it at all? → distribution problem, not product
+- Did people check in a few times then stop? → the reward loop is too thin
+- Did friends use it but nobody new appeared? → no word-of-mouth mechanism
+Each of those points at a different fix. Do not skip to "post more".
+
+### If it passes
+Build Slice B (comments tied to check-ins, friends/presence), start venue
+conversations, and revisit monetisation.
+
+### Rules
+- No changing these numbers after the start date.
+- Track weekly in the stats sheet: signups, users with 2+ check-ins,
+  total check-ins, new-to-us names.
+- The app keeps running normally during the test — events updated weekly,
+  photos added, bugs fixed. Only NEW features are frozen.
