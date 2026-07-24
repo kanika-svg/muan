@@ -326,10 +326,10 @@ function renderMarkers() {
     const isPick = (state.picks?.venue_ids || []).includes(v.id);
     el.classList.toggle('pin-event', hasEventToday);
     el.classList.toggle('pin-pick', isPick && !hasEventToday);
-    el.innerHTML = `
+    el.innerHTML = `<div class="marker-inner">
       ${pinSVG(hot ? '#FF5A3C' : COLORS[v.type] || '#8A8494', hot ? 1.25 : 1)}
       <div class="m-label">${esc(v.short_name || v.name)}</div>
-      ${hot ? `<div class="m-sub" style="color:#FF5A3C">tonight</div>` : ''}`;
+      ${hot ? `<div class="m-sub" style="color:#FF5A3C">tonight</div>` : ''}</div>`;
     el.addEventListener('click', () => openVenue(v.id));
 
     /* visual de-overlap only — real coords stay in data and directions */
