@@ -296,11 +296,19 @@ function initMap() {
   });
 }
 
-function pinSVG(color, scale) {
+function pinSVG(color, scale, variant) {
   const s = 30 * scale;
+  const dot = variant === 'event'
+    ? `<circle cx="62" cy="15" r="5" fill="var(--flame)" stroke="var(--ink)" stroke-width="2">
+      <animate attributeName="r" values="5;6.2;5" dur="2.4s" repeatCount="indefinite"/>
+    </circle>`
+    : variant === 'pick'
+    ? `<circle cx="62" cy="15" r="5" fill="var(--gold)" stroke="var(--ink)" stroke-width="2"/>`
+    : '';
   return `<svg width="${s}" height="${s * 1.2}" viewBox="0 0 72 88">
     <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="${color}"/>
     <circle cx="36" cy="32" r="13" fill="#131019"/>
+    ${dot}
   </svg>`;
 }
 
@@ -318,7 +326,6 @@ function renderMarkers() {
     const hot = isNo1(v);
     const el = document.createElement('div');
     el.className = 'marker' + (hot ? ' is-hot' : '');
-    el.style.animationDelay = `${state.markers.length * 45}ms`;
     if (v.id === state.selectedId) el.classList.add('is-selected');
 
     const today = todayISO();
@@ -326,8 +333,9 @@ function renderMarkers() {
     const isPick = (state.picks?.venue_ids || []).includes(v.id);
     el.classList.toggle('pin-event', hasEventToday);
     el.classList.toggle('pin-pick', isPick && !hasEventToday);
+    const variant = hasEventToday ? 'event' : (isPick ? 'pick' : null);
     el.innerHTML = `
-      ${pinSVG(hot ? '#FF5A3C' : COLORS[v.type] || '#8A8494', hot ? 1.25 : 1)}
+      ${pinSVG(hot ? '#FF5A3C' : COLORS[v.type] || '#8A8494', hot ? 1.25 : 1, variant)}
       <div class="m-label">${esc(v.short_name || v.name)}</div>
       ${hot ? `<div class="m-sub" style="color:#FF5A3C">tonight</div>` : ''}`;
     el.addEventListener('click', () => openVenue(v.id));

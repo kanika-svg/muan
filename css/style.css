@@ -45,7 +45,7 @@ body {
 #map .maplibregl-ctrl-attrib a { color: var(--dim); }
 
 /* Custom markers */
-.marker { cursor: pointer; text-align: center; position: relative; }
+.marker { cursor: pointer; text-align: center; }
 .marker svg { display: block; margin: 0 auto; filter: none; }
 .marker .m-label {
   font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--bone);
@@ -154,33 +154,10 @@ body {
 #map.labels-thin .marker:not(.pin-event):not(.pin-pick) .m-label,
 #map.labels-thin .marker:not(.pin-event):not(.pin-pick) .m-sub { display: none; }
 
-/* event tonight — flame dot + gentle pulse */
-.pin-event::after {
-  content: ''; position: absolute; top: -3px; right: -3px;
-  width: 11px; height: 11px; border-radius: 50%;
-  background: var(--flame); border: 2px solid var(--ink);
-  animation: pin-pulse 2.4s ease-in-out infinite;
-}
-@keyframes pin-pulse {
-  0%,100% { transform: scale(1); opacity: 1; }
-  50%     { transform: scale(1.25); opacity: .75; }
-}
-
-/* editor's pick — gold ring, no pulse */
-.pin-pick::after {
-  content: ''; position: absolute; top: -2px; right: -2px;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--gold); border: 2px solid var(--ink);
-}
-
 /* selection: chosen pin grows, others recede */
 .marker { transition: opacity .2s; }
 .map-has-selection .marker { opacity: .38; }
 .map-has-selection .marker.selected { opacity: 1; }
-
-@media (prefers-reduced-motion: reduce) {
-  .pin-event::after { animation: none; }
-}
 
 /* desktop: sheet becomes a floating panel */
 @media (min-width: 768px) {
