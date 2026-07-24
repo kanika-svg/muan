@@ -326,10 +326,10 @@ function renderMarkers() {
     const isPick = (state.picks?.venue_ids || []).includes(v.id);
     el.classList.toggle('pin-event', hasEventToday);
     el.classList.toggle('pin-pick', isPick && !hasEventToday);
-    el.innerHTML = `<div class="marker-inner">
+    el.innerHTML = `
       ${pinSVG(hot ? '#FF5A3C' : COLORS[v.type] || '#8A8494', hot ? 1.25 : 1)}
       <div class="m-label">${esc(v.short_name || v.name)}</div>
-      ${hot ? `<div class="m-sub" style="color:#FF5A3C">tonight</div>` : ''}</div>`;
+      ${hot ? `<div class="m-sub" style="color:#FF5A3C">tonight</div>` : ''}`;
     el.addEventListener('click', () => openVenue(v.id));
 
     /* visual de-overlap only — real coords stay in data and directions */
@@ -345,7 +345,7 @@ function renderMarkers() {
     });
     if (crowded) el.classList.add('label-crowded');
 
-    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, 2] })
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([offLng, v.lat])
       .addTo(state.map);
     state.markers.push({ id: v.id, el, marker });
