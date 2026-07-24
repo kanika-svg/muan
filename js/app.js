@@ -286,6 +286,7 @@ function initMap() {
   });
   state.map.on('zoom', () => {
     document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 12.2);
+    document.getElementById('map').classList.toggle('labels-thin', state.map.getZoom() < 13.5);
     document.getElementById('map').classList.toggle('zoomed-close', state.map.getZoom() >= 15.5);
   });
   state.map.on('click', (e) => {
@@ -319,6 +320,12 @@ function renderMarkers() {
     el.className = 'marker' + (hot ? ' is-hot' : '');
     el.style.animationDelay = `${state.markers.length * 45}ms`;
     if (v.id === state.selectedId) el.classList.add('is-selected');
+
+    const today = todayISO();
+    const hasEventToday = state.events.some(ev => ev.venue_id === v.id && ev.date === today);
+    const isPick = (state.picks?.venue_ids || []).includes(v.id);
+    el.classList.toggle('pin-event', hasEventToday);
+    el.classList.toggle('pin-pick', isPick && !hasEventToday);
     el.innerHTML = `
       ${pinSVG(hot ? '#FF5A3C' : COLORS[v.type] || '#8A8494', hot ? 1.25 : 1)}
       <div class="m-label">${esc(v.short_name || v.name)}</div>
@@ -347,8 +354,10 @@ function renderMarkers() {
 }
 
 function updateSelection() {
+  document.getElementById('map').classList.toggle('map-has-selection', !!state.selectedId);
   for (const m of state.markers) {
     m.el.classList.toggle('is-selected', m.id === state.selectedId);
+    m.el.classList.toggle('selected', m.id === state.selectedId);
   }
 }
 
