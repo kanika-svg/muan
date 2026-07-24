@@ -345,7 +345,7 @@ function renderMarkers() {
     });
     if (crowded) el.classList.add('label-crowded');
 
-    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, 2] })
       .setLngLat([offLng, v.lat])
       .addTo(state.map);
     state.markers.push({ id: v.id, el, marker });
