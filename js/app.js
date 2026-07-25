@@ -481,9 +481,11 @@ function renderHomeSheet() {
 
   const hasPhoto = v => Array.isArray(v.photos) && v.photos.length > 0;
 
-  const late = state.venues.filter(v => opensLate(v) && matchType(v) && hasPhoto(v));
-  const fresh = state.venues.filter(v => matchType(v) && hasPhoto(v)).slice(-3).reverse();
+  const late = state.venues.filter(v => opensLate(v) && matchType(v) && hasPhoto(v) && v.status !== 'opening-soon');
+  const fresh = state.venues.filter(v => matchType(v) && hasPhoto(v) && v.status !== 'opening-soon').slice(-3).reverse();
   const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(hasPhoto);
+  const busyVenues = (state.picks?.busy_venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(hasPhoto);
+  const openingSoon = state.venues.filter(v => v.status === 'opening-soon' && matchType(v) && hasPhoto(v));
 
   const showEvents = (f === 'all' || f === 'event');
   const showVenueSections = (f !== 'event');
@@ -543,9 +545,17 @@ function renderHomeSheet() {
       <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
+  if (showVenueSections && busyVenues.length) {
+    rendered = true;
+    html += secH('flame', 'Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks.busy_note_en)) +
+      `<div class="hcards">` +
+      busyVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
+      <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
+  }
+
   if (showEvents && upcoming.length) {
     rendered = true;
-    html += secH('violet', 'Upcoming · ກຳລັງມາ') + `<div class="hcards">` +
+    html += secH('violet', 'Coming up · ອີເວັນຕໍ່ໄປ') + `<div class="hcards">` +
       upcoming.map(ev => {
         const v = venueById(ev.venue_id);
         if (!v) {
@@ -559,6 +569,12 @@ function renderHomeSheet() {
         }
         return sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`);
       }).join('') + `</div>`;
+  }
+
+  if (showVenueSections && openingSoon.length) {
+    rendered = true;
+    html += secH('violet', 'Opening soon · ກຳລັງຈະເປີດ') + `<div class="hcards">` +
+      openingSoon.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>`;
   }
 
   if (showVenueSections && late.length) {
