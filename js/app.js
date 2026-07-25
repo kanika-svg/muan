@@ -244,6 +244,28 @@ async function signOut() {
   openFlameSheet();
 }
 
+/* three independently-flickering layers so the flame never looks looped;
+   mid/core are scaled about the flame's base point (60,132), not its centre,
+   via a wrapping <g> transform — kept off the animated element so the CSS
+   flicker keyframes (which also target transform) don't wipe it out every frame */
+const FLAME_PATH_D = "M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z";
+function flameStackSVG() {
+  return `<svg viewBox="0 0 120 140" width="110" height="128">
+    <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
+    </linearGradient></defs>
+    <g class="flame-stack">
+      <path class="flame-outer" d="${FLAME_PATH_D}" fill="url(#flg)"/>
+      <g transform="translate(60,132) scale(.72) translate(-60,-132)">
+        <path class="flame-mid" d="${FLAME_PATH_D}" fill="#FF7A2E"/>
+      </g>
+      <g transform="translate(60,132) scale(.42) translate(-60,-132)">
+        <path class="flame-core" d="${FLAME_PATH_D}" fill="#FFD86B"/>
+      </g>
+    </g>
+  </svg>`;
+}
+
 async function openFlameSheet() {
   setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Loading your flame…</div>');
   let me = null;
@@ -254,12 +276,7 @@ async function openFlameSheet() {
     setSheet(`
       <div class="fl-wrap">
         <div class="fl-flame" style="opacity:.4;">
-          <svg viewBox="0 0 120 140" width="110" height="128">
-            <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
-            </linearGradient></defs>
-            <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
-          </svg>
+          ${flameStackSVG()}
         </div>
         <div class="fl-stage">Your flame starts here</div>
         <div class="fl-sub">Sign in to check in, keep streaks and earn embers</div>
@@ -314,12 +331,7 @@ async function openFlameSheet() {
       ${cal}
 
       <div class="fl-flame" data-heat="${me.heat_level}">
-        <svg viewBox="0 0 120 140" width="110" height="128">
-          <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
-          </linearGradient></defs>
-          <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
-        </svg>
+        ${flameStackSVG()}
         <div class="fl-streak">${noCheckins ? '' : me.streak_months}</div>
       </div>
       <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
