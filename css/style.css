@@ -82,9 +82,18 @@ body {
 [data-theme="light"] .marker.type-bar .pin-dot { fill: var(--gold); }
 .marker .m-label {
   font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--bone);
-  text-shadow: 0 1px 3px var(--halo); white-space: nowrap; margin-top: 1px;
+  text-shadow: 0 1px 3px var(--halo);
 }
 .marker .m-sub { font-size: 10px; font-weight: 700; text-shadow: 0 1px 3px var(--halo); }
+.marker .m-label,
+.marker .m-sub {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.marker .m-label { top: 100%; }
+.marker .m-sub   { top: calc(100% + 16px); }
 [data-theme="light"] .marker .m-label {
   color: #2A2419;
   text-shadow:
