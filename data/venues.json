@@ -390,6 +390,126 @@
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
       "verified": true,
       "source": "Google Maps listing + reviews confirming not yet open, 2026-07-24"
+    },
+    {
+      "id": "madame-cocktail",
+      "name": "MADAME Cocktail Bar",
+      "short_name": "MADAME",
+      "name_lo": "ມາດາມ",
+      "type": "bar",
+      "lat": 17.9663052,
+      "lng": 102.6056738,
+      "area": "Lao Poet Hotel, 8th floor, Hengboun",
+      "short": "Speakeasy cocktail bar",
+      "description": "Hidden cocktail bar on the 8th floor of the Lao Poet Hotel — through a curtain and a padded door into a 1930s speakeasy. House-infused spirits, local ingredients, small plates. One of the highest-rated bars in the city.",
+      "photos": [],
+      "hours": {
+        "mon": "18:00-25:00", "tue": "18:00-25:00", "wed": "18:00-25:00",
+        "thu": "18:00-25:00", "fri": "18:00-25:00", "sat": "18:00-25:00", "sun": "18:00-25:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663052,102.6056738" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-25"
+    },
+    {
+      "id": "tipsy-elephant",
+      "name": "Tipsy Elephant Rooftop Lounge",
+      "short_name": "Tipsy Elephant",
+      "name_lo": "ທິບຊີ ເອເລແຟນ",
+      "type": "bar",
+      "lat": 17.9650263,
+      "lng": 102.6027337,
+      "area": "City center rooftop",
+      "short": "Rooftop sunset spot, happy hour 5–7",
+      "description": "Rooftop lounge with a wide view over the city and the Mekong. Happy hour 5–7pm on selected drinks. Popular for sunset — the wall seats go early.",
+      "photos": [],
+      "hours": {
+        "mon": "17:00-24:00", "tue": "17:00-24:00", "wed": "17:00-24:00",
+        "thu": "17:00-24:00", "fri": "17:00-24:00", "sat": "17:00-24:00", "sun": "17:00-24:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650263,102.6027337" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-25"
+    },
+    {
+      "id": "stellar-bar",
+      "name": "Stellar Bar",
+      "short_name": "Stellar",
+      "name_lo": "ສະເຕລລາ",
+      "type": "bar",
+      "lat": 17.9650516,
+      "lng": 102.6001079,
+      "area": "Amari Hotel, 15th floor",
+      "short": "Highest rooftop in town, Mekong views",
+      "description": "Rooftop bar on the 15th floor of the Amari — the widest sunset view in Vientiane, out over the Mekong to the fields on the Thai side, with the night market below. Cocktail-led.",
+      "photos": [],
+      "hours": {
+        "mon": "17:00-24:00", "tue": "17:00-24:00", "wed": "17:00-24:00",
+        "thu": "17:00-24:00", "fri": "17:00-24:00", "sat": "17:00-24:00", "sun": "17:00-24:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650516,102.6001079" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-25"
+    },
+    {
+      "id": "blues-box",
+      "name": "The Blues Box",
+      "short_name": "Blues Box",
+      "name_lo": "ບລູສ໌ ບັອກ",
+      "type": "bar",
+      "lat": 17.9647287,
+      "lng": 102.6084091,
+      "area": "Off Thanon Pangkham",
+      "short": "Live jazz and blues — look for the red saxophone",
+      "description": "Small live-music bar tucked off Pangkham — look for the red saxophone on the facade. Jazz nights, live bands, Latin dance on Thursdays, and cocktails people cross town for. Closed Mondays.",
+      "photos": [],
+      "hours": {
+        "mon": null, "tue": "17:00-24:00", "wed": "17:00-24:00",
+        "thu": "17:00-24:00", "fri": "17:00-24:00", "sat": "17:00-24:00", "sun": "17:00-24:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9647287,102.6084091" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-25"
+    },
+    {
+      "id": "wind-west",
+      "name": "Wind West",
+      "short_name": "Wind West",
+      "name_lo": "ວິນເວສ",
+      "type": "bar",
+      "lat": 17.9674176,
+      "lng": 102.6010777,
+      "area": "Khun Bu Lom Rd",
+      "short": "Late live music, 9pm till 2am",
+      "description": "Long-running live music pub on Khun Bu Lom — fairy lights, mismatched furniture, a house band that plays covers to a crowd that knows every word. Opens late and runs to 2am. Come for the music.",
+      "photos": [],
+      "hours": {
+        "mon": "21:00-26:00", "tue": "21:00-26:00", "wed": "21:00-26:00",
+        "thu": "21:00-26:00", "fri": "21:00-26:00", "sat": "21:00-26:00", "sun": "21:00-26:00"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9674176,102.6010777" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-25"
+    },
+    {
+      "id": "seventh-heaven",
+      "name": "7th Heaven",
+      "short_name": "7th Heaven",
+      "name_lo": "ເຊເວັນເຮເວັນ",
+      "type": "bar",
+      "lat": 17.9657665,
+      "lng": 102.5967715,
+      "area": "Quai Fa Ngum, riverfront",
+      "short": "Rooftop dining over the Mekong",
+      "description": "Seventh-floor rooftop restaurant on the riverfront — sunset over the Mekong, Lao and western food, live music some weekend evenings. Booking advised; it fills with groups.",
+      "photos": [],
+      "hours": {
+        "mon": "16:30-22:30", "tue": "16:30-22:30", "wed": "16:30-22:30",
+        "thu": "16:30-22:30", "fri": "16:30-22:30", "sat": "16:30-22:30", "sun": "16:30-22:30"
+      },
+      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9657665,102.5967715" },
+      "verified": true,
+      "source": "Google Maps listing, 2026-07-25"
     }
   ]
 }

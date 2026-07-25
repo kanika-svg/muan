@@ -3,8 +3,8 @@ import { getSessionUser } from './_auth.js';
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const RIVERSIDE_VENUES = [
-  'chokdee-cafe', 'kong-view', 'sinouk-khemkhong', 'night-street',
-  'vte-night-market', 'baron', 'mahasan', 'rustic-white'
+  'chokdee-cafe', 'sinouk-khemkhong', 'night-street',
+  'vte-night-market', 'baron', 'mahasan', 'rustic-white', 'seventh-heaven'
 ];
 
 /* IMPORTANT: this table must be kept in sync with data/venues.json.
@@ -30,7 +30,13 @@ const VENUE_COORDS = {
   "farsai-cafe": { lat: 18.0083709, lng: 102.6436896, name: "Farsai Cafe & Restaurant" },
   "corebeer": { lat: 17.9491828, lng: 102.6190028, name: "Corebeer Brewery" },
   "parkson-laos": { lat: 17.9613647, lng: 102.61853, name: "Parkson (Naga Mall)" },
-  "kokkok-mega-mall": { lat: 17.9760734, lng: 102.6247692, name: "KOKKOK Mega Mall Patuxay" }
+  "kokkok-mega-mall": { lat: 17.9760734, lng: 102.6247692, name: "KOKKOK Mega Mall Patuxay" },
+  "madame-cocktail": { lat: 17.9663052, lng: 102.6056738, name: "MADAME Cocktail Bar" },
+  "tipsy-elephant": { lat: 17.9650263, lng: 102.6027337, name: "Tipsy Elephant Rooftop Lounge" },
+  "stellar-bar": { lat: 17.9650516, lng: 102.6001079, name: "Stellar Bar" },
+  "blues-box": { lat: 17.9647287, lng: 102.6084091, name: "The Blues Box" },
+  "wind-west": { lat: 17.9674176, lng: 102.6010777, name: "Wind West" },
+  "seventh-heaven": { lat: 17.9657665, lng: 102.5967715, name: "7th Heaven" }
 };
 
 /* hours duplicated from venues.json — keep in sync when adding venues */
@@ -96,7 +102,31 @@ const VENUE_HOURS = {
     mon: "09:30-21:00", tue: "09:30-21:00", wed: "09:30-21:00",
     thu: "09:30-21:00", fri: "09:30-21:00", sat: "09:30-21:00", sun: "09:30-21:00"
   },
-  "kokkok-mega-mall": null
+  "kokkok-mega-mall": null,
+  "madame-cocktail": {
+    mon: "18:00-25:00", tue: "18:00-25:00", wed: "18:00-25:00",
+    thu: "18:00-25:00", fri: "18:00-25:00", sat: "18:00-25:00", sun: "18:00-25:00"
+  },
+  "tipsy-elephant": {
+    mon: "17:00-24:00", tue: "17:00-24:00", wed: "17:00-24:00",
+    thu: "17:00-24:00", fri: "17:00-24:00", sat: "17:00-24:00", sun: "17:00-24:00"
+  },
+  "stellar-bar": {
+    mon: "17:00-24:00", tue: "17:00-24:00", wed: "17:00-24:00",
+    thu: "17:00-24:00", fri: "17:00-24:00", sat: "17:00-24:00", sun: "17:00-24:00"
+  },
+  "blues-box": {
+    mon: null, tue: "17:00-24:00", wed: "17:00-24:00",
+    thu: "17:00-24:00", fri: "17:00-24:00", sat: "17:00-24:00", sun: "17:00-24:00"
+  },
+  "wind-west": {
+    mon: "21:00-26:00", tue: "21:00-26:00", wed: "21:00-26:00",
+    thu: "21:00-26:00", fri: "21:00-26:00", sat: "21:00-26:00", sun: "21:00-26:00"
+  },
+  "seventh-heaven": {
+    mon: "16:30-22:30", tue: "16:30-22:30", wed: "16:30-22:30",
+    thu: "16:30-22:30", fri: "16:30-22:30", sat: "16:30-22:30", sun: "16:30-22:30"
+  }
 };
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
