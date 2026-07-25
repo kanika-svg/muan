@@ -16,8 +16,8 @@ export async function onRequest(context) {
     const venues = await db.prepare(
       'SELECT COUNT(DISTINCT venue_id) AS c FROM checkins WHERE user_id=?'
     ).bind(user.id).first();
-    const visited = await db.prepare(
-      'SELECT DISTINCT venue_id FROM checkins WHERE user_id=?'
+    const venueCountRows = await db.prepare(
+      'SELECT venue_id, COUNT(*) AS c FROM checkins WHERE user_id=? GROUP BY venue_id'
     ).bind(user.id).all();
     const total = await db.prepare(
       'SELECT COUNT(*) AS c FROM checkins WHERE user_id=?'
@@ -46,7 +46,7 @@ export async function onRequest(context) {
       heat,
       heat_level,
       checkin_days: days.results.map(r => r.d),
-      visited_venue_ids: visited.results.map(r => r.venue_id),
+      venue_counts: Object.fromEntries(venueCountRows.results.map(r => [r.venue_id, r.c])),
       venues_explored: venues?.c || 0,
       total_checkins: total?.c || 0,
       badges: badgeRows.results,

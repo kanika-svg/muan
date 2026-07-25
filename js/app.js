@@ -115,10 +115,11 @@ const ITEMS = [
   { id:'coffee', type:'cafe',  need:3,  name:'Coffee cup',   name_lo:'ຈອກກາເຟ' },
   { id:'beer',   type:'bar',   need:3,  name:'Beer mug',     name_lo:'ຈອກເບຍ' },
   { id:'ticket', type:'venue', need:3,  name:'Ticket stub',  name_lo:'ປີ້' },
-  { id:'crown',  type:'any',   need:10, name:'Explorer cap', name_lo:'ໝວກນັກສຳຫຼວດ' },
+  { id:'crown',  type:'any',   need:20, name:'Explorer cap', name_lo:'ໝວກນັກສຳຫຼວດ' },
 ];
 
-function earnedItems(visitedIds) {
+function earnedItems(venueCounts) {
+  const visitedIds = Object.keys(venueCounts);
   const counts = { cafe:0, bar:0, venue:0 };
   visitedIds.forEach(id => {
     const v = venueById(id);
@@ -128,6 +129,31 @@ function earnedItems(visitedIds) {
     ? visitedIds.length >= it.need
     : counts[it.type] >= it.need);
 }
+
+/* must stay in sync with RIVERSIDE_VENUES in functions/api/checkin.js */
+const RIVERSIDE = [
+  'chokdee-cafe', 'sinouk-khemkhong', 'night-street',
+  'vte-night-market', 'baron', 'mahasan', 'rustic-white', 'seventh-heaven'
+];
+
+const total = c => Object.values(c).reduce((a,b) => a+b, 0);
+
+/* mirrors the seeded badges table (migrations/003_badges.sql) — progress
+   hints only, the server is the source of truth for whether a badge is earned */
+const BADGES = [
+  { id:'first-fire', name:'First Fire', icon:'🔥',
+    progress: c => ({ have: Math.min(1, total(c)), need: 1, hint: 'check in anywhere' }) },
+  { id:'explorer', name:'Explorer', icon:'🧭',
+    progress: c => ({ have: Object.keys(c).length, need: 10, hint: 'different places' }) },
+  { id:'regular', name:'Regular', icon:'🪑',
+    progress: c => { const best = Math.max(0, ...Object.values(c));
+      return { have: best, need: 5, hint: 'visits to one place' }; } },
+  { id:'riverside', name:'Riverside', icon:'🌊',
+    progress: c => ({ have: RIVERSIDE.filter(id => c[id]).length, need: 3,
+      hint: 'riverside places' }) },
+  { id:'night-owl', name:'Night Owl', icon:'🌙',
+    progress: () => ({ have: 0, need: 1, hint: 'check in after midnight' }) },
+];
 
 /* items sit in their own quadrant so they never overlap: ticket upper-left
    chest, beer lower-left, coffee lower-right, cap layered over the hair */
@@ -274,11 +300,20 @@ async function openFlameSheet() {
   const monthName = now.toLocaleString('en',{month:'long'});
   const i = localStorage.getItem('muan-avatar');
 
-  const visitedIds = me.visited_venue_ids || [];
-  const earned = earnedItems(visitedIds);
+  const venueCounts = me.venue_counts || {};
+  const visitedIds = Object.keys(venueCounts);
+  const earned = earnedItems(venueCounts);
   const earnedIds = earned.map(it => it.id);
   const itemCounts = { cafe:0, bar:0, venue:0 };
   visitedIds.forEach(id => { const v = venueById(id); if (v && itemCounts[v.type] !== undefined) itemCounts[v.type]++; });
+
+  const earnedBadgeIds = (me.badges || []).map(b => b.id);
+  const unearnedBadges = BADGES
+    .filter(b => !earnedBadgeIds.includes(b.id))
+    .map(b => ({ ...b, ...b.progress(venueCounts) }));
+  const withProgress = unearnedBadges.filter(b => b.have > 0);
+  const nextUpPool = withProgress.length >= 3 ? withProgress : unearnedBadges;
+  const nextUp = nextUpPool.slice().sort((a,b) => (b.have/b.need) - (a.have/a.need)).slice(0, 3);
   const itemTypeWord = t => t === 'any' ? 'place' : t;
   const itemsRowHtml = ITEMS.map(it => {
     if (earnedIds.includes(it.id)) {
@@ -330,6 +365,16 @@ async function openFlameSheet() {
            <span class="fl-badge-name">${esc(b.name)}</span>
          </div>`).join('')}
       </div>` : ''}
+
+      ${unearnedBadges.length === 0
+        ? `<div style="font-size:11.5px;color:var(--dim);margin-top:10px;">every badge earned — new ones coming 🔥</div>`
+        : `<div class="fl-badges">
+        ${nextUp.map(b => `<div class="fl-badge locked" title="${esc(b.hint)}">
+           <span class="fl-badge-ico">${b.icon}</span>
+           <span class="fl-badge-name">${esc(b.name)}</span>
+           <span class="fl-badge-prog">· ${b.have} of ${b.need} ${esc(b.hint)}</span>
+         </div>`).join('')}
+      </div>`}
 
       <button class="fl-avatar-link" data-open-avatar>Change avatar</button>
       <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
@@ -844,8 +889,9 @@ async function doCheckin(v) {
     } else if (data.ok) {
       const afterVisited = data.visited_venue_ids || [];
       const beforeVisited = data.first_visit ? afterVisited.filter(id => id !== v.id) : afterVisited;
-      const itemsBefore = earnedItems(beforeVisited).map(it => it.id);
-      data.new_items = earnedItems(afterVisited).filter(it => !itemsBefore.includes(it.id));
+      const toCounts = ids => Object.fromEntries(ids.map(id => [id, 1]));
+      const itemsBefore = earnedItems(toCounts(beforeVisited)).map(it => it.id);
+      data.new_items = earnedItems(toCounts(afterVisited)).filter(it => !itemsBefore.includes(it.id));
       showCelebration(data);
     } else if (data.already) {
       document.getElementById('checkinLabel').textContent = 'Already checked in tonight';

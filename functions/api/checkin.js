@@ -3,6 +3,7 @@ import { computeHeat } from './_heat.js';
 
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+/* must stay in sync with the RIVERSIDE list in js/app.js (badge progress hints) */
 const RIVERSIDE_VENUES = [
   'chokdee-cafe', 'sinouk-khemkhong', 'night-street',
   'vte-night-market', 'baron', 'mahasan', 'rustic-white', 'seventh-heaven'

@@ -509,6 +509,8 @@ body {
 .fl-badge { background:var(--ink3); border-radius:12px; padding:8px 12px; text-align:center; }
 .fl-badge-ico { display:block; font-size:18px; }
 .fl-badge-name { font-size:10.5px; color:var(--mute); }
+.fl-badge.locked { opacity: .45; }
+.fl-badge-prog { font-size: 10px; color: var(--dim); display: block; }
 .fl-items-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
 .fl-item { background:var(--ink3); border-radius:12px; padding:8px 12px; text-align:center; }
 .fl-item-name { display:block; font-size:11px; font-weight:700; color:var(--bone); }
