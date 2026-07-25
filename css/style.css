@@ -12,6 +12,9 @@
   --mute:  #8A8494;
   --dim:   #5A5468;
   --font:  'Space Grotesk', 'Noto Sans Lao', system-ui, sans-serif;
+  --pin-bar:   #FF5A3C;
+  --pin-cafe:  #1FBF9C;
+  --pin-venue: #7C5CE0;
 }
 
 /* day theme — warm milky/cream */
@@ -27,6 +30,9 @@
   --gold:  #B8860B;
   --violet:#6A4BC7;
   --teal:  #12876B;
+  --pin-bar:   #D93A1F;
+  --pin-cafe:  #0F7A60;
+  --pin-venue: #5B3DB0;
 }
 :root { --halo: rgba(0,0,0,.9); }
 
@@ -71,6 +77,9 @@ body {
 /* Custom markers */
 .marker { cursor: pointer; text-align: center; }
 .marker svg { display: block; margin: 0 auto; filter: none; }
+[data-theme="light"] .marker svg { filter: drop-shadow(0 2px 3px rgba(90,75,45,.35)); }
+/* flame event-dot nearly disappears on the deepened light-theme bar pin (both red) — gold reads instead */
+[data-theme="light"] .marker.type-bar .pin-dot { fill: var(--gold); }
 .marker .m-label {
   font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--bone);
   text-shadow: 0 1px 3px var(--halo); white-space: nowrap; margin-top: 1px;

@@ -4,7 +4,7 @@
    Check-ins, streaks and badges arrive in phase 2 (Workers + D1).
    ============================================================ */
 
-const COLORS = { bar: '#FF5A3C', cafe: '#1FBF9C', event: '#7C5CE0', venue: '#7C5CE0' };
+const COLORS = { bar: 'var(--pin-bar)', cafe: 'var(--pin-cafe)', event: 'var(--pin-venue)', venue: 'var(--pin-venue)' };
 const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
 /* normal map fence — initMap() sets these, clearRoute() restores them after a
    route temporarily lifts the fence */
@@ -435,11 +435,11 @@ function initMap() {
 function pinSVG(color, scale, variant) {
   const s = 30 * scale;
   const dot = variant === 'event'
-    ? `<circle cx="62" cy="15" r="5" fill="var(--flame)" stroke="var(--ink)" stroke-width="2">
+    ? `<circle class="pin-dot" cx="62" cy="15" r="5" fill="var(--flame)" stroke="var(--ink)" stroke-width="2">
       <animate attributeName="r" values="5;6.2;5" dur="2.4s" repeatCount="indefinite"/>
     </circle>`
     : variant === 'pick'
-    ? `<circle cx="62" cy="15" r="5" fill="var(--gold)" stroke="var(--ink)" stroke-width="2"/>`
+    ? `<circle class="pin-dot" cx="62" cy="15" r="5" fill="var(--gold)" stroke="var(--ink)" stroke-width="2"/>`
     : '';
   return `<svg width="${s}" height="${s * 1.2}" viewBox="0 0 72 88">
     <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="${color}"/>
@@ -461,7 +461,7 @@ function renderMarkers() {
   for (const v of visible) {
     const hot = isNo1(v);
     const el = document.createElement('div');
-    el.className = 'marker' + (hot ? ' is-hot' : '');
+    el.className = 'marker type-' + v.type + (hot ? ' is-hot' : '');
     if (v.id === state.selectedId) el.classList.add('is-selected');
 
     const today = todayISO();
