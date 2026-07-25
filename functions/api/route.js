@@ -1,11 +1,37 @@
 /* must mirror the maxBounds used in initMap() (js/app.js) */
 const BOUNDS = { minLng: 102.49, minLat: 17.88, maxLng: 102.75, maxLat: 18.05 };
 const MODES = ['driving-car', 'foot-walking'];
+const MAX_ORIGIN_KM = 60;
+
+/* copied from functions/api/checkin.js — keep in sync */
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 function inBounds(lat, lng) {
-  return Number.isFinite(lat) && Number.isFinite(lng) &&
-    lat >= BOUNDS.minLat && lat <= BOUNDS.maxLat &&
+  return lat >= BOUNDS.minLat && lat <= BOUNDS.maxLat &&
     lng >= BOUNDS.minLng && lng <= BOUNDS.maxLng;
+}
+
+/* the destination is fenced tight to Vientiane — every venue lives in that
+   box, so this is the real anti-abuse guard: the endpoint can only route TO
+   our venues' area, not serve as a general routing proxy. The origin is
+   loose (any point within 60km of the destination) because users legitimately
+   open the app from outside the city centre — the airport, a bus in from
+   another province, etc — and still want directions in. */
+function validCoords(fromLat, fromLng, toLat, toLng) {
+  if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite)) return false;
+  if (!inBounds(toLat, toLng)) return false;
+  const originKm = haversineMeters(fromLat, fromLng, toLat, toLng) / 1000;
+  return originKm <= MAX_ORIGIN_KM;
 }
 
 export async function onRequest(context) {
@@ -22,7 +48,7 @@ export async function onRequest(context) {
     const mode = params.get('mode') || 'driving-car';
 
     if (!MODES.includes(mode) ||
-        !inBounds(from_lat, from_lng) || !inBounds(to_lat, to_lng)) {
+        !validCoords(from_lat, from_lng, to_lat, to_lng)) {
       return Response.json({ ok: false }, { status: 200 });
     }
 
