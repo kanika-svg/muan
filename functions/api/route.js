@@ -33,13 +33,14 @@ export async function onRequest(context) {
     if (!orsRes.ok) return Response.json({ ok: false }, { status: 200 });
 
     const data = await orsRes.json();
-    const summary = data?.features?.[0]?.properties?.summary;
-    if (!summary) return Response.json({ ok: false }, { status: 200 });
+    const feat = data?.features?.[0];
+    if (!feat?.properties?.summary) return Response.json({ ok: false }, { status: 200 });
 
     return Response.json({
       ok: true,
-      distance_m: Math.round(summary.distance),
-      duration_s: Math.round(summary.duration),
+      distance_m: Math.round(feat.properties.summary.distance),
+      duration_s: Math.round(feat.properties.summary.duration),
+      geometry: feat.geometry,
       mode,
     }, { headers: { 'Cache-Control': 'public, max-age=86400' } });
   } catch (e) {

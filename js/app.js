@@ -15,6 +15,8 @@ const state = {
   filter: 'all',
   markers: [],
   userPos: null,
+  userMarker: null,
+  currentRouteGeometry: null,
   map: null,
   selectedId: null,
   theme: null,
@@ -398,6 +400,10 @@ function initMap() {
         }
       });
     }
+    // setStyle() (theme change) wipes any runtime-added source/layers —
+    // redraw the route (with the correct casing colour for the new theme)
+    // if one was showing when the style swapped
+    if (state.currentRouteGeometry) drawRouteLayers(state.currentRouteGeometry);
   });
   state.map.on('load', () => {
     state.map.resize();
@@ -564,6 +570,7 @@ function sectionCard(v, sub) {
 
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
+  if (state.map) clearRoute();
   const byTime = (a,b) => (a.date === b.date)
     ? ((a.start_time || '99:99') < (b.start_time || '99:99') ? -1 : 1)
     : (a.date < b.date ? -1 : 1);
@@ -696,6 +703,7 @@ function openVenue(id) {
   const v = venueById(id);
   if (!v) return;
   toggleSheet(false);
+  clearRoute();
   state.selectedId = id; updateSelection();
   const st = openStatus(v);
   const evs = venueEvents(id);
@@ -864,10 +872,83 @@ async function fetchRouteEstimate(v) {
     if (!data.ok) return;
     if (state.selectedId !== v.id) return; // sheet moved on while we waited
     const el = document.getElementById('travelLine');
-    if (!el) return;
-    const mins = Math.max(1, Math.round(data.duration_s / 60));
-    el.innerHTML = `${fmtDist(data.distance_m)} away · ${mins} min drive`;
+    if (el) {
+      const mins = Math.max(1, Math.round(data.duration_s / 60));
+      el.innerHTML = `${fmtDist(data.distance_m)} away · ${mins} min drive`;
+    }
+    if (data.geometry) showRoute(data.geometry);
   } catch (e) {}
+}
+
+/* ---------- route drawing ---------- */
+function ensureUserMarker() {
+  if (!state.userPos) return;
+  if (state.userMarker) {
+    state.userMarker.setLngLat([state.userPos.lng, state.userPos.lat]);
+    return;
+  }
+  const el = document.createElement('div');
+  el.className = 'user-dot';
+  state.userMarker = new maplibregl.Marker({ element: el })
+    .setLngLat([state.userPos.lng, state.userPos.lat])
+    .addTo(state.map);
+}
+
+function routeCasingColor() {
+  return state.theme === 'light' ? '#FFFCF5' : '#0B0910';
+}
+
+/* re-adds the route source/layers (and refreshes the casing colour) —
+   split out from showRoute() so the style.load handler in initMap() can
+   redraw the route after a theme change without re-running fitBounds.
+   setStyle() (used on theme change) swaps in a structurally unrelated style
+   (raster vs. Positron vector) and wipes any runtime-added sources/layers,
+   so this can't just be a setPaintProperty call — the layers have to be
+   able to not exist and get recreated. */
+function drawRouteLayers(geometry) {
+  const data = { type: 'Feature', geometry, properties: {} };
+  if (state.map.getSource('route')) {
+    state.map.getSource('route').setData(data);
+  } else {
+    state.map.addSource('route', { type: 'geojson', data });
+    // casing underneath so the line reads on both light and dark tiles
+    state.map.addLayer({
+      id: 'route-casing', type: 'line', source: 'route',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': routeCasingColor(), 'line-width': 8, 'line-opacity': .55 }
+    });
+    state.map.addLayer({
+      id: 'route-line', type: 'line', source: 'route',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#FF5A3C', 'line-width': 4 }
+    });
+  }
+  if (state.map.getLayer('route-casing')) {
+    state.map.setPaintProperty('route-casing', 'line-color', routeCasingColor());
+  }
+}
+
+function showRoute(geometry) {
+  ensureUserMarker();
+  state.currentRouteGeometry = geometry;
+  drawRouteLayers(geometry);
+
+  // frame the whole route, leaving room for the panel
+  const b = new maplibregl.LngLatBounds();
+  geometry.coordinates.forEach(c => b.extend(c));
+  state.map.fitBounds(b, {
+    padding: { top: 80, bottom: 80,
+               left: window.innerWidth >= 768 ? 460 : 40,
+               right: 40 }
+  });
+}
+
+function clearRoute() {
+  state.currentRouteGeometry = null;
+  ['route-line', 'route-casing'].forEach(id => {
+    if (state.map.getLayer(id)) state.map.removeLayer(id);
+  });
+  if (state.map.getSource('route')) state.map.removeSource('route');
 }
 
 async function doCheckin(v) {
@@ -1006,9 +1087,7 @@ function bindLocate() {
       pos => {
         state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         document.getElementById('locateLabel').textContent = 'located';
-        new maplibregl.Marker({ color: '#4B9BFF' })
-          .setLngLat([state.userPos.lng, state.userPos.lat])
-          .addTo(state.map);
+        ensureUserMarker();
         state.map.flyTo({ center: [state.userPos.lng, state.userPos.lat], zoom: 15 });
       },
       () => { document.getElementById('locateLabel').textContent = 'near me'; }

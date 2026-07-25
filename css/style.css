@@ -61,6 +61,13 @@ body {
   filter: sepia(0.22) saturate(1.1) contrast(1.06) hue-rotate(-6deg);
 }
 
+/* user location dot — not a venue pin, no label */
+.user-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--teal); border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.45);
+}
+
 /* Custom markers */
 .marker { cursor: pointer; text-align: center; }
 .marker svg { display: block; margin: 0 auto; filter: none; }
