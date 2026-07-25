@@ -243,6 +243,7 @@ body {
 .act-ico { font-size: 17px; line-height: 1; }
 .act#checkinBtn.ready { background: var(--flame); color: var(--ink); }
 .act:disabled { opacity: .5; cursor: default; }
+.act-narrow { flex: 0 0 62px; }
 
 /* tighter fact rows */
 .v-fact { display: flex; gap: 10px; padding: 9px 0; align-items: flex-start; }

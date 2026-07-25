@@ -762,8 +762,13 @@ function openVenue(id) {
       <button class="act" id="checkinBtn" data-venue="${v.id}" disabled>
         <span class="act-ico">🔥</span><span class="act-lbl" id="checkinLabel">Check in</span>
       </button>
-      <a class="act" href="${esc(v.links?.maps || '#')}" target="_blank" rel="noopener">
-        <span class="act-ico">➤</span><span class="act-lbl">Directions</span>
+      <button class="act" id="dirBtn">
+        <span class="act-ico">➤</span><span class="act-lbl" id="dirLbl">Directions</span>
+      </button>
+      <a class="act act-narrow" id="gmapsBtn"
+         href="${esc(v.links?.maps || '#')}" target="_blank" rel="noopener"
+         aria-label="Open in Google Maps">
+        <span class="act-ico">🗺️</span><span class="act-lbl">Maps</span>
       </a>
       <button class="act" id="shareBtn">
         <span class="act-ico">↗</span><span class="act-lbl">Share</span>
@@ -809,7 +814,7 @@ function openVenue(id) {
       Comments open when check-ins launch — be the first regular. 🔥
     </div>
     ${v.verified ? '' : '<div class="hint">details unconfirmed — hours may differ</div>'}
-    <div class="hint">routing © OpenStreetMap contributors</div>`;
+    <div id="routeAttribution"></div>`;
 
   setSheet(html);
   history.replaceState(null, '', '?v=' + v.id);
@@ -855,29 +860,63 @@ function openVenue(id) {
     cbtn.addEventListener('click', () => doCheckin(v));
   }
 
-  state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
+  const dirBtn = document.getElementById('dirBtn');
+  if (dirBtn) dirBtn.addEventListener('click', () => toggleRoute(v));
 
-  if (state.userPos) fetchRouteEstimate(v);
+  state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
 }
 
-/* real road routing for the venue sheet currently open only — never for
+/* on-demand road routing for the venue sheet currently open only — never for
    the whole venue list, that would burn the daily ORS quota immediately */
-async function fetchRouteEstimate(v) {
+async function toggleRoute(v) {
+  const dirBtn = document.getElementById('dirBtn');
+  const lbl = document.getElementById('dirLbl');
+  if (!dirBtn || !lbl) return;
+
+  if (dirBtn.dataset.showing === '1') {
+    clearRoute();
+    dirBtn.dataset.showing = '';
+    lbl.textContent = 'Directions';
+    const attr = document.getElementById('routeAttribution');
+    if (attr) attr.innerHTML = '';
+    return;
+  }
+
+  if (!state.userPos) {
+    lbl.textContent = 'Enable location first';
+    return;
+  }
+
+  lbl.textContent = 'Loading…';
+  dirBtn.disabled = true;
   try {
     const p = new URLSearchParams({
       from_lat: state.userPos.lat, from_lng: state.userPos.lng,
       to_lat: v.lat, to_lng: v.lng, mode: 'driving-car',
     });
     const data = await (await fetch('/api/route?' + p)).json();
-    if (!data.ok) return;
     if (state.selectedId !== v.id) return; // sheet moved on while we waited
-    const el = document.getElementById('travelLine');
-    if (el) {
+    dirBtn.disabled = false;
+    if (!data.ok || !data.geometry) throw new Error('no route');
+
+    showRoute(data.geometry);
+    const travelEl = document.getElementById('travelLine');
+    if (travelEl) {
       const mins = Math.max(1, Math.round(data.duration_s / 60));
-      el.innerHTML = `${fmtDist(data.distance_m)} away · ${mins} min drive`;
+      travelEl.innerHTML = `${fmtDist(data.distance_m)} away · ${mins} min drive`;
     }
-    if (data.geometry) showRoute(data.geometry);
-  } catch (e) {}
+    const attr = document.getElementById('routeAttribution');
+    if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
+    lbl.textContent = 'Hide route';
+    dirBtn.dataset.showing = '1';
+  } catch (e) {
+    dirBtn.disabled = false;
+    lbl.textContent = 'Route unavailable';
+    setTimeout(() => {
+      const l = document.getElementById('dirLbl');
+      if (l && l.textContent === 'Route unavailable') l.textContent = 'Directions';
+    }, 2000);
+  }
 }
 
 /* ---------- route drawing ---------- */
