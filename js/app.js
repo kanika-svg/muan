@@ -589,18 +589,50 @@ function renderHomeSheet() {
     || (f === 'cafe' && v.type === 'cafe');
     // 'event' filter shows no venue-driven sections; handled via showEvents/showVenueSections
 
-  const hasPhoto = v => Array.isArray(v.photos) && v.photos.length > 0;
-
-  const late = state.venues.filter(v => opensLate(v) && matchType(v) && hasPhoto(v) && v.status !== 'opening-soon');
-  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(hasPhoto);
-  const busyVenues = (state.picks?.busy_venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(hasPhoto);
-  const openingSoon = state.venues.filter(v => v.status === 'opening-soon' && matchType(v) && hasPhoto(v));
+  const late = state.venues.filter(v => opensLate(v) && matchType(v) && v.status !== 'opening-soon');
+  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType);
+  const busyVenues = (state.picks?.busy_venue_ids || []).map(venueById).filter(Boolean).filter(matchType);
+  const openingSoon = state.venues.filter(v => v.status === 'opening-soon' && matchType(v));
 
   const showEvents = (f === 'all' || f === 'event');
   const showVenueSections = (f !== 'event');
 
   const secH = (color, label, note) =>
     `<div class="sec-h"><span class="dot" style="background:var(--${color});"></span>${label}${note ? `<span class="sec-note">${note}</span>` : ''}</div>`;
+
+  if (f === 'bar' || f === 'cafe') {
+    const color = f === 'bar' ? 'flame' : 'teal';
+    const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
+    const typeVenues = state.venues.filter(v => v.type === f)
+      .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name));
+    let html = `
+      <div class="s-title">${dayGreeting()}, Vientiane</div>
+      <div class="s-sub lao">ຄືນນີ້ໄປໃສດີ?</div>`;
+    html += secH(color, label);
+    if (!typeVenues.length) {
+      html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
+    } else {
+      for (const v of typeVenues) {
+        const st = openStatus(v);
+        html += `
+          <div class="card" data-open-venue="${v.id}">
+            ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`}
+            <div class="card-body">
+              <div class="row">
+                <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
+                <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
+              </div>
+              <div class="t-sub">${esc(v.area || '')}${v.area ? ' · ' : ''}${st.label}</div>
+            </div>
+          </div>`;
+      }
+    }
+    setSheet(html);
+    history.replaceState(null, '', location.pathname);
+    const sh = document.getElementById('sheet');
+    sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
+    return;
+  }
 
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
