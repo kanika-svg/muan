@@ -482,7 +482,6 @@ function renderHomeSheet() {
   const hasPhoto = v => Array.isArray(v.photos) && v.photos.length > 0;
 
   const late = state.venues.filter(v => opensLate(v) && matchType(v) && hasPhoto(v) && v.status !== 'opening-soon');
-  const fresh = state.venues.filter(v => matchType(v) && hasPhoto(v) && v.status !== 'opening-soon').slice(-3).reverse();
   const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(hasPhoto);
   const busyVenues = (state.picks?.busy_venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(hasPhoto);
   const openingSoon = state.venues.filter(v => v.status === 'opening-soon' && matchType(v) && hasPhoto(v));
@@ -583,11 +582,6 @@ function renderHomeSheet() {
       late.map(v => sectionCard(v, openStatus(v).label)).join('') + `</div>`;
   }
 
-  if (showVenueSections && fresh.length) {
-    rendered = true;
-    html += secH('gold', 'New on Paisaidee · ມາໃໝ່') + `<div class="hcards">` +
-      fresh.map(v => sectionCard(v, `${esc(v.type)} · ${esc(v.area || '')}`)).join('') + `</div>`;
-  }
 
   if (!rendered) {
     html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
