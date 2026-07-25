@@ -14,18 +14,30 @@
   --font:  'Space Grotesk', 'Noto Sans Lao', system-ui, sans-serif;
 }
 
-/* day theme */
+/* day theme — warm milky/cream */
 [data-theme="light"] {
-  --ink:   #F2F2F6;
-  --ink2:  #FFFFFF;
-  --ink3:  #E9E8EF;
-  --ink4:  #D8D6E1;
-  --bone:  #1C1726;
-  --mute:  #6A6675;
-  --dim:   #A5A2B0;
-  --halo:  rgba(242,242,246,.9);
+  --ink:   #FBF7EC;
+  --ink2:  #F5EFDF;
+  --ink3:  #EDE5D2;
+  --ink4:  #E0D6BF;
+  --bone:  #2A2419;
+  --mute:  #6B6151;
+  --dim:   #9A8F7C;
+  --flame: #E8462A;
+  --gold:  #B8860B;
+  --violet:#6A4BC7;
+  --teal:  #12876B;
 }
 :root { --halo: rgba(0,0,0,.9); }
+
+/* pushable-button shadows are hardcoded to the dark-theme flame (#C6432A);
+   darken from the light-theme flame (#E8462A) so the pressed edge still reads */
+[data-theme="light"] .chip.on { box-shadow: 0 3px 0 #AE3520; }
+[data-theme="light"] .btn-checkin.ready,
+[data-theme="light"] .cel-done { box-shadow: 0 4px 0 #AE3520; }
+[data-theme="light"] .chip.on:active,
+[data-theme="light"] .btn-checkin.ready:active,
+[data-theme="light"] .cel-done:active { box-shadow: 0 1px 0 #AE3520; }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -43,6 +55,11 @@ body {
 #map { position: absolute; inset: 0; }
 #map .maplibregl-ctrl-attrib { background: rgba(19,16,25,.7); }
 #map .maplibregl-ctrl-attrib a { color: var(--dim); }
+
+/* milky tint — canvas only, never the container (markers live in the container) */
+[data-theme="light"] .maplibregl-canvas {
+  filter: sepia(0.28) saturate(1.15) brightness(1.04) hue-rotate(-6deg);
+}
 
 /* Custom markers */
 .marker { cursor: pointer; text-align: center; }
@@ -82,6 +99,10 @@ body {
   box-shadow: 0 3px 0 #C6432A;
 }
 .chip.on:active { transform: translateY(2px) scale(.97); box-shadow: 0 1px 0 #C6432A; }
+
+/* .pill glass is hardcoded dark; var(--mute) text flips dark in light theme and
+   would go invisible against it, so give the glass a light-theme counterpart */
+[data-theme="light"] .pill { background: rgba(245,239,223,.82); }
 
 /* ============ Bottom sheet ============ */
 #sheet {

@@ -60,9 +60,9 @@ async function boot() {
 
 /* ---------- theme ---------- */
 const TILES = {
-  dark:  ['a','b','c'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`),
-  light: ['a','b','c'].map(s => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png`),
+  dark: ['a','b','c'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`),
 };
+const LIGHT_STYLE_URL = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
 function resolvedTheme() {
   const pref = localStorage.getItem('muan-theme') || 'auto';
@@ -72,6 +72,7 @@ function resolvedTheme() {
 }
 
 function mapStyle(theme) {
+  if (theme === 'light') return LIGHT_STYLE_URL;
   return {
     version: 8,
     sources: {
