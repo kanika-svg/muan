@@ -764,7 +764,7 @@ function openVenue(id) {
 
     <div class="v-fact">
       <div class="info-ic">📍</div>
-      <div class="info-main">${esc(v.area || '')}<div class="sub">${travel}</div></div>
+      <div class="info-main">${esc(v.area || '')}<div class="sub" id="travelLine">${travel}</div></div>
     </div>
     <div class="v-fact">
       <div class="info-ic">🕐</div>
@@ -800,7 +800,8 @@ function openVenue(id) {
       No comments yet.<br>
       Comments open when check-ins launch — be the first regular. 🔥
     </div>
-    ${v.verified ? '' : '<div class="hint">details unconfirmed — hours may differ</div>'}`;
+    ${v.verified ? '' : '<div class="hint">details unconfirmed — hours may differ</div>'}
+    <div class="hint">routing © OpenStreetMap contributors</div>`;
 
   setSheet(html);
   history.replaceState(null, '', '?v=' + v.id);
@@ -847,6 +848,26 @@ function openVenue(id) {
   }
 
   state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
+
+  if (state.userPos) fetchRouteEstimate(v);
+}
+
+/* real road routing for the venue sheet currently open only — never for
+   the whole venue list, that would burn the daily ORS quota immediately */
+async function fetchRouteEstimate(v) {
+  try {
+    const p = new URLSearchParams({
+      from_lat: state.userPos.lat, from_lng: state.userPos.lng,
+      to_lat: v.lat, to_lng: v.lng, mode: 'driving-car',
+    });
+    const data = await (await fetch('/api/route?' + p)).json();
+    if (!data.ok) return;
+    if (state.selectedId !== v.id) return; // sheet moved on while we waited
+    const el = document.getElementById('travelLine');
+    if (!el) return;
+    const mins = Math.max(1, Math.round(data.duration_s / 60));
+    el.innerHTML = `${fmtDist(data.distance_m)} away · ${mins} min drive`;
+  } catch (e) {}
 }
 
 async function doCheckin(v) {
