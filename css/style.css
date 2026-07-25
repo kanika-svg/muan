@@ -69,6 +69,19 @@ body {
   text-shadow: 0 1px 3px var(--halo); white-space: nowrap; margin-top: 1px;
 }
 .marker .m-sub { font-size: 10px; font-weight: 700; text-shadow: 0 1px 3px var(--halo); }
+[data-theme="light"] .marker .m-label {
+  color: #2A2419;
+  text-shadow:
+    0 1px 0 #FFFCF5, 0 -1px 0 #FFFCF5,
+    1px 0 0 #FFFCF5, -1px 0 0 #FFFCF5,
+    0 2px 4px rgba(90,75,45,.25);
+}
+[data-theme="light"] .marker .m-sub {
+  display: inline-block;
+  background: var(--flame); color: #FFFCF5 !important;
+  padding: 1px 6px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 700; text-shadow: none;
+}
 .marker.is-hot svg { animation: pinbob 1.6s ease-in-out infinite; }
 @keyframes pinbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) { .marker.is-hot svg { animation: none; } }
@@ -359,7 +372,7 @@ body {
   font-size: 17px; font-weight: 700; font-family: var(--font);
 }
 [data-theme="light"] .thumb-ph {
-  background: #E8DFC9;
+  background: #DFD4BC;
   font-weight: 700;
 }
 .t-sub, .hcard div:last-child {

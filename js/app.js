@@ -277,6 +277,17 @@ function initMap() {
     if (state.theme === 'light' && state.map.getLayer('water')) {
       state.map.setPaintProperty('water', 'fill-color', '#CBD9DC');
     }
+    if (state.theme === 'light') {
+      const symbolLayers = state.map.getStyle().layers.filter(l => l.type === 'symbol');
+      console.log('[muan] positron symbol layers:', symbolLayers.map(l => l.id));
+      const NOISY = ['place_hamlet','place_village','place_suburb','place_suburbs',
+                     'poi','poi_r','housenumber','roadname_minor'];
+      symbolLayers.forEach(l => {
+        if (NOISY.some(n => l.id.startsWith(n))) {
+          state.map.setLayoutProperty(l.id, 'visibility', 'none');
+        }
+      });
+    }
   });
   state.map.on('load', () => {
     state.map.resize();
