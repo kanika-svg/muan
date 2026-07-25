@@ -461,8 +461,7 @@ function renderMarkers() {
   for (const v of visible) {
     const hot = isNo1(v);
     const el = document.createElement('div');
-    el.className = 'marker type-' + v.type + (hot ? ' is-hot' : '');
-    if (v.id === state.selectedId) el.classList.add('is-selected');
+    el.className = 'marker type-' + v.type;
 
     const today = todayISO();
     const hasEventToday = state.events.some(ev => ev.venue_id === v.id && ev.date === today);
@@ -499,11 +498,14 @@ function renderMarkers() {
 }
 
 function updateSelection() {
-  document.getElementById('map').classList.toggle('map-has-selection', !!state.selectedId);
-  for (const m of state.markers) {
-    m.el.classList.toggle('is-selected', m.id === state.selectedId);
-    m.el.classList.toggle('selected', m.id === state.selectedId);
-  }
+  const mapEl = document.getElementById('map');
+  mapEl.classList.remove('map-has-selection');
+  if (state.selectedId) mapEl.classList.add('map-has-selection');
+
+  document.querySelectorAll('.marker.selected')
+    .forEach(el => el.classList.remove('selected'));
+  const sel = state.markers.find(m => m.id === state.selectedId);
+  if (sel) sel.el.classList.add('selected');
 }
 
 /* phase 1 "No.1 tonight" = first venue with a verified event today.

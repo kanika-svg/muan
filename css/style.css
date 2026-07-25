@@ -98,9 +98,9 @@ body {
   padding: 1px 6px; border-radius: 999px;
   font-size: 9.5px; font-weight: 700; text-shadow: none;
 }
-.marker.is-hot svg { animation: pinbob 1.6s ease-in-out infinite; }
+.marker.pin-event svg { animation: pinbob 1.6s ease-in-out infinite; }
 @keyframes pinbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-@media (prefers-reduced-motion: reduce) { .marker.is-hot svg { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .marker.pin-event svg { animation: none; } }
 
 /* ============ Top bar ============ */
 #topbar {
@@ -197,8 +197,8 @@ body {
 .empty { text-align: center; color: var(--dim); font-size: 13px; padding: 18px 0 10px; }
 
 /* selected pin + zoom labels */
-.marker.is-selected svg { transform: scale(1.3); transform-origin: bottom center; }
-.marker.is-selected .m-label { color: var(--flame); }
+.marker.selected svg { transform: scale(1.3); transform-origin: bottom center; }
+.marker.selected .m-label { color: var(--flame); }
 #map.labels-hidden .m-label, #map.labels-hidden .m-sub { display: none; }
 
 /* below zoom 12.8: only pins with something on keep their label */
@@ -344,7 +344,7 @@ body {
 /* crowded pins: hide label unless selected or zoomed close */
 .marker.label-crowded .m-label,
 .marker.label-crowded .m-sub { display: none; }
-.marker.label-crowded.is-selected .m-label { display: block; }
+.marker.label-crowded.selected .m-label { display: block; }
 #map.zoomed-close .marker.label-crowded .m-label { display: block; }
 
 /* section headers + coming-soon slot */
