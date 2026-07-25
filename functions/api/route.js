@@ -34,13 +34,22 @@ export async function onRequest(context) {
       }, { status: 200 });
     }
 
-    const orsUrl = `https://api.openrouteservice.org/v2/directions/${mode}` +
-      `?api_key=${encodeURIComponent(context.env.ORS_KEY)}` +
-      `&start=${from_lng},${from_lat}&end=${to_lng},${to_lat}`;
+    // mode must be a valid ORS profile — 'driving-car' or 'foot-walking'
+    const orsUrl = `https://api.openrouteservice.org/v2/directions/${mode}/geojson`;
     // TEMPORARY debug instrumentation — remove once routing works
-    console.log('ORS url', orsUrl.replace(context.env.ORS_KEY, 'REDACTED'));
+    console.log('ORS url', orsUrl);
 
-    const orsRes = await fetch(orsUrl);
+    const orsRes = await fetch(orsUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': context.env.ORS_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/geo+json',
+      },
+      body: JSON.stringify({
+        coordinates: [[from_lng, from_lat], [to_lng, to_lat]],
+      }),
+    });
     const text = await orsRes.text();
     if (!orsRes.ok) {
       return Response.json({
