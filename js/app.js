@@ -50,6 +50,18 @@ async function boot() {
   // restore last state on load, but only for the home sheet
   if (localStorage.getItem('psd-sheet-collapsed') === '1') { toggleSheet(true); st.textContent = '›'; }
 
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth >= 768) return;          // desktop uses the tab
+    const sheet = document.getElementById('sheet');
+    if (!sheet) return;
+    // tapping the handle always toggles
+    if (e.target.closest('#sheetHandle')) { toggleSheet(); return; }
+    // when collapsed, tapping anywhere on the sheet expands it
+    if (sheet.classList.contains('collapsed') && e.target.closest('#sheet')) {
+      toggleSheet(false);
+    }
+  });
+
   const params = new URLSearchParams(location.search);
   const vid = params.get('v');
   if (vid && venueById(vid)) {
@@ -303,7 +315,7 @@ function initMap() {
   });
   state.map.on('zoom', () => {
     document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 12.2);
-    document.getElementById('map').classList.toggle('labels-thin', state.map.getZoom() < 13.5);
+    document.getElementById('map').classList.toggle('labels-thin', state.map.getZoom() < 12.8);
     document.getElementById('map').classList.toggle('zoomed-close', state.map.getZoom() >= 15.5);
   });
   state.map.on('click', (e) => {
@@ -347,7 +359,8 @@ function renderMarkers() {
 
     const today = todayISO();
     const hasEventToday = state.events.some(ev => ev.venue_id === v.id && ev.date === today);
-    const isPick = (state.picks?.venue_ids || []).includes(v.id);
+    const isPick = (state.picks?.venue_ids || []).includes(v.id)
+                   && Array.isArray(v.photos) && v.photos.length > 0;
     el.classList.toggle('pin-event', hasEventToday);
     el.classList.toggle('pin-pick', isPick && !hasEventToday);
     const variant = hasEventToday ? 'event' : (isPick ? 'pick' : null);

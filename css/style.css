@@ -185,7 +185,7 @@ body {
 .marker.is-selected .m-label { color: var(--flame); }
 #map.labels-hidden .m-label, #map.labels-hidden .m-sub { display: none; }
 
-/* below zoom 13.5: only pins with something on keep their label */
+/* below zoom 12.8: only pins with something on keep their label */
 #map.labels-thin .marker:not(.pin-event):not(.pin-pick) .m-label,
 #map.labels-thin .marker:not(.pin-event):not(.pin-pick) .m-sub { display: none; }
 
@@ -567,6 +567,8 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 
 @media (max-width: 767px) {
   #sheetToggle { display: none; }   /* phone uses the handle + map tap */
+  #sheetHandle { cursor: pointer; padding: 12px 0 8px; }
+  #sheet.collapsed { cursor: pointer; }
 }
 
 /* double-line section dividers */
