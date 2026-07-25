@@ -301,62 +301,37 @@ async function openFlameSheet() {
   const i = localStorage.getItem('muan-avatar');
 
   const venueCounts = me.venue_counts || {};
-  const visitedIds = Object.keys(venueCounts);
-  const earned = earnedItems(venueCounts);
-  const earnedIds = earned.map(it => it.id);
-  const itemCounts = { cafe:0, bar:0, venue:0 };
-  visitedIds.forEach(id => { const v = venueById(id); if (v && itemCounts[v.type] !== undefined) itemCounts[v.type]++; });
-
-  const earnedBadgeIds = (me.badges || []).map(b => b.id);
-  const unearnedBadges = BADGES
-    .filter(b => !earnedBadgeIds.includes(b.id))
-    .map(b => ({ ...b, ...b.progress(venueCounts) }));
-  const withProgress = unearnedBadges.filter(b => b.have > 0);
-  const nextUpPool = withProgress.length >= 3 ? withProgress : unearnedBadges;
-  const nextUp = nextUpPool.slice().sort((a,b) => (b.have/b.need) - (a.have/a.need)).slice(0, 3);
-  const itemTypeWord = t => t === 'any' ? 'place' : t;
-  const itemsRowHtml = ITEMS.map(it => {
-    if (earnedIds.includes(it.id)) {
-      return `<div class="fl-item"><span class="fl-item-name">${esc(it.name)}</span></div>`;
-    }
-    const have = it.type === 'any' ? visitedIds.length : itemCounts[it.type];
-    const remaining = it.need - have;
-    const word = itemTypeWord(it.type);
-    return `<div class="fl-item locked">
-      <span class="fl-item-name">${esc(it.name)}</span>
-      <span class="fl-item-req">${remaining} more ${word}${remaining>1?'s':''}</span>
-    </div>`;
-  }).join('');
+  const earnedIds = earnedItems(venueCounts).map(it => it.id);
+  const noCheckins = me.total_checkins === 0;
 
   setSheet(`
     <div class="fl-wrap">
       ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
-      <div class="fl-top-row">
-        <div class="fl-avatar-big">${i !== null ? avatarSVG(+i, 64, earnedIds) : '😊'}</div>
-        <div class="fl-flame" data-heat="${me.heat_level}">
-          <svg viewBox="0 0 120 140" width="110" height="128">
-            <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
-            </linearGradient></defs>
-            <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
-          </svg>
-          <div class="fl-streak">${me.embers_total === 0 ? '' : me.streak_months}</div>
-        </div>
-      </div>
-      <div class="fl-items-row">${itemsRowHtml}</div>
-      <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
-      <div style="font-size:12px;color:var(--dim);margin-top:2px;">${esc(heatLines[me.heat_level] || '')}</div>
-      <div class="fl-sub">${me.embers_total === 0 ? 'light your first flame — check in anywhere' : `${me.streak_months} month streak — every month out keeps it lit`}</div>
 
-      <div class="fl-embers"><b>${me.embers_total}</b> embers</div>
+      <div class="fl-avatar-big">${i !== null ? avatarSVG(+i, 96, earnedIds) : '😊'}</div>
 
       <div class="fl-month">${monthName}</div>
       ${cal}
 
+      <div class="fl-flame" data-heat="${me.heat_level}">
+        <svg viewBox="0 0 120 140" width="110" height="128">
+          <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
+          </linearGradient></defs>
+          <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
+        </svg>
+        <div class="fl-streak">${noCheckins ? '' : me.streak_months}</div>
+      </div>
+      <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
+      <div class="fl-sub">${noCheckins ? 'light your first flame — check in anywhere' : esc(heatLines[me.heat_level] || '')}</div>
+
+      ${me.embers_total > 0 ? `<div class="fl-embers"><b>${me.embers_total}</b> embers</div>` : ''}
+
+      ${me.total_checkins > 0 ? `
       <div class="fl-stats">
         <div class="fl-stat"><b>${me.venues_explored}</b><span>places explored</span></div>
         <div class="fl-stat"><b>${me.total_checkins}</b><span>check-ins</span></div>
-      </div>
+      </div>` : ''}
 
       ${me.badges?.length ? `
       <div class="fl-badges">
@@ -365,16 +340,6 @@ async function openFlameSheet() {
            <span class="fl-badge-name">${esc(b.name)}</span>
          </div>`).join('')}
       </div>` : ''}
-
-      ${unearnedBadges.length === 0
-        ? `<div style="font-size:11.5px;color:var(--dim);margin-top:10px;">every badge earned — new ones coming 🔥</div>`
-        : `<div class="fl-badges">
-        ${nextUp.map(b => `<div class="fl-badge locked" title="${esc(b.hint)}">
-           <span class="fl-badge-ico">${b.icon}</span>
-           <span class="fl-badge-name">${esc(b.name)}</span>
-           <span class="fl-badge-prog">· ${b.have} of ${b.need} ${esc(b.hint)}</span>
-         </div>`).join('')}
-      </div>`}
 
       <button class="fl-avatar-link" data-open-avatar>Change avatar</button>
       <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
