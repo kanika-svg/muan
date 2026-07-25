@@ -109,6 +109,7 @@
       "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844331/status1_bxa76f.jpg"],
       "hours": null,
       "links": { "facebook": "https://www.facebook.com/profile.php?id=61551085054102", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.969079,102.609883" },
+      "contact": { "phone": "+8562052366087", "phone_display": "020 5236 6087" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11 (hours not listed)"
     },

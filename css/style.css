@@ -252,6 +252,9 @@ body {
 .hours-week { margin-top: 6px; font-size: 12px; color: var(--mute); display: none; }
 .hours-week.show { display: block; }
 .hours-week div { display: flex; justify-content: space-between; padding: 2px 0; }
+
+.v-phone { color: var(--flame); text-decoration: none; font-weight: 700; }
+.v-phone:active { opacity: .7; }
 .hours-week .today { color: var(--bone); font-weight: 700; }
 .hours-toggle { color: var(--violet); cursor: pointer; font-size: 12px; }
 

@@ -21,6 +21,10 @@ file/variable names) intentionally remain "muan" — do not rename them.
   duplicated from data/venues.json. Every new venue added to venues.json must
   also be added to both tables in checkin.js, or check-ins at it will fail
   with "unknown venue".
+- Optional "contact" object on a venue: { "phone": "+856...", "phone_display": "020 ..." }.
+  phone is full international format for the tel: link; phone_display is how
+  locals write it. Only add when sourced from the same place as the rest of
+  the venue's verified details — never invent a number.
 
 ## Design tokens (do not drift)
 - Ink #131019 / #1C1726 / #241E31 / #2E2740
