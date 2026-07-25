@@ -600,6 +600,8 @@ function renderHomeSheet() {
   const secH = (color, label, note) =>
     `<div class="sec-h"><span class="dot" style="background:var(--${color});"></span>${label}${note ? `<span class="sec-note">${note}</span>` : ''}</div>`;
 
+  const sub = isNight() ? 'ຄືນນີ້ໄປໃສດີ?' : 'ມື້ນີ້ໄປໃສດີ?';
+
   if (f === 'bar' || f === 'cafe') {
     const color = f === 'bar' ? 'flame' : 'teal';
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
@@ -607,7 +609,7 @@ function renderHomeSheet() {
       .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name));
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
-      <div class="s-sub lao">ຄືນນີ້ໄປໃສດີ?</div>`;
+      <div class="s-sub lao">${sub}</div>`;
     html += secH(color, label);
     if (!typeVenues.length) {
       html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
@@ -636,7 +638,7 @@ function renderHomeSheet() {
 
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
-    <div class="s-sub lao">ຄືນນີ້ໄປໃສດີ?</div>`;
+    <div class="s-sub lao">${sub}</div>`;
   let rendered = false;
 
   if (showEvents && tonight.length) {
@@ -1290,10 +1292,12 @@ const fmtDate = iso => {
 };
 const fmtPrice = p => p === 0 ? 'free' : p == null ? 'price tbc' : `${(p / 1000)}k kip`;
 
+const isNight = () => new Date().getHours() >= 17;
+
 const dayGreeting = () => {
   const day = new Date().getDay();
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return `${names[day]} ${new Date().getHours() >= 17 ? 'night' : ''}`.trim();
+  return `${names[day]} ${isNight() ? 'night' : ''}`.trim();
 };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
