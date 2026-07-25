@@ -109,16 +109,63 @@ function applyTheme() {
 }
 
 const AVATARS = ['#E8B98A|#1C1726','#C98E6B|#131019','#E8B98A|#7C5CE0','#C98E6B|#1FBF9C','#8A5A3B|#FF5A3C','#E8B98A|#FFC24B'];
-function avatarSVG(i, size) {
+
+/* items mark places visited, not consumption — computed from checkins, never stored */
+const ITEMS = [
+  { id:'coffee', type:'cafe',  need:3,  name:'Coffee cup',   name_lo:'ຈອກກາເຟ' },
+  { id:'beer',   type:'bar',   need:3,  name:'Beer mug',     name_lo:'ຈອກເບຍ' },
+  { id:'ticket', type:'venue', need:3,  name:'Ticket stub',  name_lo:'ປີ້' },
+  { id:'crown',  type:'any',   need:10, name:'Explorer cap', name_lo:'ໝວກນັກສຳຫຼວດ' },
+];
+
+function earnedItems(visitedIds) {
+  const counts = { cafe:0, bar:0, venue:0 };
+  visitedIds.forEach(id => {
+    const v = venueById(id);
+    if (v && counts[v.type] !== undefined) counts[v.type]++;
+  });
+  return ITEMS.filter(it => it.type === 'any'
+    ? visitedIds.length >= it.need
+    : counts[it.type] >= it.need);
+}
+
+/* items sit in their own quadrant so they never overlap: ticket upper-left
+   chest, beer lower-left, coffee lower-right, cap layered over the hair */
+const ITEM_LAYERS = {
+  ticket: `<g>
+    <rect x="12" y="28.5" width="7" height="7" rx="1" fill="var(--gold)"/>
+    <circle cx="12" cy="32" r="1" fill="var(--ink3)"/>
+  </g>`,
+  beer: `<g>
+    <rect x="10" y="36" width="6" height="6" rx="1" fill="#C97A1F"/>
+    <rect x="10" y="35" width="6" height="2" rx="1" fill="#FFF6E8"/>
+    <path d="M16 37 q2 0 2 1.5 q0 1.5 -2 1.5" fill="none" stroke="#C97A1F" stroke-width="1"/>
+  </g>`,
+  coffee: `<g>
+    <rect x="28" y="35" width="6" height="6" rx="1" fill="var(--bone)"/>
+    <rect x="28" y="35" width="6" height="1.4" fill="#131019"/>
+    <path d="M34 37 q2 0 2 1.5 q0 1.5 -2 1.5" fill="none" stroke="var(--bone)" stroke-width="1"/>
+  </g>`,
+  crown: `<g>
+    <path d="M12 8 C12 3 16 1 22 1 C28 1 32 3 32 8 L32 9.5 C26 6.5 18 6.5 12 9.5 Z" fill="var(--gold)"/>
+  </g>`,
+};
+
+function avatarSVG(i, size, itemIds) {
+  itemIds = itemIds || [];
   const [skin, shirt] = AVATARS[i].split('|');
   return `<svg viewBox="0 0 44 44" width="${size}" height="${size}">
     <circle cx="22" cy="22" r="21" fill="var(--ink3)"/>
-    <path d="M8 44 C8 34 14 30 22 30 C30 30 36 34 36 44 Z" fill="${shirt}"/>
-    <circle cx="22" cy="19" r="9" fill="${skin}"/>
-    <path d="M13 18 C13 11 17 8 22 8 C27 8 31 11 31 18 C31 14 27 12.5 22 12.5 C17 12.5 13 14 13 18 Z" fill="#131019"/>
-    <ellipse cx="18.8" cy="18.5" rx="1.3" ry="1.8" fill="#131019"/>
-    <ellipse cx="25.2" cy="18.5" rx="1.3" ry="1.8" fill="#131019"/>
-    <path d="M19.5 23 Q22 24.8 24.5 23" fill="none" stroke="#131019" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M9 44 C9 32 15 26 22 26 C29 26 35 32 35 44 Z" fill="${shirt}"/>
+    <circle cx="22" cy="15" r="11" fill="${skin}"/>
+    <path d="M11 15 C11 6 16 3 22 3 C28 3 33 6 33 15 C33 11 28 9 22 9 C16 9 11 11 11 15 Z" fill="#131019"/>
+    <ellipse cx="17" cy="19" rx="1.8" ry="2.6" fill="#131019"/>
+    <ellipse cx="27" cy="19" rx="1.8" ry="2.6" fill="#131019"/>
+    <path d="M20 22.5 Q22 24.4 24 22.5 Q22 23.6 20 22.5 Z" fill="#131019"/>
+    ${itemIds.includes('ticket') ? ITEM_LAYERS.ticket : ''}
+    ${itemIds.includes('beer') ? ITEM_LAYERS.beer : ''}
+    ${itemIds.includes('coffee') ? ITEM_LAYERS.coffee : ''}
+    ${itemIds.includes('crown') ? ITEM_LAYERS.crown : ''}
   </svg>`;
 }
 function refreshAvatarBtn() {
@@ -227,18 +274,41 @@ async function openFlameSheet() {
   const monthName = now.toLocaleString('en',{month:'long'});
   const i = localStorage.getItem('muan-avatar');
 
+  const visitedIds = me.visited_venue_ids || [];
+  const earned = earnedItems(visitedIds);
+  const earnedIds = earned.map(it => it.id);
+  const itemCounts = { cafe:0, bar:0, venue:0 };
+  visitedIds.forEach(id => { const v = venueById(id); if (v && itemCounts[v.type] !== undefined) itemCounts[v.type]++; });
+  const itemTypeWord = t => t === 'any' ? 'place' : t;
+  const itemsRowHtml = ITEMS.map(it => {
+    if (earnedIds.includes(it.id)) {
+      return `<div class="fl-item"><span class="fl-item-name">${esc(it.name)}</span></div>`;
+    }
+    const have = it.type === 'any' ? visitedIds.length : itemCounts[it.type];
+    const remaining = it.need - have;
+    const word = itemTypeWord(it.type);
+    return `<div class="fl-item locked">
+      <span class="fl-item-name">${esc(it.name)}</span>
+      <span class="fl-item-req">${remaining} more ${word}${remaining>1?'s':''}</span>
+    </div>`;
+  }).join('');
+
   setSheet(`
     <div class="fl-wrap">
       ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
-      <div class="fl-flame" data-heat="${me.heat_level}">
-        <svg viewBox="0 0 120 140" width="110" height="128">
-          <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
-          </linearGradient></defs>
-          <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
-        </svg>
-        <div class="fl-streak">${me.embers_total === 0 ? '' : me.streak_months}</div>
+      <div class="fl-top-row">
+        <div class="fl-avatar-big">${i !== null ? avatarSVG(+i, 64, earnedIds) : '😊'}</div>
+        <div class="fl-flame" data-heat="${me.heat_level}">
+          <svg viewBox="0 0 120 140" width="110" height="128">
+            <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
+            </linearGradient></defs>
+            <path d="M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z" fill="url(#flg)"/>
+          </svg>
+          <div class="fl-streak">${me.embers_total === 0 ? '' : me.streak_months}</div>
+        </div>
       </div>
+      <div class="fl-items-row">${itemsRowHtml}</div>
       <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
       <div style="font-size:12px;color:var(--dim);margin-top:2px;">${esc(heatLines[me.heat_level] || '')}</div>
       <div class="fl-sub">${me.embers_total === 0 ? 'light your first flame — check in anywhere' : `${me.streak_months} month streak — every month out keeps it lit`}</div>
@@ -261,9 +331,7 @@ async function openFlameSheet() {
          </div>`).join('')}
       </div>` : ''}
 
-      <button class="btn fl-avatar" data-open-avatar>
-        ${i !== null ? avatarSVG(+i, 22) : '😊'} <span>Change avatar</span>
-      </button>
+      <button class="fl-avatar-link" data-open-avatar>Change avatar</button>
       <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
       <button class="fl-signout" data-sign-out>Sign out</button>
     </div>
@@ -774,6 +842,10 @@ async function doCheckin(v) {
       if (btn) btn.disabled = false;
       openFlameSheet();
     } else if (data.ok) {
+      const afterVisited = data.visited_venue_ids || [];
+      const beforeVisited = data.first_visit ? afterVisited.filter(id => id !== v.id) : afterVisited;
+      const itemsBefore = earnedItems(beforeVisited).map(it => it.id);
+      data.new_items = earnedItems(afterVisited).filter(it => !itemsBefore.includes(it.id));
       showCelebration(data);
     } else if (data.already) {
       document.getElementById('checkinLabel').textContent = 'Already checked in tonight';
@@ -810,6 +882,9 @@ function showCelebration(data) {
         ${data.first_visit ? '<div class="cel-row cel-new"><span>First visit here</span><b>+bonus</b></div>' : `<div class="cel-row"><span>Visits here</span><b>${data.venue_checkins}</b></div>`}
         ${data.new_badges?.length ? data.new_badges.map(b =>
           `<div class="cel-row cel-badge"><span>${b.icon} ${esc(b.name)}</span><b>unlocked</b></div>`
+        ).join('') : ''}
+        ${data.new_items?.length ? data.new_items.map(it =>
+          `<div class="cel-row cel-badge"><span>${esc(it.name)} unlocked</span><b>new</b></div>`
         ).join('') : ''}
       </div>
       ${data.capped ? '<div class="cel-capped">daily ember cap reached — check-in still counted</div>' : ''}

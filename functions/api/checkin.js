@@ -296,6 +296,11 @@ export async function onRequest(context) {
 
     const { heat, heat_level } = await computeHeat(context.env.DB, user.id);
 
+    const visitedRows = await context.env.DB.prepare(
+      'SELECT DISTINCT venue_id FROM checkins WHERE user_id = ?'
+    ).bind(user.id).all();
+    const visitedVenueIds = visitedRows.results.map(r => r.venue_id);
+
     const embersTotal = priorEmbersTotal + embersEarned;
     let streakMonths = priorStreakMonths;
     let lastCheckinMonth = priorLastCheckinMonth;
@@ -364,6 +369,7 @@ export async function onRequest(context) {
       venue_checkins: priorVisits.c + 1,
       capped,
       new_badges: newBadges,
+      visited_venue_ids: visitedVenueIds,
     });
   } catch (e) {
     console.error(e);
