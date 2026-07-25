@@ -1,4 +1,5 @@
 import { getSessionUser } from './_auth.js';
+import { computeHeat } from './_heat.js';
 
 export async function onRequest(context) {
   if (context.request.method !== 'GET')
@@ -31,12 +32,16 @@ export async function onRequest(context) {
     let stage = 'ember';
     thresholds.forEach((t,i) => { if (user.embers_total >= t) stage = stages[i]; });
 
+    const { heat, heat_level } = await computeHeat(db, user.id);
+
     return Response.json({
       ok: true,
       handle: user.handle,
       embers_total: user.embers_total || 0,
       streak_months: user.streak_months || 0,
       phai_stage: stage,
+      heat,
+      heat_level,
       checkin_days: days.results.map(r => r.d),
       venues_explored: venues?.c || 0,
       total_checkins: total?.c || 0,

@@ -1,4 +1,5 @@
 import { getSessionUser } from './_auth.js';
+import { computeHeat } from './_heat.js';
 
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -287,9 +288,13 @@ export async function onRequest(context) {
     const priorStreakMonths = user.streak_months ?? 0;
     const priorLastCheckinMonth = user.last_checkin_month ?? null;
 
+    const heatBefore = await computeHeat(context.env.DB, user.id);
+
     await context.env.DB.prepare(
       `INSERT INTO checkins (user_id, venue_id, created_at, lat, lng, embers) VALUES (?, ?, ?, ?, ?, ?)`
     ).bind(user.id, venue_id, nowIso, lat, lng, embersEarned).run();
+
+    const { heat, heat_level } = await computeHeat(context.env.DB, user.id);
 
     const embersTotal = priorEmbersTotal + embersEarned;
     let streakMonths = priorStreakMonths;
@@ -353,6 +358,9 @@ export async function onRequest(context) {
       first_visit: firstVisit,
       streak_months: streakMonths,
       phai_stage: phaiStage,
+      heat,
+      heat_level,
+      prev_heat_level: heatBefore.heat_level,
       venue_checkins: priorVisits.c + 1,
       capped,
       new_badges: newBadges,

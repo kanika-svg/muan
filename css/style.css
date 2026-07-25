@@ -455,8 +455,25 @@ body {
   display: block; margin: 10px auto 0; background: none; border: none;
   color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;
 }
-.fl-flame { position: relative; display: inline-block; animation: fl-pulse 2.6s ease-in-out infinite; }
-@keyframes fl-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.045)} }
+.fl-flame {
+  --heat-scale: 1;
+  position: relative; display: inline-block;
+  transform: scale(var(--heat-scale));
+  transition: transform .6s ease, filter .6s ease;
+  animation: fl-pulse 2.6s ease-in-out infinite;
+}
+@keyframes fl-pulse {
+  0%,100% { transform: scale(var(--heat-scale)); }
+  50%     { transform: scale(calc(var(--heat-scale) * 1.045)); }
+}
+/* --heat-scale feeds both the resting transform above and the fl-pulse peak,
+   so heat-driven size and the breathing pulse compose instead of one
+   overriding the other every animation frame */
+.fl-flame[data-heat="cold"]    { --heat-scale: .72; filter: saturate(.45) brightness(.75); animation-duration: 5s; }
+.fl-flame[data-heat="glowing"] { --heat-scale: .82; filter: saturate(.7)  brightness(.88); animation-duration: 4s; }
+.fl-flame[data-heat="warm"]    { --heat-scale: .92; filter: none; animation-duration: 3s; }
+.fl-flame[data-heat="burning"] { --heat-scale: 1;   filter: saturate(1.1) brightness(1.05); animation-duration: 2.2s; }
+.fl-flame[data-heat="roaring"] { --heat-scale: 1.1; filter: saturate(1.25) brightness(1.12); animation-duration: 1.5s; }
 .fl-streak {
   position: absolute; left: 0; right: 0; bottom: 26px;
   font-size: 40px; font-weight: 700; color: #FFF6E8;
