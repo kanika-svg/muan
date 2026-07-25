@@ -9,11 +9,6 @@ function inBounds(lat, lng) {
 }
 
 export async function onRequest(context) {
-  // TEMPORARY debug instrumentation — remove once routing works
-  if (!context.env.ORS_KEY) {
-    return Response.json({ ok: false, stage: 'no-key' }, { status: 200 });
-  }
-
   if (context.request.method !== 'GET') {
     return Response.json({ ok: false, error: 'method not allowed' }, { status: 405 });
   }
@@ -28,16 +23,11 @@ export async function onRequest(context) {
 
     if (!MODES.includes(mode) ||
         !inBounds(from_lat, from_lng) || !inBounds(to_lat, to_lng)) {
-      return Response.json({
-        ok: false, stage: 'bad-coords',
-        got: { from_lat, from_lng, to_lat, to_lng },
-      }, { status: 200 });
+      return Response.json({ ok: false }, { status: 200 });
     }
 
     // mode must be a valid ORS profile — 'driving-car' or 'foot-walking'
     const orsUrl = `https://api.openrouteservice.org/v2/directions/${mode}/geojson`;
-    // TEMPORARY debug instrumentation — remove once routing works
-    console.log('ORS url', orsUrl);
 
     const orsRes = await fetch(orsUrl, {
       method: 'POST',
@@ -51,28 +41,14 @@ export async function onRequest(context) {
       }),
     });
     const text = await orsRes.text();
-    if (!orsRes.ok) {
-      return Response.json({
-        ok: false, stage: 'ors-http',
-        status: orsRes.status, body: text.slice(0, 300),
-      }, { status: 200 });
-    }
+    if (!orsRes.ok) return Response.json({ ok: false }, { status: 200 });
 
     let data;
     try { data = JSON.parse(text); }
-    catch {
-      return Response.json({
-        ok: false, stage: 'ors-parse', body: text.slice(0, 300),
-      }, { status: 200 });
-    }
+    catch { return Response.json({ ok: false }, { status: 200 }); }
 
     const feat = data.features?.[0];
-    if (!feat) {
-      return Response.json({
-        ok: false, stage: 'no-feature', keys: Object.keys(data),
-      }, { status: 200 });
-    }
-    if (!feat.properties?.summary) return Response.json({ ok: false }, { status: 200 });
+    if (!feat?.properties?.summary) return Response.json({ ok: false }, { status: 200 });
 
     return Response.json({
       ok: true,
