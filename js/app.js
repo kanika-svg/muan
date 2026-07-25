@@ -701,6 +701,30 @@ function renderHomeSheet() {
   sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
 }
 
+/* re-labels the check-in button from current state.userPos — must be called
+   after ANY change to state.userPos while a venue sheet is open (not just
+   inside openVenue()), or the button goes stale even though other
+   userPos-dependent features (like Directions) read live state and work fine */
+function updateCheckinButton(v) {
+  const cbtn = document.getElementById('checkinBtn');
+  const lbl = document.getElementById('checkinLabel');
+  if (!cbtn || !lbl) return;
+  cbtn.disabled = true;
+  cbtn.classList.remove('ready');
+  if (!state.userPos) {
+    lbl.textContent = 'Enable location to check in';
+  } else {
+    const d = haversine(state.userPos, v);
+    if (d <= 150) {
+      cbtn.disabled = false;
+      cbtn.classList.add('ready');
+      lbl.textContent = "You're here — check in";
+    } else {
+      lbl.textContent = `${fmtDist(d)} away — get closer`;
+    }
+  }
+}
+
 /* ---------- sheet: venue detail ---------- */
 function openVenue(id) {
   const v = venueById(id);
@@ -848,18 +872,7 @@ function openVenue(id) {
 
   const cbtn = document.getElementById('checkinBtn');
   if (cbtn) {
-    if (!state.userPos) {
-      document.getElementById('checkinLabel').textContent = 'Enable location to check in';
-    } else {
-      const d = haversine(state.userPos, v);
-      if (d <= 150) {
-        cbtn.disabled = false;
-        cbtn.classList.add('ready');
-        document.getElementById('checkinLabel').textContent = "You're here — check in";
-      } else {
-        document.getElementById('checkinLabel').textContent = `${fmtDist(d)} away — get closer`;
-      }
-    }
+    updateCheckinButton(v);
     cbtn.addEventListener('click', () => doCheckin(v));
   }
 
@@ -1146,6 +1159,10 @@ function bindLocate() {
         document.getElementById('locateLabel').textContent = 'located';
         ensureUserMarker();
         state.map.flyTo({ center: [state.userPos.lng, state.userPos.lat], zoom: 15 });
+        if (state.selectedId) {
+          const v = venueById(state.selectedId);
+          if (v) updateCheckinButton(v);
+        }
       },
       () => { document.getElementById('locateLabel').textContent = 'near me'; }
     );
