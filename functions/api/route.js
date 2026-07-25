@@ -9,6 +9,11 @@ function inBounds(lat, lng) {
 }
 
 export async function onRequest(context) {
+  // TEMPORARY debug instrumentation — remove once routing works
+  if (!context.env.ORS_KEY) {
+    return Response.json({ ok: false, stage: 'no-key' }, { status: 200 });
+  }
+
   if (context.request.method !== 'GET') {
     return Response.json({ ok: false, error: 'method not allowed' }, { status: 405 });
   }
@@ -23,18 +28,42 @@ export async function onRequest(context) {
 
     if (!MODES.includes(mode) ||
         !inBounds(from_lat, from_lng) || !inBounds(to_lat, to_lng)) {
-      return Response.json({ ok: false }, { status: 200 });
+      return Response.json({
+        ok: false, stage: 'bad-coords',
+        got: { from_lat, from_lng, to_lat, to_lng },
+      }, { status: 200 });
     }
 
     const orsUrl = `https://api.openrouteservice.org/v2/directions/${mode}` +
       `?api_key=${encodeURIComponent(context.env.ORS_KEY)}` +
       `&start=${from_lng},${from_lat}&end=${to_lng},${to_lat}`;
-    const orsRes = await fetch(orsUrl);
-    if (!orsRes.ok) return Response.json({ ok: false }, { status: 200 });
+    // TEMPORARY debug instrumentation — remove once routing works
+    console.log('ORS url', orsUrl.replace(context.env.ORS_KEY, 'REDACTED'));
 
-    const data = await orsRes.json();
-    const feat = data?.features?.[0];
-    if (!feat?.properties?.summary) return Response.json({ ok: false }, { status: 200 });
+    const orsRes = await fetch(orsUrl);
+    const text = await orsRes.text();
+    if (!orsRes.ok) {
+      return Response.json({
+        ok: false, stage: 'ors-http',
+        status: orsRes.status, body: text.slice(0, 300),
+      }, { status: 200 });
+    }
+
+    let data;
+    try { data = JSON.parse(text); }
+    catch {
+      return Response.json({
+        ok: false, stage: 'ors-parse', body: text.slice(0, 300),
+      }, { status: 200 });
+    }
+
+    const feat = data.features?.[0];
+    if (!feat) {
+      return Response.json({
+        ok: false, stage: 'no-feature', keys: Object.keys(data),
+      }, { status: 200 });
+    }
+    if (!feat.properties?.summary) return Response.json({ ok: false }, { status: 200 });
 
     return Response.json({
       ok: true,
