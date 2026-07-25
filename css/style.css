@@ -16,10 +16,10 @@
 
 /* day theme — warm milky/cream */
 [data-theme="light"] {
-  --ink:   #FBF7EC;
-  --ink2:  #F5EFDF;
-  --ink3:  #EDE5D2;
-  --ink4:  #E0D6BF;
+  --ink:   #FFFCF5;
+  --ink2:  #FBF6E9;
+  --ink3:  #F2EAD8;
+  --ink4:  #DDD2BA;
   --bone:  #2A2419;
   --mute:  #6B6151;
   --dim:   #9A8F7C;
@@ -58,7 +58,7 @@ body {
 
 /* milky tint — canvas only, never the container (markers live in the container) */
 [data-theme="light"] .maplibregl-canvas {
-  filter: sepia(0.28) saturate(1.15) brightness(1.04) hue-rotate(-6deg);
+  filter: sepia(0.22) saturate(1.1) contrast(1.06) hue-rotate(-6deg);
 }
 
 /* Custom markers */
@@ -111,6 +111,7 @@ body {
   max-height: 44vh; overflow-y: auto; z-index: 6;
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
 }
+[data-theme="light"] #sheet { box-shadow: 2px 0 16px rgba(90,75,45,.10); }
 #sheetHandle {
   display: block; width: 44px; height: 5px;
   background: var(--ink4); border-radius: 3px; margin: 0 auto 10px;
@@ -356,6 +357,10 @@ body {
   display: flex; align-items: center; justify-content: center;
   background: var(--ink3); color: var(--dim);
   font-size: 17px; font-weight: 700; font-family: var(--font);
+}
+[data-theme="light"] .thumb-ph {
+  background: #E8DFC9;
+  font-weight: 700;
 }
 .t-sub, .hcard div:last-child {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

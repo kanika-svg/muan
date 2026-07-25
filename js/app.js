@@ -273,6 +273,11 @@ function initMap() {
     attributionControl: { compact: true },
     style: mapStyle(state.theme),
   });
+  state.map.on('style.load', () => {
+    if (state.theme === 'light' && state.map.getLayer('water')) {
+      state.map.setPaintProperty('water', 'fill-color', '#CBD9DC');
+    }
+  });
   state.map.on('load', () => {
     state.map.resize();
     requestAnimationFrame(() => {
