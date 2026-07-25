@@ -6,6 +6,9 @@
 
 const COLORS = { bar: '#FF5A3C', cafe: '#1FBF9C', event: '#7C5CE0', venue: '#7C5CE0' };
 const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
+/* normal map fence — initMap() sets these, clearRoute() restores them after a
+   route temporarily lifts the fence */
+const MAP_BOUNDS = { maxBounds: [[102.49, 17.88], [102.75, 18.05]], minZoom: 12.4 };
 const GOOGLE_CLIENT_ID = '768624583305-553qrbhib2mqbbi10ifsr18b8uqu4uvk.apps.googleusercontent.com';
 
 const state = {
@@ -380,8 +383,8 @@ function initMap() {
     container: 'map',
     center: [VIENTIANE.lng, VIENTIANE.lat],
     zoom: 14,
-    minZoom: 12.4,
-    maxBounds: [[102.49, 17.88], [102.75, 18.05]],
+    minZoom: MAP_BOUNDS.minZoom,
+    maxBounds: MAP_BOUNDS.maxBounds,
     attributionControl: { compact: true },
     style: mapStyle(state.theme),
   });
@@ -899,7 +902,6 @@ async function toggleRoute(v) {
     dirBtn.disabled = false;
     if (!data.ok || !data.geometry) throw new Error('no route');
 
-    showRoute(data.geometry);
     const travelEl = document.getElementById('travelLine');
     if (travelEl) {
       const mins = Math.max(1, Math.round(data.duration_s / 60));
@@ -907,8 +909,16 @@ async function toggleRoute(v) {
     }
     const attr = document.getElementById('routeAttribution');
     if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
-    lbl.textContent = 'Hide route';
-    dirBtn.dataset.showing = '1';
+
+    // beyond this range the line on the map is unreadable and unfencing the
+    // map to fit it is disorienting — the distance/time above is enough
+    if (data.distance_m > 40000) {
+      lbl.textContent = 'Too far to map';
+    } else {
+      showRoute(data.geometry);
+      lbl.textContent = 'Hide route';
+      dirBtn.dataset.showing = '1';
+    }
   } catch (e) {
     dirBtn.disabled = false;
     lbl.textContent = 'Route unavailable';
@@ -972,18 +982,26 @@ function showRoute(geometry) {
   state.currentRouteGeometry = geometry;
   drawRouteLayers(geometry);
 
+  // routes can run well outside the normal city fence — lift it while shown,
+  // clearRoute() puts it back
+  state.map.setMaxBounds(null);
+  state.map.setMinZoom(9);
+
   // frame the whole route, leaving room for the panel
   const b = new maplibregl.LngLatBounds();
   geometry.coordinates.forEach(c => b.extend(c));
+  const sheetOpen = window.innerWidth >= 768
+    && !document.getElementById('sheet')?.classList.contains('collapsed');
   state.map.fitBounds(b, {
-    padding: { top: 80, bottom: 80,
-               left: window.innerWidth >= 768 ? 460 : 40,
-               right: 40 }
+    padding: { top: 80, bottom: 80, right: 40,
+               left: sheetOpen ? 460 : 40 }
   });
 }
 
 function clearRoute() {
   state.currentRouteGeometry = null;
+  state.map.setMaxBounds(MAP_BOUNDS.maxBounds);
+  state.map.setMinZoom(MAP_BOUNDS.minZoom);
   ['route-line', 'route-casing'].forEach(id => {
     if (state.map.getLayer(id)) state.map.removeLayer(id);
   });
