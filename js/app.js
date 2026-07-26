@@ -46,6 +46,7 @@ async function boot() {
   renderHomeSheet();
   bindChips();
   bindLocate();
+  initSheetDrag();
 
   const st = document.getElementById('sheetToggle');
   st.addEventListener('click', () => {
@@ -1161,6 +1162,42 @@ function fireConfetti(container) {
 }
 
 /* ---------- helpers ---------- */
+/* delegated on document (not bound to the handle directly) because setSheet()
+   replaces #sheetHandle's DOM node on every render, which would orphan a
+   listener attached straight to the element */
+function initSheetDrag() {
+  let startY = 0, startOffset = 0, offset = 0, dragging = false;
+  const getSheet = () => document.getElementById('sheet');
+  const maxOffset = () => Math.max(0, getSheet().offsetHeight - 74);
+
+  document.addEventListener('touchstart', e => {
+    if (window.innerWidth >= 768) return;
+    if (!e.target.closest('#sheetHandle')) return;
+    const sheet = getSheet();
+    dragging = true;
+    startY = e.touches[0].clientY;
+    startOffset = sheet.classList.contains('collapsed') ? maxOffset() : 0;
+    offset = startOffset;
+    sheet.classList.add('dragging');
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const dy = e.touches[0].clientY - startY;
+    offset = Math.min(maxOffset(), Math.max(0, startOffset + dy));
+    getSheet().style.transform = `translateY(${offset}px)`;
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!dragging) return;
+    dragging = false;
+    const sheet = getSheet();
+    sheet.classList.remove('dragging');
+    sheet.style.transform = '';          // hand control back to the class
+    toggleSheet(offset > maxOffset() / 2);
+  });
+}
+
 function toggleSheet(force) {
   const sh = document.getElementById('sheet');
   const collapsed = force !== undefined ? force : !sh.classList.contains('collapsed');

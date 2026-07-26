@@ -598,21 +598,19 @@ body {
 }
 
 #sheetHandle { cursor: default; padding: 10px 0 6px; margin-top: -10px; }
-#sheet.collapsed {
-  max-height: 74px !important;
-  overflow: hidden;
-}
-#sheet.collapsed .s-title { font-size: 15px; }
-#sheet.collapsed .s-sub,
-#sheet.collapsed .sec-h,
-#sheet.collapsed .card,
-#sheet.collapsed .hcards,
-#sheet.collapsed .sec-empty,
-#sheet.collapsed .fl-wrap { display: none; }
-#sheet.collapsed::after {
-  content: 'tap to open';
-  position: absolute; right: 16px; top: 22px;
-  font-size: 11px; color: var(--dim);
+@media (max-width: 767px) {
+  #sheet {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    max-height: 44vh;
+    transform: translateY(0);
+    transition: transform .38s cubic-bezier(.32,1.15,.5,1);
+    will-change: transform;
+  }
+  /* collapsed = slid down, leaving the handle strip visible */
+  #sheet.collapsed {
+    transform: translateY(calc(100% - 74px));
+  }
+  #sheet.dragging { transition: none; }
 }
 
 @media (min-width: 768px) {
@@ -641,7 +639,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 
 @media (max-width: 767px) {
   #sheetToggle { display: none; }   /* phone uses the handle + map tap */
-  #sheetHandle { cursor: pointer; padding: 12px 0 8px; }
+  #sheetHandle { cursor: pointer; padding: 14px 0 10px; }
   #sheet.collapsed { cursor: pointer; }
 }
 
