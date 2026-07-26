@@ -1162,40 +1162,52 @@ function fireConfetti(container) {
 }
 
 /* ---------- helpers ---------- */
-/* delegated on document (not bound to the handle directly) because setSheet()
-   replaces #sheetHandle's DOM node on every render, which would orphan a
-   listener attached straight to the element */
 function initSheetDrag() {
-  let startY = 0, startOffset = 0, offset = 0, dragging = false;
+  let startY = 0, startOffset = 0, offset = 0, dragging = false, startScrollTop = 0;
   const getSheet = () => document.getElementById('sheet');
   const maxOffset = () => Math.max(0, getSheet().offsetHeight - 74);
 
-  document.addEventListener('touchstart', e => {
-    if (window.innerWidth >= 768) return;
-    if (!e.target.closest('#sheetHandle')) return;
-    const sheet = getSheet();
-    dragging = true;
-    startY = e.touches[0].clientY;
-    startOffset = sheet.classList.contains('collapsed') ? maxOffset() : 0;
-    offset = startOffset;
-    sheet.classList.add('dragging');
-  }, { passive: true });
-
-  document.addEventListener('touchmove', e => {
+  function onMove(e) {
     if (!dragging) return;
+    e.preventDefault();                  // block the browser's own scroll/zoom
     const dy = e.touches[0].clientY - startY;
     offset = Math.min(maxOffset(), Math.max(0, startOffset + dy));
     getSheet().style.transform = `translateY(${offset}px)`;
-  }, { passive: true });
+  }
 
-  document.addEventListener('touchend', () => {
+  function onEnd(e) {
     if (!dragging) return;
     dragging = false;
     const sheet = getSheet();
     sheet.classList.remove('dragging');
     sheet.style.transform = '';          // hand control back to the class
+    sheet.scrollTop = startScrollTop;    // in case any scroll slipped through
+    e.currentTarget.removeEventListener('touchmove', onMove);
+    e.currentTarget.removeEventListener('touchend', onEnd);
+    e.currentTarget.removeEventListener('touchcancel', onEnd);
     toggleSheet(offset > maxOffset() / 2);
-  });
+  }
+
+  // touchstart stays delegated on document: setSheet() replaces #sheetHandle's
+  // DOM node on every render, so a listener bound once to a specific handle
+  // element would go stale after the first re-render
+  document.addEventListener('touchstart', e => {
+    if (window.innerWidth >= 768) return;
+    const handle = e.target.closest('#sheetHandle');
+    if (!handle) return;
+    const sheet = getSheet();
+    dragging = true;
+    startY = e.touches[0].clientY;
+    startScrollTop = sheet.scrollTop;
+    startOffset = sheet.classList.contains('collapsed') ? maxOffset() : 0;
+    offset = startOffset;
+    sheet.classList.add('dragging');
+    // touchmove/touchend attach to the handle itself (not window), so the
+    // touch keeps tracking even if the finger drifts off the handle
+    handle.addEventListener('touchmove', onMove, { passive: false });
+    handle.addEventListener('touchend', onEnd);
+    handle.addEventListener('touchcancel', onEnd);
+  }, { passive: true });
 }
 
 function toggleSheet(force) {
