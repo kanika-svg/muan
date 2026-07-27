@@ -30,51 +30,70 @@ const state = {
 
 /* ---------- boot ---------- */
 async function boot() {
-  const [vRes, eRes, pRes] = await Promise.all([
-    fetch('data/venues.json'),
-    fetch('data/events.json'),
-    fetch('data/picks.json'),
-  ]);
-  state.venues = (await vRes.json()).venues;
-  state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
-  state.picks = await pRes.json();
+  try {
+    const [vRes, eRes, pRes] = await Promise.all([
+      fetch('data/venues.json'),
+      fetch('data/events.json'),
+      fetch('data/picks.json'),
+    ]);
+    state.venues = (await vRes.json()).venues;
+    state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
+    state.picks = await pRes.json();
 
-  applyTheme();
-  bindTheme();
-  refreshAvatarBtn();
-  document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
-  initMap();
-  renderHomeSheet();
-  bindChips();
-  bindLocate();
-  initSheetDrag();
+    applyTheme();
+    bindTheme();
+    refreshAvatarBtn();
+    document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
+    initMap();
+    renderHomeSheet();
+    bindChips();
+    bindLocate();
+    initSheetDrag();
 
-  const st = document.getElementById('sheetToggle');
-  st.addEventListener('click', () => {
-    toggleSheet();
-    st.textContent = document.getElementById('sheet').classList.contains('collapsed') ? '›' : '‹';
-  });
-  // restore last state on load, but only for the home sheet
-  if (localStorage.getItem('psd-sheet-collapsed') === '1') { toggleSheet(true); st.textContent = '›'; }
+    const st = document.getElementById('sheetToggle');
+    st.addEventListener('click', () => {
+      toggleSheet();
+      st.textContent = document.getElementById('sheet').classList.contains('collapsed') ? '›' : '‹';
+    });
+    // restore last state on load, but only for the home sheet
+    if (localStorage.getItem('psd-sheet-collapsed') === '1') { toggleSheet(true); st.textContent = '›'; }
 
-  document.addEventListener('click', (e) => {
-    if (window.innerWidth >= 768) return;          // desktop uses the tab
-    const sheet = document.getElementById('sheet');
-    if (!sheet) return;
-    // tapping the handle always toggles
-    if (e.target.closest('#sheetHandle')) { toggleSheet(); return; }
-    // when collapsed, tapping anywhere on the sheet expands it
-    if (sheet.classList.contains('collapsed') && e.target.closest('#sheet')) {
-      toggleSheet(false);
+    document.addEventListener('click', (e) => {
+      if (window.innerWidth >= 768) return;          // desktop uses the tab
+      const sheet = document.getElementById('sheet');
+      if (!sheet) return;
+      // tapping the handle always toggles
+      if (e.target.closest('#sheetHandle')) { toggleSheet(); return; }
+      // when collapsed, tapping anywhere on the sheet expands it
+      if (sheet.classList.contains('collapsed') && e.target.closest('#sheet')) {
+        toggleSheet(false);
+      }
+    });
+
+    const params = new URLSearchParams(location.search);
+    const vid = params.get('v');
+    if (vid && venueById(vid)) {
+      openVenue(vid);
+      if (state.map) state.map.flyTo({ center: [venueById(vid).lng, venueById(vid).lat], zoom: 15.5 });
     }
-  });
 
-  const params = new URLSearchParams(location.search);
-  const vid = params.get('v');
-  if (vid && venueById(vid)) {
-    openVenue(vid);
-    if (state.map) state.map.flyTo({ center: [venueById(vid).lng, venueById(vid).lat], zoom: 15.5 });
+    if (state.map) await new Promise(resolve => state.map.once('load', resolve));
+    dismissSplash();
+  } catch (err) {
+    console.error('[muan] boot failed', err);
+    dismissSplash();
   }
+}
+
+function dismissSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  const MIN_MS = 600;                    // avoid a jarring flash on fast loads
+  const wait = Math.max(0, MIN_MS - (performance.now() - window.__bootStart));
+  setTimeout(() => {
+    splash.classList.add('gone');
+    setTimeout(() => splash.remove(), 500);
+  }, wait);
 }
 
 /* ---------- theme ---------- */

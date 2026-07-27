@@ -2,10 +2,32 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
+  <script>window.__bootStart = performance.now();</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Paisaidee — what's on in Vientiane</title>
   <meta name="description" content="Paisaidee (ມ່ວນ) — live map of bars, cafes and events in Vientiane. ຄືນນີ້ໄປໃສດີ?">
   <meta name="theme-color" content="#131019">
+
+  <style>
+    #splash {
+      position: fixed; inset: 0; z-index: 999;
+      display: flex; align-items: center; justify-content: center;
+      background: #131019;
+      transition: opacity .45s ease;
+    }
+    #splash.gone { opacity: 0; pointer-events: none; }
+    .splash-inner { text-align: center; animation: splash-in .5s ease backwards; }
+    .splash-flame { animation: splash-pulse 1.6s ease-in-out infinite; }
+    .splash-word {
+      margin-top: 14px; font-size: 15px; font-weight: 700; letter-spacing: 3px;
+      color: #F5F1E8; font-family: system-ui, sans-serif;
+    }
+    @keyframes splash-in { from { opacity:0; transform: translateY(8px) } }
+    @keyframes splash-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+    @media (prefers-reduced-motion: reduce) {
+      .splash-inner, .splash-flame { animation: none; }
+    }
+  </style>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +39,14 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<div id="splash">
+  <div class="splash-inner">
+    <svg class="splash-flame" width="72" height="88" viewBox="0 0 72 88">
+      <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="#FF5A3C"/>
+    </svg>
+    <div class="splash-word">PAISAIDEE</div>
+  </div>
+</div>
 <div id="app">
 
   <div id="map"></div>
