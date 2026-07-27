@@ -25,6 +25,10 @@ file/variable names) intentionally remain "muan" — do not rename them.
   phone is full international format for the tel: link; phone_display is how
   locals write it. Only add when sourced from the same place as the rest of
   the venue's verified details — never invent a number.
+- Optional "photo" field on an event: a single image URL used in preference
+  to the venue's photo on event cards. Useful for events with no pinned
+  venue (venue_id: null), and for posters. Same sourcing rule as venue
+  photos — no hotlinking or guessing.
 
 ## Design tokens (do not drift)
 - Ink #131019 / #1C1726 / #241E31 / #2E2740

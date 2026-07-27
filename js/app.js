@@ -601,9 +601,10 @@ function opensLate(v) {
   return !!t && t.close >= 1440;
 }
 
-function sectionCard(v, sub) {
-  const thumb = (v.photos && v.photos.length)
-    ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">`
+function sectionCard(v, sub, photoOverride) {
+  const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
+  const thumb = photo
+    ? `<img class="thumb" src="${esc(photo)}" alt="" loading="lazy">`
     : `<div class="thumb thumb-ph" style="color:var(--${v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet'});">${esc((v.short_name || v.name).charAt(0))}</div>`;
   return `<div class="hcard" data-open-venue="${v.id}">
     ${thumb}
@@ -690,7 +691,7 @@ function renderHomeSheet() {
       if (!v) {
         html += `
           <div class="card">
-            <div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>
+            ${ev.photo ? `<img class="thumb" src="${esc(ev.photo)}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
             <div class="card-body">
               <div class="row">
                 <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)}</span>
@@ -701,9 +702,10 @@ function renderHomeSheet() {
         continue;
       }
       const st = openStatus(v);
+      const tonightPhoto = ev.photo || ((v.photos && v.photos.length) ? v.photos[0] : null);
       html += `
         <div class="card" data-open-venue="${v.id}">
-          ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--violet);">${esc((v.short_name || v.name).charAt(0))}</div>`}
+          ${tonightPhoto ? `<img class="thumb" src="${esc(tonightPhoto)}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--violet);">${esc((v.short_name || v.name).charAt(0))}</div>`}
           <div class="card-body">
             <div class="row">
               <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
@@ -744,14 +746,14 @@ function renderHomeSheet() {
         const v = venueById(ev.venue_id);
         if (!v) {
           return `<div class="hcard">
-            <div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>
+            ${ev.photo ? `<img class="thumb" src="${esc(ev.photo)}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
             <div>
               <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
               <div style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
             </div>
           </div>`;
         }
-        return sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`);
+        return sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`, ev.photo);
       }).join('') + `</div>`;
   }
 

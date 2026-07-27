@@ -59,6 +59,19 @@
       "price": null,
       "short": "Half marathon at Xaysetha development zone — registration open now",
       "source_url": "https://ewent.la",
+      "verified": true,
+      "photo": "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188315/marathon_event_vt1dg8.png"
+    },
+    {
+      "id": "sit-talk-drink-0804",
+      "venue_id": null,
+      "title": "Sit Talk Drink: stocks vs bitcoin",
+      "title_lo": "Sit Talk Drink ຮຸ້ນ VS ບິດຄອຍ",
+      "date": "2026-08-04",
+      "start_time": "17:30",
+      "price": null,
+      "short": "Talk and drinks at XOXO Cafe, Cityplex Dongdok — 5:30 to 8:30pm",
+      "source_url": "https://ewent.la",
       "verified": true
     }
   ]

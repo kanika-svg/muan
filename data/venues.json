@@ -12,7 +12,11 @@
       "area": "Souphanouvong Rd, Sikhottabong",
       "short": "Riverside-view restaurant and bar with live music",
       "description": "Big open-air restaurant and bar on Souphanouvong Road with a view across the Mekong to Thailand. Known for live bands in the evening, Beerlao on tap and grilled food. Fills up with groups after sunset.",
-      "photos": [],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188313/kong_view1_jynpt2.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188313/kongview3_rfjwq9.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188313/kongview_poster_zsxype.jpg"
+      ],
       "hours": {
         "mon": "16:30-23:30", "tue": "16:30-23:30", "wed": "16:30-23:30",
         "thu": "16:30-23:30", "fri": "16:30-23:30", "sat": "16:30-23:30", "sun": "16:30-23:30"
