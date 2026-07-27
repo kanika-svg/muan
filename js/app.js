@@ -40,7 +40,7 @@ async function boot() {
     state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
     state.picks = await pRes.json();
 
-    applyTheme();
+    initTheme();
     bindTheme();
     refreshAvatarBtn();
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
@@ -131,6 +131,22 @@ function applyTheme() {
   document.getElementById('themeLabel').textContent =
     (localStorage.getItem('muan-theme') || 'auto') === 'auto' ? 'auto' : theme;
   if (state.map && state.theme !== theme) state.map.setStyle(mapStyle(theme));
+  state.theme = theme;
+}
+
+/* boot() calls this instead of applyTheme() for the very first paint — the
+   inline pre-paint script in index.html already set data-theme before any
+   stylesheet loaded, so re-deriving it here from scratch risks landing on a
+   different value and causing the exact flash that script exists to avoid.
+   Falls back to resolvedTheme() only if that attribute is missing or isn't
+   a real theme (guards the literal 'auto' value the toggle can still write
+   to localStorage, which the pre-paint script doesn't resolve further). */
+function initTheme() {
+  const preset = document.documentElement.dataset.theme;
+  const theme = (preset === 'light' || preset === 'dark') ? preset : resolvedTheme();
+  document.documentElement.dataset.theme = theme;
+  document.getElementById('themeLabel').textContent =
+    (localStorage.getItem('muan-theme') || 'auto') === 'auto' ? 'auto' : theme;
   state.theme = theme;
 }
 
