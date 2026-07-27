@@ -426,6 +426,7 @@ function initMap() {
     document.getElementById('map').classList.toggle('labels-thin', state.map.getZoom() < 12.8);
     document.getElementById('map').classList.toggle('zoomed-close', state.map.getZoom() >= 15.5);
   });
+  state.map.on('zoomend', () => updateLabelCrowding());
   state.map.on('click', (e) => {
     if (e.originalEvent.target.closest('.marker')) return;
     if (state.selectedId) { stopTracking(); renderHomeSheet(); }
@@ -484,18 +485,48 @@ function renderMarkers() {
     }).length;
     const offLng = v.lng + seen * 0.00055;
 
-    const crowded = state.markers.some(m => {
-      const p = m.marker.getLngLat();
-      return Math.abs(p.lat - v.lat) < 0.0012 && Math.abs(p.lng - v.lng) < 0.0022;
-    });
-    if (crowded) el.classList.add('label-crowded');
-
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([offLng, v.lat])
       .addTo(state.map);
-    state.markers.push({ id: v.id, el, marker });
+    state.markers.push({ id: v.id, venue: v, hasEventToday, isPick, el, marker });
   }
+  updateLabelCrowding();
   updateSelection();
+}
+
+/* priority order for keeping a label when pins crowd together, highest first */
+function labelPriorityRank(m) {
+  if (m.hasEventToday) return 0;
+  if (m.isPick) return 1;
+  if (openStatus(m.venue).open) return 2;
+  if (Array.isArray(m.venue.photos) && m.venue.photos.length > 0) return 3;
+  return 4;
+}
+
+function rectsOverlap(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+/* walks markers highest-priority first, keeping a label unless its rect
+   collides with an already-kept label's rect. re-run on zoom end since
+   screen-space rects shift as the map scale changes. */
+function updateLabelCrowding() {
+  state.markers.forEach(m => m.el.classList.remove('label-crowded'));
+
+  const sorted = [...state.markers].sort((a, b) => {
+    const r = labelPriorityRank(a) - labelPriorityRank(b);
+    return r !== 0 ? r : a.venue.name.localeCompare(b.venue.name);
+  });
+
+  const kept = [];
+  for (const m of sorted) {
+    const label = m.el.querySelector('.m-label');
+    if (!label) continue;
+    const rect = label.getBoundingClientRect();
+    const collides = kept.some(k => rectsOverlap(rect, k));
+    if (collides) m.el.classList.add('label-crowded');
+    else kept.push(rect);
+  }
 }
 
 function updateSelection() {
