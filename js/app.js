@@ -423,10 +423,9 @@ function initMap() {
   });
   state.map.on('zoom', () => {
     document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 12.2);
-    document.getElementById('map').classList.toggle('labels-thin', state.map.getZoom() < 12.8);
-    document.getElementById('map').classList.toggle('zoomed-close', state.map.getZoom() >= 15.5);
   });
-  state.map.on('zoomend', () => updateLabelCrowding());
+  state.map.on('zoomend', () => scheduleLabelCrowding());
+  state.map.on('moveend', () => scheduleLabelCrowding());
   state.map.on('click', (e) => {
     if (e.originalEvent.target.closest('.marker')) return;
     if (state.selectedId) { stopTracking(); renderHomeSheet(); }
@@ -508,8 +507,10 @@ function rectsOverlap(a, b) {
 }
 
 /* walks markers highest-priority first, keeping a label unless its rect
-   collides with an already-kept label's rect. re-run on zoom end since
-   screen-space rects shift as the map scale changes. */
+   collides with an already-kept label's rect. re-run (debounced, see
+   scheduleLabelCrowding) on zoomend/moveend since screen-space rects shift
+   as the map view changes — this is now the only thing governing label
+   visibility mid-crowd, replacing the old fixed zoom-threshold classes. */
 function updateLabelCrowding() {
   state.markers.forEach(m => m.el.classList.remove('label-crowded'));
 
@@ -527,6 +528,13 @@ function updateLabelCrowding() {
     if (collides) m.el.classList.add('label-crowded');
     else kept.push(rect);
   }
+}
+
+/* debounced so a continuous pinch/scroll doesn't recompute every frame */
+let labelCrowdingTimer = null;
+function scheduleLabelCrowding() {
+  clearTimeout(labelCrowdingTimer);
+  labelCrowdingTimer = setTimeout(updateLabelCrowding, 120);
 }
 
 function updateSelection() {

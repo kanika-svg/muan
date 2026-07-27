@@ -210,10 +210,6 @@ body {
 .marker.selected .m-label { color: var(--flame); }
 #map.labels-hidden .m-label, #map.labels-hidden .m-sub { display: none; }
 
-/* below zoom 12.8: only pins with something on keep their label */
-#map.labels-thin .marker:not(.pin-event):not(.pin-pick) .m-label,
-#map.labels-thin .marker:not(.pin-event):not(.pin-pick) .m-sub { display: none; }
-
 /* selection: chosen pin grows, others recede */
 .marker { transition: opacity .2s; }
 .map-has-selection .marker { opacity: .38; }
@@ -350,11 +346,12 @@ body {
   }
 }
 
-/* crowded pins: hide label unless selected or zoomed close */
+/* crowded pins: hide label unless selected — the collision pass in
+   updateLabelCrowding() re-adds/removes this class as the map view changes,
+   so labels reappear on their own once pins have room */
 .marker.label-crowded .m-label,
 .marker.label-crowded .m-sub { display: none; }
 .marker.label-crowded.selected .m-label { display: block; }
-#map.zoomed-close .marker.label-crowded .m-label { display: block; }
 
 /* section headers + coming-soon slot */
 .sec-h {
