@@ -56,7 +56,11 @@
       "area": "Quai Fa Ngum, opposite the night market",
       "short": "Lao coffee house on the riverfront",
       "description": "Riverside branch of the Lao coffee roaster, opposite the night market. Lao-grown beans, pastries and breakfast. Good daytime meeting spot before the riverfront wakes up.",
-      "photos": [],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191009/cafesinouk1_inu37p.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191009/cafesinouk4_d91cjb.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191324/cafesinouk5_ybuvn2.jpg"
+      ],
       "hours": {
         "mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00",
         "thu": "07:00-22:00", "fri": "07:00-22:00", "sat": "07:00-22:00", "sun": "07:00-22:00"
@@ -233,7 +237,11 @@
       "area": "Chao Anou Rd",
       "short": "Brunch café and bakery near the night market",
       "description": "Long-running café and bakery on Chao Anou — pita pockets, salads, baked goods and strong coffee, with a small shop inside. A daytime staple near the night market. Closed Sundays.",
-      "photos": [],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191008/Commomg1_vdwjao.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191008/cg3_bty0m8.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191008/cg2_kst3ip.jpg"
+      ],
       "hours": {
         "mon": "07:00-20:00", "tue": "07:00-20:00", "wed": "07:00-20:00",
         "thu": "07:00-20:00", "fri": "07:00-20:00", "sat": "07:00-20:00", "sun": null
