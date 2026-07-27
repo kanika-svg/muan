@@ -17,7 +17,6 @@ const state = {
   picks: null,
   filter: 'all',
   markers: [],
-  clusterMarkers: [],
   userPos: null,
   userMarker: null,
   currentRouteGeometry: null,
@@ -427,11 +426,9 @@ function initMap() {
     document.getElementById('map').classList.toggle('labels-thin', state.map.getZoom() < 12.8);
     document.getElementById('map').classList.toggle('zoomed-close', state.map.getZoom() >= 15.5);
   });
-  state.map.on('zoomend', () => { updateClusters(); updateLabelCrowding(); });
-  state.map.on('moveend', () => { updateClusters(); updateLabelCrowding(); });
+  state.map.on('zoomend', () => updateLabelCrowding());
   state.map.on('click', (e) => {
     if (e.originalEvent.target.closest('.marker')) return;
-    if (e.originalEvent.target.closest('.cluster')) return;
     if (state.selectedId) { stopTracking(); renderHomeSheet(); }
     if (window.innerWidth < 768) toggleSheet(true);
   });
@@ -493,12 +490,11 @@ function renderMarkers() {
       .addTo(state.map);
     state.markers.push({ id: v.id, venue: v, hasEventToday, isPick, el, marker });
   }
-  updateClusters();
   updateLabelCrowding();
   updateSelection();
 }
 
-/* priority order shared by the cluster pass and the label pass, highest first */
+/* priority order for keeping a label when pins crowd together, highest first */
 function labelPriorityRank(m) {
   if (m.hasEventToday) return 0;
   if (m.isPick) return 1;
@@ -507,78 +503,20 @@ function labelPriorityRank(m) {
   return 4;
 }
 
-function sortByLabelPriority(markers) {
-  return [...markers].sort((a, b) => {
-    const r = labelPriorityRank(a) - labelPriorityRank(b);
-    return r !== 0 ? r : a.venue.name.localeCompare(b.venue.name);
-  });
-}
-
-const CLUSTER_PX = 40;
-
-/* groups pins that sit within CLUSTER_PX of each other on screen, walking
-   them in the same priority order the label pass uses. runs before the
-   label pass so crowded labels are only computed for surviving markers. */
-function updateClusters() {
-  /* remove the whole pool up front — stale cluster markers are the likely leak here */
-  state.clusterMarkers.forEach(cm => cm.remove());
-  state.clusterMarkers = [];
-  state.markers.forEach(m => m.el.classList.remove('in-cluster'));
-
-  const sorted = sortByLabelPriority(state.markers);
-  const points = new Map(sorted.map(m => [m, state.map.project([m.venue.lng, m.venue.lat])]));
-
-  const grouped = new Set();
-  for (const leader of sorted) {
-    if (grouped.has(leader)) continue;
-    const group = [leader];
-    grouped.add(leader);
-    const lp = points.get(leader);
-    for (const other of sorted) {
-      if (grouped.has(other)) continue;
-      const op = points.get(other);
-      if (Math.hypot(op.x - lp.x, op.y - lp.y) <= CLUSTER_PX) {
-        group.push(other);
-        grouped.add(other);
-      }
-    }
-    if (group.length < 2) continue;
-
-    group.forEach(m => m.el.classList.add('in-cluster'));
-
-    const members = group.map(m => m.venue);
-    const centroidLng = members.reduce((s, v) => s + v.lng, 0) / members.length;
-    const centroidLat = members.reduce((s, v) => s + v.lat, 0) / members.length;
-    const hasEvent = group.some(m => m.hasEventToday);
-
-    const el = document.createElement('div');
-    el.className = 'cluster' + (hasEvent ? ' has-event' : '');
-    el.textContent = String(group.length);
-    el.addEventListener('click', () => {
-      const b = new maplibregl.LngLatBounds();
-      members.forEach(v => b.extend([v.lng, v.lat]));
-      state.map.fitBounds(b, { padding: 80, maxZoom: 17 });
-    });
-
-    const clusterMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
-      .setLngLat([centroidLng, centroidLat])
-      .addTo(state.map);
-    state.clusterMarkers.push(clusterMarker);
-  }
-}
-
 function rectsOverlap(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
-/* walks surviving (non-clustered) markers highest-priority first, keeping a
-   label unless its rect collides with an already-kept label's rect. re-run
-   on zoom/move end since screen-space rects shift as the map view changes. */
+/* walks markers highest-priority first, keeping a label unless its rect
+   collides with an already-kept label's rect. re-run on zoom end since
+   screen-space rects shift as the map scale changes. */
 function updateLabelCrowding() {
   state.markers.forEach(m => m.el.classList.remove('label-crowded'));
 
-  const eligible = state.markers.filter(m => !m.el.classList.contains('in-cluster'));
-  const sorted = sortByLabelPriority(eligible);
+  const sorted = [...state.markers].sort((a, b) => {
+    const r = labelPriorityRank(a) - labelPriorityRank(b);
+    return r !== 0 ? r : a.venue.name.localeCompare(b.venue.name);
+  });
 
   const kept = [];
   for (const m of sorted) {
