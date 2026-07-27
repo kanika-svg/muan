@@ -18,6 +18,7 @@ const state = {
   filter: 'all',
   markers: [],
   userPos: null,
+  geoError: null,
   userMarker: null,
   currentRouteGeometry: null,
   map: null,
@@ -788,7 +789,10 @@ function updateCheckinButton(v) {
   cbtn.disabled = true;
   cbtn.classList.remove('ready');
   if (!state.userPos) {
-    lbl.textContent = 'Enable location to check in';
+    lbl.textContent = state.geoError === 'blocked' ? 'Location blocked — enable it to check in'
+      : state.geoError === 'timeout' ? "Couldn't find you — try again"
+      : state.geoError === 'unavailable' ? 'Location unavailable'
+      : 'Enable location to check in';
   } else {
     const d = haversine(state.userPos, v);
     if (d <= 150) {
@@ -1285,9 +1289,12 @@ function bindChips() {
 function bindLocate() {
   document.getElementById('locateBtn').addEventListener('click', () => {
     if (!navigator.geolocation) return;
+    const hint = document.getElementById('geoHint');
+    if (hint) hint.hidden = true;
     document.getElementById('locateLabel').textContent = '…';
     navigator.geolocation.getCurrentPosition(
       pos => {
+        state.geoError = null;
         state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         document.getElementById('locateLabel').textContent = 'located';
         ensureUserMarker();
@@ -1297,8 +1304,29 @@ function bindLocate() {
           if (v) updateCheckinButton(v);
         }
       },
-      () => { document.getElementById('locateLabel').textContent = 'near me'; }
+      err => {
+        console.warn('[muan] geolocation error', err);
+        state.geoError = err.code === 1 ? 'blocked' : err.code === 3 ? 'timeout' : 'unavailable';
+        const lbl = document.getElementById('locateLabel');
+        if (state.geoError === 'blocked') {
+          lbl.textContent = 'location blocked';
+          if (hint) hint.hidden = false;
+        } else if (state.geoError === 'timeout') {
+          lbl.textContent = "couldn't find you — tap to retry";
+        } else {
+          lbl.textContent = 'location unavailable';
+        }
+        if (state.selectedId) {
+          const v = venueById(state.selectedId);
+          if (v) updateCheckinButton(v);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
+  });
+  document.addEventListener('click', (e) => {
+    const hint = document.getElementById('geoHint');
+    if (hint && !hint.hidden && !e.target.closest('#locateBtn')) hint.hidden = true;
   });
 }
 
