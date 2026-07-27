@@ -640,7 +640,8 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 @media (max-width: 767px) {
   #sheetToggle { display: none; }   /* phone uses the handle + map tap */
   #sheetHandle { cursor: pointer; padding: 14px 0 10px; touch-action: none; }
-  #sheet.collapsed { cursor: pointer; }
+  .s-title, .s-sub { touch-action: none; }
+  #sheet.collapsed { cursor: pointer; touch-action: none; }
   #sheet.dragging { overflow: hidden; }  /* internal list can't move */
 }
 
