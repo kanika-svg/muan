@@ -72,7 +72,8 @@
       "price": null,
       "short": "Talk and drinks at XOXO Cafe, Cityplex Dongdok — 5:30 to 8:30pm",
       "source_url": "https://ewent.la",
-      "verified": true
+      "verified": true,
+      "photo": "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192711/sittalkdrink_iezqzm.png"
     }
   ]
 }

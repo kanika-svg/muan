@@ -301,7 +301,7 @@
       "area": "Chao Anouvong Park, riverfront",
       "short": "Riverside tents — clothes, souvenirs, crafts",
       "description": "The nightly riverside market at Chao Anouvong Park — red-tent stalls with clothes, souvenirs and crafts. Busiest Friday and Saturday evenings, when street performers often join. A standing anchor of the riverfront night. The food stalls are a separate market across the road — don't come to these tents expecting dinner.",
-      "photos": [],
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/night_market_hrrub8.jpg"],
       "hours": {
         "mon": "18:00-22:00", "tue": "18:00-22:00", "wed": "18:00-22:00",
         "thu": "18:00-22:00", "fri": "18:00-22:00", "sat": "18:00-22:00", "sun": "18:00-22:00"
@@ -399,7 +399,7 @@
       "area": "Kaysone Phomvihane Rd, by Patuxay",
       "short": "Laos' biggest mall — opening soon",
       "description": "The huge new Kolao-built mall rising next to Patuxay — set to be the largest in Laos, right on the BRT line in the middle of town. The building is finished and the opening keeps slipping ('soon', per the signs) — when the doors finally open, expect the whole city to show up. We'll be watching.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784845182/kokkok_mega_mart1_o9wagt.png"],
+      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/kokkok_megamart1_in5kif.jpg"],
       "hours": null,
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
       "verified": true,
