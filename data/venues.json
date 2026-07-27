@@ -284,15 +284,15 @@
     },
     {
       "id": "vte-night-market",
-      "name": "Vientiane Night Market",
+      "name": "Vientiane Night Market (riverside)",
       "short_name": "Night Market",
       "name_lo": "ຕະຫຼາດກາງຄືນ",
       "type": "venue",
       "lat": 17.9628193,
       "lng": 102.6061735,
       "area": "Chao Anouvong Park, riverfront",
-      "short": "Riverside night market, every evening",
-      "description": "The nightly riverside market at Chao Anouvong Park — red-tent stalls with clothes, souvenirs and crafts, with street food vendors around the edges. Busiest Friday and Saturday evenings, when street performers often join. A standing anchor of the riverfront night.",
+      "short": "Riverside tents — clothes, souvenirs, crafts",
+      "description": "The nightly riverside market at Chao Anouvong Park — red-tent stalls with clothes, souvenirs and crafts. Busiest Friday and Saturday evenings, when street performers often join. A standing anchor of the riverfront night. The food stalls are a separate market across the road — don't come to these tents expecting dinner.",
       "photos": [],
       "hours": {
         "mon": "18:00-22:00", "tue": "18:00-22:00", "wed": "18:00-22:00",
