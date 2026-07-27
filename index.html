@@ -31,7 +31,8 @@
     #splash.gone { opacity: 0; pointer-events: none; }
     .splash-inner { text-align: center; animation: splash-in .5s ease backwards; }
     .splash-flame { animation: splash-pulse 1.6s ease-in-out infinite; }
-    .splash-flame path { fill: #FF5A3C; }
+    .splash-flame path:first-child { fill: #FF5A3C; }
+    .splash-flame path:last-child { fill: #131019; }
     .splash-word {
       margin-top: 14px; font-size: 15px; font-weight: 700; letter-spacing: 3px;
       color: #F5F1E8; font-family: system-ui, sans-serif;
@@ -44,7 +45,8 @@
 
     [data-theme="light"] #splash { background: #FFFCF5; }
     [data-theme="light"] .splash-word { color: #2A2419; }
-    [data-theme="light"] .splash-flame path { fill: #D93A1F; }
+    [data-theme="light"] .splash-flame path:first-child { fill: #D93A1F; }
+    [data-theme="light"] .splash-flame path:last-child { fill: #FFFCF5; }
   </style>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,8 +61,9 @@
 <body>
 <div id="splash">
   <div class="splash-inner">
-    <svg class="splash-flame" width="72" height="88" viewBox="0 0 72 88">
-      <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="#FF5A3C"/>
+    <svg class="splash-flame" width="72" height="88" viewBox="0 0 72 88" aria-hidden="true">
+      <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z"/>
+      <path d="M36 22 C31 32 23 37 23 48 C23 57 29 63 36 63 C43 63 49 57 49 48 C49 41 44 37 41 31 C40 36 37 37 36 36 C38 31 38 26 36 22 Z"/>
     </svg>
     <div class="splash-word">PAISAIDEE</div>
   </div>
@@ -72,8 +75,13 @@
   <header id="topbar">
     <div class="row">
       <div class="pill brand-pill">
-        <img src="assets/logo.svg" alt="" width="15" height="18">
-        <span class="brand">PAISAIDEE</span>
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <span class="brand-words">
+            <span class="brand-lo lao">ໄປໃສດີ</span>
+            <span class="brand-en">PAISAIDEE</span>
+          </span>
+        </div>
       </div>
       <button class="pill" id="locateBtn" aria-label="Show my location">
         <span id="locateIcon">📍</span><span id="locateLabel">near me</span>

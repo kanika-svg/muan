@@ -41,6 +41,7 @@ async function boot() {
     state.picks = await pRes.json();
 
     initTheme();
+    document.querySelector('.brand-mark').innerHTML = logoMark(17, 'var(--ink2)');
     bindTheme();
     refreshAvatarBtn();
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
@@ -482,6 +483,15 @@ function pinSVG(color, scale, variant) {
     <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="${color}"/>
     <circle cx="36" cy="32" r="13" fill="#131019"/>
     ${dot}
+  </svg>`;
+}
+
+/* the negative-space flame's fill must match whatever surface the mark sits
+   on (splash background, pill background, etc.) — never hardcode it */
+function logoMark(size, negativeFill) {
+  return `<svg width="${size}" height="${Math.round(size*88/72)}" viewBox="0 0 72 88" aria-hidden="true">
+    <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="var(--flame)"/>
+    <path d="M36 22 C31 32 23 37 23 48 C23 57 29 63 36 63 C43 63 49 57 49 48 C49 41 44 37 41 31 C40 36 37 37 36 36 C38 31 38 26 36 22 Z" fill="${negativeFill}"/>
   </svg>`;
 }
 
