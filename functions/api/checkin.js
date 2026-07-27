@@ -38,7 +38,8 @@ const VENUE_COORDS = {
   "stellar-bar": { lat: 17.9650516, lng: 102.6001079, name: "Stellar Bar" },
   "blues-box": { lat: 17.9647287, lng: 102.6084091, name: "The Blues Box" },
   "wind-west": { lat: 17.9674176, lng: 102.6010777, name: "Wind West" },
-  "seventh-heaven": { lat: 17.9657665, lng: 102.5967715, name: "7th Heaven" }
+  "seventh-heaven": { lat: 17.9657665, lng: 102.5967715, name: "7th Heaven" },
+  "sathiti-cafe": { lat: 17.9685234, lng: 102.6049603, name: "Sathiti Café" }
 };
 
 /* hours duplicated from venues.json — keep in sync when adding venues */
@@ -128,6 +129,10 @@ const VENUE_HOURS = {
   "seventh-heaven": {
     mon: "16:30-22:30", tue: "16:30-22:30", wed: "16:30-22:30",
     thu: "16:30-22:30", fri: "16:30-22:30", sat: "16:30-22:30", sun: "16:30-22:30"
+  },
+  "sathiti-cafe": {
+    mon: "07:00-18:00", tue: "07:00-18:00", wed: "07:00-18:00",
+    thu: "07:00-18:00", fri: "07:00-18:00", sat: "07:00-18:00", sun: "07:00-18:00"
   }
 };
 

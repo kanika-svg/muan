@@ -512,6 +512,34 @@
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9657665,102.5967715" },
       "verified": true,
       "source": "Google Maps listing, 2026-07-25"
+    },
+    {
+      "id": "sathiti-cafe",
+      "name": "Sathiti Café",
+      "short_name": "Sathiti",
+      "name_lo": "ສະຖິຕິ ກາເຟ",
+      "type": "cafe",
+      "lat": 17.9685234,
+      "lng": 102.6049603,
+      "area": "Rue Hengboun, Ban Anou",
+      "short": "Competition-winning coffee, open from 7am",
+      "description": "Specialty coffee house on Hengboun run by a competition barista — Champion of the Savannakhet Aeropress 2025 and third in the Vientiane Moka Pot Battle. Almond croissants, sandwiches and Lao-Thai plates alongside the coffee, and rooms upstairs if you never leave.",
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785181937/sathiti1_llseqr.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785181937/sathiti2_a0xpc5.jpg",
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785181937/sathiti3_ffa25d.jpg"
+      ],
+      "hours": {
+        "mon": "07:00-18:00", "tue": "07:00-18:00", "wed": "07:00-18:00",
+        "thu": "07:00-18:00", "fri": "07:00-18:00", "sat": "07:00-18:00", "sun": "07:00-18:00"
+      },
+      "contact": { "phone": "+8562056265662", "phone_display": "020 56 265 662" },
+      "links": {
+        "facebook": "https://www.facebook.com/profile.php?id=61560300636410",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9685234,102.6049603"
+      },
+      "verified": true,
+      "source": "Facebook page + Google Maps listing (phone matches both), 2026-07-26"
     }
   ]
 }
