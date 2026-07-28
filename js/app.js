@@ -59,14 +59,14 @@ function getPosition({ timeout = 10000, maximumAge = 30000, highAccuracy = true 
 /* ---------- boot ---------- */
 // chipBar is one persistent DOM node moved between #topbar (desktop) and
 // #sheet (mobile) rather than duplicated, so there's a single source of
-// truth for which chip is active. setSheet() re-threads it back into place
-// on every render since it lives inside #sheet's replaced innerHTML there.
+// truth for which chip is active. It sits as a sibling of #sheetInner, which
+// setSheet() never touches, so it survives every content re-render untouched.
 function placeChips() {
   const chipBar = document.getElementById('chipBar');
   const topbar = document.getElementById('topbar');
   const sheet = document.getElementById('sheet');
   if (window.innerWidth < 768) {
-    if (!sheet.contains(chipBar)) sheet.insertBefore(chipBar, sheet.children[1] || null);
+    if (!sheet.contains(chipBar)) sheet.insertBefore(chipBar, document.getElementById('sheetInner'));
   } else if (!topbar.contains(chipBar)) {
     topbar.appendChild(chipBar);
   }
@@ -1363,12 +1363,14 @@ function initSheetDrag() {
     return !!e.target.closest('.s-title, .s-sub');
   };
 
-  // horizontal filter-swipe is disabled starting on .hcards (they scroll
-  // themselves) or #sheetHandle (already the vertical drag target)
-  const canSwipeX = e => !e.target.closest('.hcards') && !e.target.closest('#sheetHandle');
+  // horizontal filter-swipe only applies to the home list: not while a venue
+  // detail or the avatar sheet is open (#sheet.expanded), not starting on
+  // .hcards (they scroll themselves), and not on #sheetHandle (vertical target)
+  const canSwipeX = e => !sheet.classList.contains('expanded')
+    && !e.target.closest('.hcards') && !e.target.closest('#sheetHandle');
 
-  // touchstart/move/end are delegated on #sheet itself (not a child), so they
-  // survive setSheet() replacing the sheet's inner content on every render
+  // touchstart/move/end are delegated on #sheet itself (a static element —
+  // only its #sheetInner child's content is replaced on each render)
   const sheet = getSheet();
 
   sheet.addEventListener('touchstart', e => {
@@ -1404,6 +1406,16 @@ function initSheetDrag() {
     } else if (axis === 'x') {
       e.preventDefault();
       dx = moveX;
+      if (!prefersReducedMotion()) {
+        const inner = document.getElementById('sheetInner');
+        const W = sheet.clientWidth;
+        const i = FILTER_ORDER.indexOf(state.filter || 'all');
+        const atEnd = (dx < 0 && i === FILTER_ORDER.length - 1) || (dx > 0 && i === 0);
+        const move = atEnd ? dx * 0.25 : dx;          // resistance at the ends
+        inner.classList.add('swiping');
+        inner.style.transform = `translateX(${move}px)`;
+        inner.style.opacity = String(1 - Math.min(0.45, Math.abs(move) / W));
+      }
     }
     // axis === 'none': let the touch fall through to native scrolling (.hcards)
   }, { passive: false });
@@ -1414,8 +1426,15 @@ function initSheetDrag() {
       sheet.style.transform = '';        // hand control back to the class
       sheet.scrollTop = startScrollTop;  // in case any scroll slipped through
       toggleSheet(offset > maxOffset() / 2);
-    } else if (axis === 'x' && Math.abs(dx) > 60) {
-      changeFilter(dx < 0 ? 1 : -1);
+    } else if (axis === 'x') {
+      const i = FILTER_ORDER.indexOf(state.filter || 'all');
+      const atEnd = (dx < 0 && i === FILTER_ORDER.length - 1) || (dx > 0 && i === 0);
+      const commit = Math.abs(dx) > 60 && !atEnd;
+      if (prefersReducedMotion()) {
+        if (commit) changeFilter(dx < 0 ? 1 : -1);      // instant switch, no follow/slide
+      } else {
+        changeFilterAnimated(commit ? (dx < 0 ? 1 : -1) : 0);
+      }
     }
     axis = null;
     dragging = false;
@@ -1426,6 +1445,11 @@ function initSheetDrag() {
 
 // order swiped through on mobile; does not wrap at the ends
 const FILTER_ORDER = ['all', 'bar', 'cafe', 'event'];
+const prefersReducedMotion = () =>
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// instant switch, no animation — used for direct chip taps and for a
+// committed swipe under prefers-reduced-motion
 function changeFilter(dir) {
   const next = FILTER_ORDER.indexOf(state.filter || 'all') + dir;
   if (next < 0 || next >= FILTER_ORDER.length) return;
@@ -1433,6 +1457,45 @@ function changeFilter(dir) {
   if (!chip) return;
   chip.click();
   chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+}
+
+// dir: 0 snaps #sheetInner back to rest; ±1 carries it the rest of the way
+// off-screen, swaps the filter, then flies the new content in from the
+// opposite side. Mirrors changeFilter()'s indexing (dir>0 = next filter).
+function changeFilterAnimated(dir) {
+  const inner = document.getElementById('sheetInner');
+  const sheet = document.getElementById('sheet');
+  const W = sheet.clientWidth;
+  inner.classList.remove('swiping');
+  inner.classList.add('settling');
+  inner.addEventListener('transitionend', () => inner.classList.remove('settling'), { once: true });
+
+  if (!dir) {
+    inner.style.transform = 'translateX(0)';
+    inner.style.opacity = '1';
+    return;
+  }
+
+  const i = FILTER_ORDER.indexOf(state.filter || 'all');
+  inner.style.transform = `translateX(${-dir * W * 0.35}px)`;
+  inner.style.opacity = '0';
+  setTimeout(() => {
+    state.filter = FILTER_ORDER[i + dir];
+    syncChipState();
+    renderMarkers();
+    renderHomeSheet();                 // re-renders into #sheetInner, resetting transform/opacity
+    inner.classList.remove('settling');
+    inner.style.transform = `translateX(${dir * W * 0.35}px)`;
+    inner.style.opacity = '0';
+    requestAnimationFrame(() => {
+      inner.classList.add('settling');
+      inner.style.transform = 'translateX(0)';
+      inner.style.opacity = '1';
+    });
+    inner.addEventListener('transitionend', () => inner.classList.remove('settling'), { once: true });
+    const activeChip = document.querySelector('.chip.on');
+    if (activeChip) activeChip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, 200);
 }
 
 function toggleSheet(force) {
@@ -1443,30 +1506,37 @@ function toggleSheet(force) {
 }
 
 function setSheet(html) {
-  document.getElementById('sheet').classList.toggle('expanded', html.includes('data-venue-detail'));
   const sheet = document.getElementById('sheet');
-  // chipBar is a single persistent node (see placeChips()) that may currently
-  // live inside #sheet on mobile; innerHTML below would destroy it, so hold
-  // onto it and re-thread it back in right after the handle.
-  const chipBar = document.getElementById('chipBar');
-  const chipsWereInSheet = sheet.contains(chipBar);
-  sheet.innerHTML = `<div id="sheetHandle" aria-hidden="true"></div>` + html;
-  if (chipsWereInSheet) sheet.insertBefore(chipBar, sheet.children[1] || null);
-  sheet.classList.remove('anim');
-  void sheet.offsetWidth;
-  sheet.classList.add('anim');
-  sheet.querySelectorAll('[data-open-venue]').forEach(el =>
+  sheet.classList.toggle('expanded', html.includes('data-venue-detail'));
+  // #sheetHandle and chipBar are persistent siblings of #sheetInner (see
+  // index.html / placeChips()) — only #sheetInner's content is replaced, so
+  // a horizontal filter-swipe can animate it without fighting the sheet's
+  // own vertical scroll/collapse transform.
+  const inner = document.getElementById('sheetInner');
+  inner.innerHTML = html;
+  // undo any in-progress swipe animation left over from changeFilterAnimated()
+  inner.classList.remove('swiping', 'settling');
+  inner.style.transform = '';
+  inner.style.opacity = '';
+  inner.classList.remove('anim');
+  void inner.offsetWidth;
+  inner.classList.add('anim');
+  inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
-  sheet.querySelectorAll('[data-home]').forEach(el =>
+  inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => { stopTracking(); renderHomeSheet(); }));
+}
+
+function syncChipState() {
+  document.querySelectorAll('.chip').forEach(c =>
+    c.classList.toggle('on', c.dataset.filter === (state.filter || 'all')));
 }
 
 function bindChips() {
   document.querySelectorAll('.chip').forEach(ch => {
     ch.addEventListener('click', () => {
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
-      ch.classList.add('on');
       state.filter = ch.dataset.filter;
+      syncChipState();
       renderMarkers();
       if (!state.selectedId) renderHomeSheet();
     });
