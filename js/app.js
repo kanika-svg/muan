@@ -1348,9 +1348,34 @@ function fireConfetti(container) {
 }
 
 /* ---------- helpers ---------- */
+// module-level (not local to initSheetDrag) so changeFilterAnimated() can
+// also clear them once a committed swipe finishes settling — see endGesture()
+let dragging = false;
+let axis = null;                         // null (undecided) | 'x' | 'y' | 'none'
+
+// clears all touch-gesture state. Called on every gesture exit path —
+// touchend, touchcancel, defensively at the top of touchstart, and once a
+// committed swipe settles — so a stray touchcancel, a second finger landing
+// mid-drag, or a backgrounded tab can never leave #sheet stuck at
+// overflow:hidden (the .dragging class) or the axis lock stuck at 'x'.
+function endGesture() {
+  dragging = false;
+  axis = null;
+  const sheet = document.getElementById('sheet');
+  if (sheet) {
+    sheet.classList.remove('dragging');
+    sheet.style.transform = '';    // a cancelled vertical drag must not leave #sheet stuck mid-slide
+  }
+  const inner = document.getElementById('sheetInner');
+  if (inner) {
+    inner.classList.remove('swiping');
+    inner.style.transform = '';
+    inner.style.opacity = '';
+  }
+}
+
 function initSheetDrag() {
-  let startX = 0, startY = 0, startOffset = 0, offset = 0, dx = 0, dragging = false, startScrollTop = 0;
-  let axis = null;                       // null (undecided) | 'x' | 'y' | 'none'
+  let startX = 0, startY = 0, startOffset = 0, offset = 0, dx = 0, startScrollTop = 0;
   const getSheet = () => document.getElementById('sheet');
   const maxOffset = () => Math.max(0, getSheet().offsetHeight - 84);
 
@@ -1375,7 +1400,10 @@ function initSheetDrag() {
 
   sheet.addEventListener('touchstart', e => {
     if (window.innerWidth >= 768) return;
-    axis = null;
+    // TEMP DIAGNOSTIC — remove once confirmed the sheet no longer sticks
+    console.log('[sheet-drag] touchstart', { axis, dragging, sheetDragging: sheet.classList.contains('dragging') });
+    if (e.touches.length > 1) { endGesture(); return; }   // a second finger mid-drag is a common way to strand this state
+    endGesture();           // defensive: clear anything a missed touchend/touchcancel left behind
     dx = 0;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
@@ -1422,25 +1450,35 @@ function initSheetDrag() {
 
   const onEnd = () => {
     if (axis === 'y' && dragging) {
-      sheet.classList.remove('dragging');
       sheet.style.transform = '';        // hand control back to the class
       sheet.scrollTop = startScrollTop;  // in case any scroll slipped through
       toggleSheet(offset > maxOffset() / 2);
+      endGesture();
     } else if (axis === 'x') {
       const i = FILTER_ORDER.indexOf(state.filter || 'all');
       const atEnd = (dx < 0 && i === FILTER_ORDER.length - 1) || (dx > 0 && i === 0);
       const commit = Math.abs(dx) > 60 && !atEnd;
       if (prefersReducedMotion()) {
         if (commit) changeFilter(dx < 0 ? 1 : -1);      // instant switch, no follow/slide
+        endGesture();
+      } else if (commit) {
+        // don't call endGesture() here — it would reset #sheetInner's
+        // transform/opacity mid-flight and cut the exit/entry slide short.
+        // changeFilterAnimated() clears the gesture state itself once the
+        // swipe settles (see its own endGesture() call).
+        changeFilterAnimated(dx < 0 ? 1 : -1);
       } else {
-        changeFilterAnimated(commit ? (dx < 0 ? 1 : -1) : 0);
+        changeFilterAnimated(0);         // snap back; synchronous, safe to clear right after
+        endGesture();
       }
+    } else {
+      endGesture();
     }
-    axis = null;
-    dragging = false;
+    // TEMP DIAGNOSTIC — remove once confirmed the sheet no longer sticks
+    console.log('[sheet-drag] touchend', { axis, dragging, sheetDragging: sheet.classList.contains('dragging') });
   };
   sheet.addEventListener('touchend', onEnd);
-  sheet.addEventListener('touchcancel', onEnd);
+  sheet.addEventListener('touchcancel', endGesture);
 }
 
 // order swiped through on mobile; does not wrap at the ends
@@ -1492,7 +1530,14 @@ function changeFilterAnimated(dir) {
       inner.style.transform = 'translateX(0)';
       inner.style.opacity = '1';
     });
-    inner.addEventListener('transitionend', () => inner.classList.remove('settling'), { once: true });
+    // safety net (see endGesture()): clear the gesture state once the entry
+    // settle finishes, unconditionally — not just on a clean transitionend.
+    // A backgrounded tab pauses CSS transitions, so transitionend can simply
+    // never fire; the fallback timer covers that. endGesture() is idempotent,
+    // so both firing is harmless.
+    const finishGesture = () => { inner.classList.remove('settling'); endGesture(); };
+    inner.addEventListener('transitionend', finishGesture, { once: true });
+    setTimeout(finishGesture, 300);
     const activeChip = document.querySelector('.chip.on');
     if (activeChip) activeChip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }, 200);
