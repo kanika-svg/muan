@@ -326,6 +326,25 @@ body {
 }
 #trackChip.on { display: block; }
 
+/* persistent route indicator — independent of the sheet so the route has
+   somewhere to live whether the venue sheet, the home sheet, or a collapsed
+   sheet is showing underneath it (see clearRoute()/showRoute() in app.js) */
+#routeBar {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 60px);
+  left: 50%; transform: translateX(-50%); z-index: 8;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--ink2); border: 1px solid var(--ink4);
+  border-radius: 999px; padding: 7px 7px 7px 16px; max-width: calc(100vw - 32px);
+  font-family: var(--font); font-size: 12.5px; font-weight: 700; color: var(--bone);
+  box-shadow: 0 4px 16px rgba(0,0,0,.35); cursor: pointer;
+}
+#routeBar[hidden] { display: none; }
+#routeBarClose {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: var(--ink3); color: var(--mute); font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-family: var(--font);
+}
+
 /* ============ motion ============ */
 @media (prefers-reduced-motion: no-preference) {
 

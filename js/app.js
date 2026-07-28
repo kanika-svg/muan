@@ -97,6 +97,7 @@ async function boot() {
     renderHomeSheet();
     bindChips();
     bindLocate();
+    bindRouteBar();
     initSheetDrag();
 
     const st = document.getElementById('sheetToggle');
@@ -764,7 +765,10 @@ function bigCard(v, sub, photoOverride) {
 
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
-  if (state.map) clearRoute();
+  // does NOT clear the route — a route should only clear when the venue
+  // sheet is explicitly closed (see the data-home handler below), a
+  // different venue opens, or Directions is toggled off, never just because
+  // the map was clicked or the sheet re-rendered for some other reason
   const byTime = (a,b) => (a.date === b.date)
     ? ((a.start_time || '99:99') < (b.start_time || '99:99') ? -1 : 1)
     : (a.date < b.date ? -1 : 1);
@@ -1123,11 +1127,7 @@ async function toggleRoute(v) {
   if (!dirBtn || !lbl) return;
 
   if (dirBtn.dataset.showing === '1') {
-    clearRoute();
-    dirBtn.dataset.showing = '';
-    lbl.textContent = 'Directions';
-    const attr = document.getElementById('routeAttribution');
-    if (attr) attr.innerHTML = '';
+    clearRoute();       // also resets dirBtn/dirLbl/routeAttribution and hides #routeBar
     return;
   }
 
@@ -1167,11 +1167,10 @@ async function toggleRoute(v) {
     dirBtn.disabled = false;
     if (!data.ok || !data.geometry) throw new Error('no route');
 
+    const mins = Math.max(1, Math.round(data.duration_s / 60));
+    const label = `${fmtDist(data.distance_m)} · ${mins} min drive`;
     const travelEl = document.getElementById('travelLine');
-    if (travelEl) {
-      const mins = Math.max(1, Math.round(data.duration_s / 60));
-      travelEl.innerHTML = `${fmtDist(data.distance_m)} · ${mins} min drive`;
-    }
+    if (travelEl) travelEl.innerHTML = label;
     const attr = document.getElementById('routeAttribution');
     if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
 
@@ -1181,6 +1180,7 @@ async function toggleRoute(v) {
       lbl.textContent = 'Too far to map';
     } else {
       showRoute(data.geometry);
+      showRouteBar(label);
       lbl.textContent = 'Hide route';
       dirBtn.dataset.showing = '1';
     }
@@ -1242,6 +1242,19 @@ function drawRouteLayers(geometry) {
   }
 }
 
+// frame the whole route, leaving room for the panel — split out from
+// showRoute() so tapping #routeBar can re-frame without redrawing the layers
+function frameRoute(geometry) {
+  const b = new maplibregl.LngLatBounds();
+  geometry.coordinates.forEach(c => b.extend(c));
+  const sheetOpen = window.innerWidth >= 768
+    && !document.getElementById('sheet')?.classList.contains('collapsed');
+  state.map.fitBounds(b, {
+    padding: { top: 80, bottom: 80, right: 40,
+               left: sheetOpen ? 460 : 40 }
+  });
+}
+
 function showRoute(geometry) {
   ensureUserMarker();
   state.currentRouteGeometry = geometry;
@@ -1251,15 +1264,28 @@ function showRoute(geometry) {
   // clearRoute() puts it back
   state.map.setMaxBounds(null);
   state.map.setMinZoom(9);
+  frameRoute(geometry);
+}
 
-  // frame the whole route, leaving room for the panel
-  const b = new maplibregl.LngLatBounds();
-  geometry.coordinates.forEach(c => b.extend(c));
-  const sheetOpen = window.innerWidth >= 768
-    && !document.getElementById('sheet')?.classList.contains('collapsed');
-  state.map.fitBounds(b, {
-    padding: { top: 80, bottom: 80, right: 40,
-               left: sheetOpen ? 460 : 40 }
+// small persistent bar shown whenever a route is drawn — lives outside the
+// sheet entirely (static markup in index.html) so it survives the venue
+// sheet closing, the home sheet re-rendering, or the sheet collapsing
+function showRouteBar(label) {
+  const bar = document.getElementById('routeBar');
+  document.getElementById('routeBarLabel').textContent = label;
+  bar.hidden = false;
+}
+
+function hideRouteBar() {
+  const bar = document.getElementById('routeBar');
+  if (bar) bar.hidden = true;
+}
+
+function bindRouteBar() {
+  const bar = document.getElementById('routeBar');
+  bar.addEventListener('click', (e) => {
+    if (e.target.closest('#routeBarClose')) { clearRoute(); return; }
+    if (state.currentRouteGeometry) frameRoute(state.currentRouteGeometry);
   });
 }
 
@@ -1271,6 +1297,14 @@ function clearRoute() {
     if (state.map.getLayer(id)) state.map.removeLayer(id);
   });
   if (state.map.getSource('route')) state.map.removeSource('route');
+  hideRouteBar();
+  const dirBtn = document.getElementById('dirBtn');
+  if (dirBtn && dirBtn.dataset.showing === '1') {
+    dirBtn.dataset.showing = '';
+    document.getElementById('dirLbl').textContent = 'Directions';
+    const attr = document.getElementById('routeAttribution');
+    if (attr) attr.innerHTML = '';
+  }
 }
 
 async function doCheckin(v) {
@@ -1590,7 +1624,11 @@ function setSheet(html) {
   inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
   inner.querySelectorAll('[data-home]').forEach(el =>
-    el.addEventListener('click', () => { stopTracking(); renderHomeSheet(); }));
+    el.addEventListener('click', () => {
+      stopTracking();
+      if (state.map) clearRoute();     // explicit "leave this sheet" action — the route dies with it
+      renderHomeSheet();
+    }));
 }
 
 function syncChipState() {
