@@ -282,6 +282,7 @@ function refreshAvatarBtn() {
   document.getElementById('avatarSlot').innerHTML = i !== null ? avatarSVG(+i, 20) : '😊';
 }
 function openAvatarSheet() {
+  toggleSheet(false);
   const cur = localStorage.getItem('muan-avatar');
   setSheet(`<div id="avatarSheet" data-venue-detail hidden></div>
     <div class="s-title" style="text-align:center;">Choose your avatar</div>
@@ -350,6 +351,7 @@ function flameStackSVG() {
 }
 
 async function openFlameSheet() {
+  toggleSheet(false);
   setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Loading your flame…</div>');
   let me = null;
   try { me = await (await fetch('/api/me')).json(); } catch(e) {}
