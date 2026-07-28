@@ -1062,8 +1062,27 @@ async function toggleRoute(v) {
   }
 
   if (!state.userPos) {
-    lbl.textContent = 'Enable location first';
-    return;
+    lbl.textContent = 'Finding you…';
+    dirBtn.disabled = true;
+    try {
+      const pos = await new Promise((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true, timeout: 10000, maximumAge: 60000
+        })
+      );
+      state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      ensureUserMarker();
+      setLocateState('located');
+      updateCheckinButton(v);
+    } catch (err) {
+      dirBtn.disabled = false;
+      lbl.textContent =
+        err.code === 1 ? 'Location blocked — re-enable in site settings' :
+        err.code === 3 ? 'Location timed out' : 'Location unavailable';
+      setTimeout(() => { lbl.textContent = 'Directions'; }, 2500);
+      console.warn('[muan] geolocation', err);
+      return;
+    }
   }
 
   lbl.textContent = 'Loading…';
