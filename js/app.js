@@ -28,6 +28,34 @@ const state = {
   trackWatchId: null,
 };
 
+/* ---------- geolocation ---------- */
+const GEO_MSG = {
+  unsupported: 'This browser cannot share your location.',
+  insecure:    'Location needs a secure (https) connection.',
+  denied:      'Location is blocked. Turn it on for this site in your browser settings, then try again.',
+  unavailable: 'Could not get your location. Try again somewhere with a clearer view of the sky.',
+  timeout:     'Location is taking too long. Check your signal and try again.',
+};
+
+function getPosition({ timeout = 10000, maximumAge = 30000, highAccuracy = true } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation)  return reject({ code: 'unsupported', message: GEO_MSG.unsupported });
+    if (!window.isSecureContext) return reject({ code: 'insecure',    message: GEO_MSG.insecure });
+
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      err => {
+        const code = err.code === 1 ? 'denied'
+                   : err.code === 3 ? 'timeout'
+                   : 'unavailable';
+        console.warn('[paisaidee] geolocation', err.code, err.message);
+        reject({ code, message: GEO_MSG[code] });
+      },
+      { enableHighAccuracy: highAccuracy, timeout, maximumAge }
+    );
+  });
+}
+
 /* ---------- boot ---------- */
 async function boot() {
   try {
