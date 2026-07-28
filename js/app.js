@@ -692,15 +692,23 @@ function openStatus(v) {
   // spillover from yesterday (e.g. "17:00-25:30" = open till 1:30 am)
   const y = parseHours(v.hours[yesterday]);
   if (y && y.close > 1440 && mins < y.close - 1440) {
-    return { open: true, label: `open · until ${fmtTime(y.close - 1440)}` };
+    return { open: true, label: `open until ${fmtTime(y.close - 1440)}` };
   }
   const t = parseHours(v.hours[today]);
   if (!t) return { open: false, label: 'closed today' };
   if (mins < t.open) return { open: false, label: `opens ${fmtTime(t.open)}` };
   if (mins < Math.min(t.close, 1440) || t.close > 1440) {
-    return { open: true, label: `open · until ${fmtTime(t.close % 1440)}` };
+    return { open: true, label: `open until ${fmtTime(t.close % 1440)}` };
   }
   return { open: false, label: 'closed' };
+}
+
+// "820 m · open until 2 am" / "2.1 km · opens 5 pm" once we know where the
+// user is; falls back to the caller-supplied text (usually the area) when
+// location isn't known
+function venueLine(v, fallback) {
+  if (!state.userPos) return fallback;
+  return `${fmtDist(haversine(state.userPos, v))} · ${openStatus(v).label}`;
 }
 
 function parseHours(str) {
@@ -723,7 +731,7 @@ function opensLate(v) {
   return !!t && t.close >= 1440;
 }
 
-function sectionCard(v, sub, photoOverride) {
+function sectionCard(v, sub, photoOverride, sub2) {
   const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
   const thumb = photo
     ? `<img class="thumb" src="${esc(photo)}" alt="" loading="lazy">`
@@ -732,7 +740,24 @@ function sectionCard(v, sub, photoOverride) {
     ${thumb}
     <div>
       <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
-      <div style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
+      <div class="hc-sub" style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
+      ${sub2 ? `<div class="hc-sub" style="font-size:10.5px;color:var(--dim);">${esc(sub2)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// full-width photo-led card (Tonight, On fire): 16:9 photo, bold name,
+// one status/distance sub-line beneath, whole card tappable
+function bigCard(v, sub, photoOverride) {
+  const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
+  const media = photo
+    ? `<img class="big-thumb" src="${esc(photo)}" alt="" loading="lazy">`
+    : `<div class="big-thumb thumb-ph" style="color:var(--${v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet'});">${esc((v.short_name || v.name).charAt(0))}</div>`;
+  return `<div class="card card-big" data-open-venue="${v.id}">
+    ${media}
+    <div class="card-body">
+      <div style="font-size:15px;font-weight:700;">${esc(v.short_name || v.name)}</div>
+      <div class="t-sub">${sub}</div>
     </div>
   </div>`;
 }
@@ -788,7 +813,7 @@ function renderHomeSheet() {
                 <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
                 <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
               </div>
-              <div class="t-sub">${esc(v.area || '')}${v.area ? ' · ' : ''}${st.label}</div>
+              <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
             </div>
           </div>`;
       }
@@ -810,30 +835,31 @@ function renderHomeSheet() {
     html += secH('violet', 'Tonight · ຄືນນີ້');
     for (const ev of tonight) {
       const v = venueById(ev.venue_id);
+      const evLine = `${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}`;
       if (!v) {
+        const media = ev.photo
+          ? `<img class="big-thumb" src="${esc(ev.photo)}" alt="" loading="lazy">`
+          : `<div class="big-thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`;
         html += `
-          <div class="card">
-            ${ev.photo ? `<img class="thumb" src="${esc(ev.photo)}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
+          <div class="card card-big">
+            ${media}
             <div class="card-body">
-              <div class="row">
-                <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)}</span>
-              </div>
-              <div class="t-sub">${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}${ev.short ? ' · ' + esc(ev.short) : ''}${ev.verified ? '' : ' · unconfirmed'}</div>
+              <div style="font-size:15px;font-weight:700;">${esc(ev.title)}</div>
+              <div class="t-sub">${evLine}${ev.short ? ' · ' + esc(ev.short) : ''}${ev.verified ? '' : ' · unconfirmed'}</div>
             </div>
           </div>`;
         continue;
       }
-      const st = openStatus(v);
       const tonightPhoto = ev.photo || ((v.photos && v.photos.length) ? v.photos[0] : null);
+      const media = tonightPhoto
+        ? `<img class="big-thumb" src="${esc(tonightPhoto)}" alt="" loading="lazy">`
+        : `<div class="big-thumb thumb-ph" style="color:var(--violet);">${esc((v.short_name || v.name).charAt(0))}</div>`;
       html += `
-        <div class="card" data-open-venue="${v.id}">
-          ${tonightPhoto ? `<img class="thumb" src="${esc(tonightPhoto)}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--violet);">${esc((v.short_name || v.name).charAt(0))}</div>`}
+        <div class="card card-big" data-open-venue="${v.id}">
+          ${media}
           <div class="card-body">
-            <div class="row">
-              <span style="font-size:13.5px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</span>
-              <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
-            </div>
-            <div class="t-sub">${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)} · ${esc(v.area || '')}${ev.verified ? '' : ' · unconfirmed'}</div>
+            <div style="font-size:15px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</div>
+            <div class="t-sub">${evLine} · ${venueLine(v, esc(v.area || ''))}${ev.verified ? '' : ' · unconfirmed'}</div>
           </div>
         </div>`;
     }
@@ -848,16 +874,15 @@ function renderHomeSheet() {
   if (showVenueSections && pickVenues.length) {
     rendered = true;
     html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en)) +
-      `<div class="hcards">` +
-      pickVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
-      <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
+      pickVenues.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('') +
+      `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
   if (showVenueSections && busyVenues.length) {
     rendered = true;
     html += secH('flame', 'Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
       `<div class="hcards">` +
-      busyVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
+      busyVenues.map(v => sectionCard(v, venueLine(v, esc(v.area || '')))).join('') + `</div>
       <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
   }
 
@@ -871,24 +896,24 @@ function renderHomeSheet() {
             ${ev.photo ? `<img class="thumb" src="${esc(ev.photo)}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
             <div>
               <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
-              <div style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
+              <div class="hc-sub" style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
             </div>
           </div>`;
         }
-        return sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`, ev.photo);
+        return sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`, ev.photo, venueLine(v, ''));
       }).join('') + `</div>`;
   }
 
   if (showVenueSections && openingSoon.length) {
     rendered = true;
     html += secH('violet', 'Opening soon · ກຳລັງຈະເປີດ') + `<div class="hcards">` +
-      openingSoon.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>`;
+      openingSoon.map(v => sectionCard(v, venueLine(v, esc(v.area || '')))).join('') + `</div>`;
   }
 
   if (showVenueSections && late.length) {
     rendered = true;
     html += secH('teal', 'Open late · ເປີດເດິກ') + `<div class="hcards">` +
-      late.map(v => sectionCard(v, openStatus(v).label)).join('') + `</div>`;
+      late.map(v => sectionCard(v, venueLine(v, openStatus(v).label))).join('') + `</div>`;
   }
 
 
@@ -956,13 +981,9 @@ function openVenue(id) {
 
   let travel;
   if (state.userPos) {
-    const m = haversine(state.userPos, v);
-    const walk = Math.max(1, Math.ceil(m / 80));
-    const ride = Math.max(1, Math.ceil(m / 300));
-    travel = `${fmtDist(m)} away · ~${walk} min walk · ~${ride} min ride
-      <div class="sub">straight-line estimate</div>`;
+    travel = `${fmtDist(haversine(state.userPos, v))} away · straight line`;
   } else {
-    travel = `<span class="sub">tap "near me" up top to see travel time</span>`;
+    travel = `<span class="sub">tap "near me" up top to see distance</span>`;
   }
 
   const order = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -1149,7 +1170,7 @@ async function toggleRoute(v) {
     const travelEl = document.getElementById('travelLine');
     if (travelEl) {
       const mins = Math.max(1, Math.round(data.duration_s / 60));
-      travelEl.innerHTML = `${fmtDist(data.distance_m)} away · ${mins} min drive`;
+      travelEl.innerHTML = `${fmtDist(data.distance_m)} · ${mins} min drive`;
     }
     const attr = document.getElementById('routeAttribution');
     if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
@@ -1702,7 +1723,7 @@ function haversine(a, b) {
     Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
-const fmtDist = m => m < 1000 ? `${Math.round(m / 10) * 10}m` : `${(m / 1000).toFixed(1)}km`;
+const fmtDist = m => m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`;
 
 const venueById = id => state.venues.find(v => v.id === id);
 const venueEvents = id => state.events.filter(ev => ev.venue_id === id);
