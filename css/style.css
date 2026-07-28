@@ -120,11 +120,15 @@ body {
 #topbar .row { display: flex; justify-content: space-between; align-items: center; }
 .pill {
   pointer-events: auto;
-  background: rgba(28,23,38,.82); border: 1px solid var(--ink4); border-radius: 999px;
-  padding: 6px 12px; display: flex; align-items: center; gap: 6px; min-height: 40px;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 14px; border-radius: 999px;
+  background: rgba(28,23,38,.82); border: none;
   backdrop-filter: blur(8px);
-  color: var(--mute); font-family: var(--font); font-size: 12px; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  color: var(--mute); cursor: pointer;
 }
+.pill svg { flex-shrink: 0; }
+.pill.is-on { color: var(--bone); }
 .brand { display: inline-flex; align-items: center; gap: 8px; }
 .brand-mark { display: flex; line-height: 0; }
 .brand-words { display: flex; flex-direction: column; line-height: 1.15; }
@@ -138,6 +142,8 @@ body {
 @media (max-width: 500px) {
   .brand-words { display: none; }
   .brand { gap: 0; }
+  #themeBtn .pill-label { display: none; }
+  #themeBtn { padding: 0 10px; }
 }
 .chip-bar { display: flex; gap: 6px; margin-top: 8px; }
 .chip {
@@ -155,7 +161,7 @@ body {
    would go invisible against it, so give the glass a light-theme counterpart */
 [data-theme="light"] .pill { background: rgba(245,239,223,.82); }
 
-#locateBtn { position: relative; }
+#locateBtn { position: relative; min-width: 122px; justify-content: center; }
 .geo-hint {
   position: absolute; top: calc(100% + 8px); left: 0;
   width: 220px; max-width: 60vw;

@@ -42,6 +42,7 @@ async function boot() {
 
     initTheme();
     document.querySelector('.brand-mark').innerHTML = logoMark(17, 'var(--ink2)');
+    document.getElementById('locateIcon').innerHTML = icoLocate(15);
     bindTheme();
     refreshAvatarBtn();
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
@@ -126,11 +127,19 @@ function mapStyle(theme) {
   };
 }
 
+/* sun/moon track the RESOLVED theme (light/dark), not the 3-way auto/light/dark
+   preference the label shows — icons inherit colour from the pill via currentColor */
+function updateThemeIcon(theme) {
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.innerHTML = theme === 'light' ? icoSun(15) : icoMoon(15);
+}
+
 function applyTheme() {
   const theme = resolvedTheme();
   document.documentElement.dataset.theme = theme;
   document.getElementById('themeLabel').textContent =
     (localStorage.getItem('muan-theme') || 'auto') === 'auto' ? 'auto' : theme;
+  updateThemeIcon(theme);
   if (state.map && state.theme !== theme) state.map.setStyle(mapStyle(theme));
   state.theme = theme;
 }
@@ -148,6 +157,7 @@ function initTheme() {
   document.documentElement.dataset.theme = theme;
   document.getElementById('themeLabel').textContent =
     (localStorage.getItem('muan-theme') || 'auto') === 'auto' ? 'auto' : theme;
+  updateThemeIcon(theme);
   state.theme = theme;
 }
 
@@ -493,6 +503,24 @@ function logoMark(size, negativeFill) {
     <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="var(--flame)"/>
     <path d="M36 22 C31 32 23 37 23 48 C23 57 29 63 36 63 C43 63 49 57 49 48 C49 41 44 37 41 31 C40 36 37 37 36 36 C38 31 38 26 36 22 Z" fill="${negativeFill}"/>
   </svg>`;
+}
+
+function icoLocate(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8.5"/>
+    <path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>`;
+}
+function icoSun(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.5"/>
+    <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>`;
+}
+function icoMoon(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+    <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/></svg>`;
 }
 
 function renderMarkers() {
@@ -1333,17 +1361,32 @@ function bindChips() {
   });
 }
 
+/* short labels so the pill's width barely moves between states — "located"
+   reuses "near me" and relies on .is-on (colour) to read as active */
+const LOCATE_LABELS = {
+  idle: 'near me',
+  locating: 'finding you',
+  located: 'near me',
+  blocked: 'location off',
+  timeout: 'no signal',
+  unavailable: 'no signal',
+};
+function setLocateState(s) {
+  document.getElementById('locateLabel').textContent = LOCATE_LABELS[s] || LOCATE_LABELS.idle;
+  document.getElementById('locateBtn').classList.toggle('is-on', s === 'located');
+}
+
 function bindLocate() {
   document.getElementById('locateBtn').addEventListener('click', () => {
     if (!navigator.geolocation) return;
     const hint = document.getElementById('geoHint');
     if (hint) hint.hidden = true;
-    document.getElementById('locateLabel').textContent = '…';
+    setLocateState('locating');
     navigator.geolocation.getCurrentPosition(
       pos => {
         state.geoError = null;
         state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        document.getElementById('locateLabel').textContent = 'located';
+        setLocateState('located');
         ensureUserMarker();
         state.map.flyTo({ center: [state.userPos.lng, state.userPos.lat], zoom: 15 });
         if (state.selectedId) {
@@ -1354,15 +1397,8 @@ function bindLocate() {
       err => {
         console.warn('[muan] geolocation error', err);
         state.geoError = err.code === 1 ? 'blocked' : err.code === 3 ? 'timeout' : 'unavailable';
-        const lbl = document.getElementById('locateLabel');
-        if (state.geoError === 'blocked') {
-          lbl.textContent = 'location blocked';
-          if (hint) hint.hidden = false;
-        } else if (state.geoError === 'timeout') {
-          lbl.textContent = "couldn't find you — tap to retry";
-        } else {
-          lbl.textContent = 'location unavailable';
-        }
+        setLocateState(state.geoError);
+        if (state.geoError === 'blocked' && hint) hint.hidden = false;
         if (state.selectedId) {
           const v = venueById(state.selectedId);
           if (v) updateCheckinButton(v);
