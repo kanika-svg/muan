@@ -631,11 +631,19 @@ body {
     transition: transform .38s cubic-bezier(.32,1.15,.5,1);
     will-change: transform;
   }
-  /* collapsed = slid down, leaving the handle strip visible */
+  /* collapsed = slid down, leaving the handle + chip row visible */
   #sheet.collapsed {
-    transform: translateY(calc(100% - 74px));
+    transform: translateY(calc(100% - 84px));
   }
   #sheet.dragging { transition: none; }
+
+  /* chipBar is moved into #sheet on mobile (see placeChips() in app.js) so
+     the filters sit at thumb height and stay visible while collapsed */
+  #sheet .chip-bar {
+    margin: 0 -14px 8px; padding: 0 14px 4px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  #sheet .chip-bar::-webkit-scrollbar { display: none; }
 }
 
 @media (min-width: 768px) {

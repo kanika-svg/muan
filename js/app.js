@@ -57,8 +57,25 @@ function getPosition({ timeout = 10000, maximumAge = 30000, highAccuracy = true 
 }
 
 /* ---------- boot ---------- */
+// chipBar is one persistent DOM node moved between #topbar (desktop) and
+// #sheet (mobile) rather than duplicated, so there's a single source of
+// truth for which chip is active. setSheet() re-threads it back into place
+// on every render since it lives inside #sheet's replaced innerHTML there.
+function placeChips() {
+  const chipBar = document.getElementById('chipBar');
+  const topbar = document.getElementById('topbar');
+  const sheet = document.getElementById('sheet');
+  if (window.innerWidth < 768) {
+    if (!sheet.contains(chipBar)) sheet.insertBefore(chipBar, sheet.children[1] || null);
+  } else if (!topbar.contains(chipBar)) {
+    topbar.appendChild(chipBar);
+  }
+}
+
 async function boot() {
   try {
+    placeChips();
+    window.addEventListener('resize', placeChips);
     const [vRes, eRes, picks] = await Promise.all([
       fetch('data/venues.json'),
       fetch('data/events.json'),
@@ -1332,9 +1349,10 @@ function fireConfetti(container) {
 
 /* ---------- helpers ---------- */
 function initSheetDrag() {
-  let startY = 0, startOffset = 0, offset = 0, dragging = false, startScrollTop = 0;
+  let startX = 0, startY = 0, startOffset = 0, offset = 0, dx = 0, dragging = false, startScrollTop = 0;
+  let axis = null;                       // null (undecided) | 'x' | 'y' | 'none'
   const getSheet = () => document.getElementById('sheet');
-  const maxOffset = () => Math.max(0, getSheet().offsetHeight - 74);
+  const maxOffset = () => Math.max(0, getSheet().offsetHeight - 84);
 
   // a drag may start from the handle always, from the title/subtitle only
   // when the list is scrolled to the top, or anywhere on a collapsed sheet
@@ -1345,39 +1363,76 @@ function initSheetDrag() {
     return !!e.target.closest('.s-title, .s-sub');
   };
 
+  // horizontal filter-swipe is disabled starting on .hcards (they scroll
+  // themselves) or #sheetHandle (already the vertical drag target)
+  const canSwipeX = e => !e.target.closest('.hcards') && !e.target.closest('#sheetHandle');
+
   // touchstart/move/end are delegated on #sheet itself (not a child), so they
   // survive setSheet() replacing the sheet's inner content on every render
   const sheet = getSheet();
 
   sheet.addEventListener('touchstart', e => {
     if (window.innerWidth >= 768) return;
-    if (!canDrag(e, sheet)) return;
-    dragging = true;
+    axis = null;
+    dx = 0;
+    startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     startScrollTop = sheet.scrollTop;
-    startOffset = sheet.classList.contains('collapsed') ? maxOffset() : 0;
-    offset = startOffset;
-    sheet.classList.add('dragging');
+    dragging = canDrag(e, sheet);
+    if (dragging) {
+      startOffset = sheet.classList.contains('collapsed') ? maxOffset() : 0;
+      offset = startOffset;
+      sheet.classList.add('dragging');
+    }
   }, { passive: true });
 
   sheet.addEventListener('touchmove', e => {
-    if (!dragging) return;
-    e.preventDefault();                  // block the browser's own scroll/zoom
-    const dy = e.touches[0].clientY - startY;
-    offset = Math.min(maxOffset(), Math.max(0, startOffset + dy));
-    sheet.style.transform = `translateY(${offset}px)`;
+    if (window.innerWidth >= 768) return;
+    const t = e.touches[0];
+    const moveX = t.clientX - startX;
+    const moveY = t.clientY - startY;
+    if (axis === null) {
+      if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
+      axis = Math.abs(moveX) > Math.abs(moveY) ? 'x' : 'y';
+      if (axis === 'x' && !canSwipeX(e)) axis = 'none';
+    }
+    if (axis === 'y') {
+      if (!dragging) return;
+      e.preventDefault();                // block the browser's own scroll/zoom
+      offset = Math.min(maxOffset(), Math.max(0, startOffset + moveY));
+      sheet.style.transform = `translateY(${offset}px)`;
+    } else if (axis === 'x') {
+      e.preventDefault();
+      dx = moveX;
+    }
+    // axis === 'none': let the touch fall through to native scrolling (.hcards)
   }, { passive: false });
 
   const onEnd = () => {
-    if (!dragging) return;
+    if (axis === 'y' && dragging) {
+      sheet.classList.remove('dragging');
+      sheet.style.transform = '';        // hand control back to the class
+      sheet.scrollTop = startScrollTop;  // in case any scroll slipped through
+      toggleSheet(offset > maxOffset() / 2);
+    } else if (axis === 'x' && Math.abs(dx) > 60) {
+      changeFilter(dx < 0 ? 1 : -1);
+    }
+    axis = null;
     dragging = false;
-    sheet.classList.remove('dragging');
-    sheet.style.transform = '';          // hand control back to the class
-    sheet.scrollTop = startScrollTop;    // in case any scroll slipped through
-    toggleSheet(offset > maxOffset() / 2);
   };
   sheet.addEventListener('touchend', onEnd);
   sheet.addEventListener('touchcancel', onEnd);
+}
+
+// order swiped through on mobile; does not wrap at the ends
+const FILTER_ORDER = ['all', 'bar', 'cafe', 'event'];
+function changeFilter(dir) {
+  const next = FILTER_ORDER.indexOf(state.filter || 'all') + dir;
+  if (next < 0 || next >= FILTER_ORDER.length) return;
+  const chip = document.querySelector(`.chip[data-filter="${FILTER_ORDER[next]}"]`);
+  if (!chip) return;
+  chip.click();
+  chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
 }
 
 function toggleSheet(force) {
@@ -1390,7 +1445,13 @@ function toggleSheet(force) {
 function setSheet(html) {
   document.getElementById('sheet').classList.toggle('expanded', html.includes('data-venue-detail'));
   const sheet = document.getElementById('sheet');
+  // chipBar is a single persistent node (see placeChips()) that may currently
+  // live inside #sheet on mobile; innerHTML below would destroy it, so hold
+  // onto it and re-thread it back in right after the handle.
+  const chipBar = document.getElementById('chipBar');
+  const chipsWereInSheet = sheet.contains(chipBar);
   sheet.innerHTML = `<div id="sheetHandle" aria-hidden="true"></div>` + html;
+  if (chipsWereInSheet) sheet.insertBefore(chipBar, sheet.children[1] || null);
   sheet.classList.remove('anim');
   void sheet.offsetWidth;
   sheet.classList.add('anim');
