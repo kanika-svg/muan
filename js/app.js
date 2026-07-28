@@ -31,14 +31,16 @@ const state = {
 /* ---------- boot ---------- */
 async function boot() {
   try {
-    const [vRes, eRes, pRes] = await Promise.all([
+    const [vRes, eRes, picks] = await Promise.all([
       fetch('data/venues.json'),
       fetch('data/events.json'),
-      fetch('data/picks.json'),
+      fetch('data/picks.json')
+        .then(r => r.ok ? r.json() : Promise.reject(new Error('picks fetch failed: ' + r.status)))
+        .catch(e => { console.warn('[muan] picks unavailable', e); return null; }),
     ]);
     state.venues = (await vRes.json()).venues;
     state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
-    state.picks = await pRes.json();
+    state.picks = picks;
 
     initTheme();
     document.querySelector('.brand-mark').innerHTML = logoMark(17, 'var(--ink2)');
@@ -798,7 +800,7 @@ function renderHomeSheet() {
 
   if (showVenueSections && pickVenues.length) {
     rendered = true;
-    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks.note_en)) +
+    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en)) +
       `<div class="hcards">` +
       pickVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
       <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
@@ -806,7 +808,7 @@ function renderHomeSheet() {
 
   if (showVenueSections && busyVenues.length) {
     rendered = true;
-    html += secH('flame', 'Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks.busy_note_en)) +
+    html += secH('flame', 'Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
       `<div class="hcards">` +
       busyVenues.map(v => sectionCard(v, esc(v.area || ''))).join('') + `</div>
       <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
@@ -982,7 +984,7 @@ function openVenue(id) {
       <div class="info-ic">ℹ️</div>
       <div class="info-main">${esc(v.description)}</div>
     </div>` : ''}
-    ${v.links.facebook ? `
+    ${v.links?.facebook ? `
     <div class="v-fact">
       <div class="info-ic">📘</div>
       <div class="info-main"><a href="${esc(v.links.facebook)}" target="_blank" rel="noopener" style="color:var(--bone);">Facebook page</a></div>

@@ -27,11 +27,26 @@ export async function onRequest(context) {
 
     let user = await db.prepare('SELECT id FROM users WHERE google_sub = ?').bind(info.sub).first();
     if (!user) {
-      const handle = (info.name || (info.email ? info.email.split('@')[0] : '') || 'friend').slice(0, 24);
-      const inserted = await db.prepare(
-        `INSERT INTO users (google_sub, handle, created_at, embers_total, streak_months)
-         VALUES (?, ?, ?, 0, 0)`
-      ).bind(info.sub, handle, nowIso).run();
+      const trimmedName = (info.name || '').trim();
+      const trimmedEmailPrefix = (info.email ? info.email.split('@')[0] : '').trim();
+      const base = (trimmedName || trimmedEmailPrefix || 'friend').slice(0, 20);
+      let handle = base, n = 1;
+      while (await db.prepare('SELECT 1 FROM users WHERE handle = ?').bind(handle).first()) {
+        n++;
+        handle = base.slice(0, 20 - String(n).length) + n;
+        if (n > 99) { handle = 'friend' + Date.now().toString().slice(-6); break; }
+      }
+
+      let inserted;
+      try {
+        inserted = await db.prepare(
+          `INSERT INTO users (google_sub, handle, created_at, embers_total, streak_months)
+           VALUES (?, ?, ?, 0, 0)`
+        ).bind(info.sub, handle, nowIso).run();
+      } catch (e) {
+        console.error(e);
+        return Response.json({ ok: false, error: 'could not create account, try again' }, { status: 500 });
+      }
       user = { id: inserted.meta.last_row_id, handle };
     }
 

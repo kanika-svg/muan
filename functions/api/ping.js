@@ -6,7 +6,8 @@ export async function onRequest(context) {
       .first();
     db = row ? `connected (ember_base=${row.value})` : 'connected (no seed)';
   } catch (e) {
-    db = `error: ${e.message}`;
+    console.error(e);
+    db = 'error';
   }
   return Response.json({
     ok: true,
