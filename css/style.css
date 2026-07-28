@@ -162,13 +162,6 @@ body {
 [data-theme="light"] .pill { background: rgba(245,239,223,.82); }
 
 #locateBtn { position: relative; min-width: 122px; justify-content: center; }
-.geo-hint {
-  position: absolute; top: calc(100% + 8px); left: 0;
-  width: 220px; max-width: 60vw;
-  background: var(--ink2); border: 1px solid var(--ink4); border-radius: 12px;
-  padding: 10px 12px; font-size: 11px; line-height: 1.4; color: var(--mute);
-  text-align: left; cursor: default; box-shadow: 0 6px 20px rgba(0,0,0,.3);
-}
 
 /* ============ Bottom sheet ============ */
 #sheet {

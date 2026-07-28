@@ -29,31 +29,33 @@ const state = {
 };
 
 /* ---------- geolocation ---------- */
-const GEO_MSG = {
-  unsupported: 'This browser cannot share your location.',
-  insecure:    'Location needs a secure (https) connection.',
-  denied:      'Location is blocked. Turn it on for this site in your browser settings, then try again.',
-  unavailable: 'Could not get your location. Try again somewhere with a clearer view of the sky.',
-  timeout:     'Location is taking too long. Check your signal and try again.',
-};
-
-function getPosition({ timeout = 10000, maximumAge = 30000, highAccuracy = true } = {}) {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation)  return reject({ code: 'unsupported', message: GEO_MSG.unsupported });
-    if (!window.isSecureContext) return reject({ code: 'insecure',    message: GEO_MSG.insecure });
-
-    navigator.geolocation.getCurrentPosition(
-      resolve,
-      err => {
-        const code = err.code === 1 ? 'denied'
-                   : err.code === 3 ? 'timeout'
-                   : 'unavailable';
-        console.warn('[paisaidee] geolocation', err.code, err.message);
-        reject({ code, message: GEO_MSG[code] });
-      },
-      { enableHighAccuracy: highAccuracy, timeout, maximumAge }
+// the one place that requests location — the "near me" pill and the
+// Directions button both call this so their error handling can't drift apart
+async function requestLocation() {
+  if (!('geolocation' in navigator)) {
+    state.geoError = 'unsupported';
+    return null;
+  }
+  try {
+    const pos = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true, timeout: 10000, maximumAge: 60000
+      })
     );
-  });
+    state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    state.geoError = null;
+    updateUserMarker();
+    updateLocatePill();
+    return state.userPos;
+  } catch (err) {
+    state.geoError =
+      err.code === 1 ? 'blocked' :
+      err.code === 2 ? 'unavailable' :
+      err.code === 3 ? 'timeout' : 'failed';
+    console.warn('geolocation', err.code, err.message);
+    updateLocatePill();
+    return null;
+  }
 }
 
 /* ---------- boot ---------- */
@@ -942,9 +944,8 @@ function updateCheckinButton(v) {
   cbtn.disabled = true;
   cbtn.classList.remove('ready');
   if (!state.userPos) {
-    lbl.textContent = state.geoError === 'blocked' ? 'Location blocked — enable it to check in'
-      : state.geoError === 'timeout' ? "Couldn't find you — try again"
-      : state.geoError === 'unavailable' ? 'Location unavailable'
+    lbl.textContent = state.geoError === 'blocked' ? 'Location blocked'
+      : (state.geoError === 'timeout' || state.geoError === 'unavailable') ? "Can't find you"
       : 'Enable location to check in';
   } else {
     const d = haversine(state.userPos, v);
@@ -1134,25 +1135,16 @@ async function toggleRoute(v) {
   if (!state.userPos) {
     lbl.textContent = 'Finding you…';
     dirBtn.disabled = true;
-    try {
-      const pos = await new Promise((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true, timeout: 10000, maximumAge: 60000
-        })
-      );
-      state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      ensureUserMarker();
-      setLocateState('located');
-      updateCheckinButton(v);
-    } catch (err) {
-      dirBtn.disabled = false;
+    const pos = await requestLocation();
+    dirBtn.disabled = false;
+    if (!pos) {
       lbl.textContent =
-        err.code === 1 ? 'Location blocked — re-enable in site settings' :
-        err.code === 3 ? 'Location timed out' : 'Location unavailable';
+        state.geoError === 'blocked' ? 'Location blocked' :
+        state.geoError === 'timeout' ? 'Timed out — retry' : 'No location';
       setTimeout(() => { lbl.textContent = 'Directions'; }, 2500);
-      console.warn('[muan] geolocation', err);
       return;
     }
+    updateCheckinButton(v);
   }
 
   lbl.textContent = 'Loading…';
@@ -1195,7 +1187,7 @@ async function toggleRoute(v) {
 }
 
 /* ---------- route drawing ---------- */
-function ensureUserMarker() {
+function updateUserMarker() {
   if (!state.userPos) return;
   if (state.userMarker) {
     state.userMarker.setLngLat([state.userPos.lng, state.userPos.lat]);
@@ -1256,7 +1248,7 @@ function frameRoute(geometry) {
 }
 
 function showRoute(geometry) {
-  ensureUserMarker();
+  updateUserMarker();
   state.currentRouteGeometry = geometry;
   drawRouteLayers(geometry);
 
@@ -1654,48 +1646,47 @@ const LOCATE_LABELS = {
   locating: 'finding you',
   located: 'near me',
   blocked: 'location off',
-  timeout: 'no signal',
+  timeout: 'try again',
   unavailable: 'no signal',
 };
-function setLocateState(s) {
-  document.getElementById('locateLabel').textContent = LOCATE_LABELS[s] || LOCATE_LABELS.idle;
-  document.getElementById('locateBtn').classList.toggle('is-on', s === 'located');
+
+// reads state.userPos/state.geoError directly rather than taking an explicit
+// state argument, so requestLocation() can call it after updating state
+// without both places needing to agree on a status string
+function updateLocatePill() {
+  const btn = document.getElementById('locateBtn');
+  const lbl = document.getElementById('locateLabel');
+  if (!btn || !lbl) return;
+  if (!('geolocation' in navigator)) { btn.hidden = true; return; }
+  btn.hidden = false;
+  const key = state.userPos ? 'located' : (state.geoError || 'idle');
+  lbl.textContent = LOCATE_LABELS[key] || LOCATE_LABELS.idle;
+  btn.classList.toggle('is-on', !!state.userPos);
+}
+
+// the browser will not prompt again once blocked — re-requesting is a
+// silent no-op, so explain how to fix it instead
+function showLocationBlockedMessage() {
+  toggleSheet(false);
+  setSheet(`
+    <div class="s-sub" style="text-align:center;padding:30px 14px;">
+      Location is blocked for this site.<br>
+      Tap the padlock next to the address bar → Permissions → Location → Allow, then reload.
+    </div>
+  `);
 }
 
 function bindLocate() {
-  document.getElementById('locateBtn').addEventListener('click', () => {
-    if (!navigator.geolocation) return;
-    const hint = document.getElementById('geoHint');
-    if (hint) hint.hidden = true;
-    setLocateState('locating');
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        state.geoError = null;
-        state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setLocateState('located');
-        ensureUserMarker();
-        state.map.flyTo({ center: [state.userPos.lng, state.userPos.lat], zoom: 15 });
-        if (state.selectedId) {
-          const v = venueById(state.selectedId);
-          if (v) updateCheckinButton(v);
-        }
-      },
-      err => {
-        console.warn('[muan] geolocation error', err);
-        state.geoError = err.code === 1 ? 'blocked' : err.code === 3 ? 'timeout' : 'unavailable';
-        setLocateState(state.geoError);
-        if (state.geoError === 'blocked' && hint) hint.hidden = false;
-        if (state.selectedId) {
-          const v = venueById(state.selectedId);
-          if (v) updateCheckinButton(v);
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
-  });
-  document.addEventListener('click', (e) => {
-    const hint = document.getElementById('geoHint');
-    if (hint && !hint.hidden && !e.target.closest('#locateBtn')) hint.hidden = true;
+  updateLocatePill();      // initial state — also hides the pill if unsupported
+  document.getElementById('locateBtn').addEventListener('click', async () => {
+    if (state.geoError === 'blocked') { showLocationBlockedMessage(); return; }
+    document.getElementById('locateLabel').textContent = LOCATE_LABELS.locating;
+    const pos = await requestLocation();
+    if (pos) state.map.flyTo({ center: [pos.lng, pos.lat], zoom: 15 });
+    if (state.selectedId) {
+      const v = venueById(state.selectedId);
+      if (v) updateCheckinButton(v);
+    }
   });
 }
 
