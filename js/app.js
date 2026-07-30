@@ -29,12 +29,35 @@ const state = {
 };
 
 /* ---------- geolocation ---------- */
+// TEMP diagnostic — remove once the retry flow is confirmed working.
+// ?debug=1 writes into a box in the sheet (phones have no devtools);
+// otherwise it just goes to console.log.
+const DEBUG_GEO = new URLSearchParams(location.search).get('debug') === '1';
+function geoDebug(msg) {
+  if (!DEBUG_GEO) { console.log(msg); return; }
+  let box = document.getElementById('geoDebugBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'geoDebugBox';
+    box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:35vh;overflow:auto;' +
+      'background:#000;color:#0f0;font:11px/1.4 monospace;padding:6px 8px;z-index:9999;white-space:pre-wrap;';
+    document.body.appendChild(box);
+  }
+  box.textContent += msg + '\n';
+}
+
 // the one place that requests location — the "near me" pill and the
 // Directions button both call this so their error handling can't drift apart
 async function requestLocation() {
   if (!('geolocation' in navigator)) {
     state.geoError = 'unsupported';
     return null;
+  }
+  if (navigator.permissions) {
+    try {
+      const perm = await navigator.permissions.query({ name: 'geolocation' });
+      geoDebug(`[geo] permissions.state=${perm.state}`);
+    } catch (e) { /* permissions API not queryable for geolocation in this browser */ }
   }
   try {
     const pos = await new Promise((resolve, reject) =>
@@ -44,6 +67,7 @@ async function requestLocation() {
     );
     state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     state.geoError = null;
+    geoDebug('[geo] success');
     updateUserMarker();
     updateLocatePill();
     return state.userPos;
@@ -52,6 +76,7 @@ async function requestLocation() {
       err.code === 1 ? 'blocked' :
       err.code === 2 ? 'unavailable' :
       err.code === 3 ? 'timeout' : 'failed';
+    geoDebug(`[geo] error code=${err.code} message=${err.message}`);
     console.warn('geolocation', err.code, err.message);
     updateLocatePill();
     return null;
@@ -1664,8 +1689,8 @@ function updateLocatePill() {
   btn.classList.toggle('is-on', !!state.userPos);
 }
 
-// the browser will not prompt again once blocked — re-requesting is a
-// silent no-op, so explain how to fix it instead
+// shown after a retry comes back blocked — the browser won't re-prompt once
+// denied, so getCurrentPosition just fails silently; explain how to fix it
 function showLocationBlockedMessage() {
   toggleSheet(false);
   setSheet(`
@@ -1678,16 +1703,36 @@ function showLocationBlockedMessage() {
 
 function bindLocate() {
   updateLocatePill();      // initial state — also hides the pill if unsupported
+  watchGeoPermission();
   document.getElementById('locateBtn').addEventListener('click', async () => {
-    if (state.geoError === 'blocked') { showLocationBlockedMessage(); return; }
+    // always retry, even after a previous 'blocked' result — permission may
+    // have been granted since, and getCurrentPosition is the only way to know
+    state.geoError = null;
     document.getElementById('locateLabel').textContent = LOCATE_LABELS.locating;
     const pos = await requestLocation();
-    if (pos) state.map.flyTo({ center: [pos.lng, pos.lat], zoom: 15 });
+    if (pos) {
+      state.map.flyTo({ center: [pos.lng, pos.lat], zoom: 15 });
+    } else if (state.geoError === 'blocked') {
+      showLocationBlockedMessage();
+    }
     if (state.selectedId) {
       const v = venueById(state.selectedId);
       if (v) updateCheckinButton(v);
     }
   });
+}
+
+// notices the moment the user flips the browser permission, without needing
+// a reload — Chrome/Firefox support 'geolocation' as a permissions descriptor
+async function watchGeoPermission() {
+  if (!navigator.permissions) return;
+  try {
+    const p = await navigator.permissions.query({ name: 'geolocation' });
+    p.addEventListener('change', () => {
+      if (p.state === 'granted') { state.geoError = null; requestLocation(); }
+      else updateLocatePill();
+    });
+  } catch (e) { /* permissions API not queryable for geolocation in this browser */ }
 }
 
 /* ---------- tracking mode ---------- */
