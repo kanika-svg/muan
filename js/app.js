@@ -21,8 +21,11 @@ const state = {
   geoError: null,
   userMarker: null,
   currentRouteGeometry: null,
+  routeVenueId: null,     // set by showRoute(), cleared by clearRoute() — makes the routed venue sticky
+  routeLabel: null,       // "X km · Y min drive", reused to restore the venue sheet without re-fetching
   map: null,
   selectedId: null,
+  sheetView: { type: 'home', venueId: null },
   theme: null,
   tracking: null,
   trackWatchId: null,
@@ -328,6 +331,7 @@ function refreshAvatarBtn() {
 }
 function openAvatarSheet() {
   toggleSheet(false);
+  state.sheetView = { type: 'avatar', venueId: null };
   const cur = localStorage.getItem('muan-avatar');
   setSheet(`<div id="avatarSheet" data-venue-detail hidden></div>
     <div class="s-title" style="text-align:center;">Choose your avatar</div>
@@ -397,6 +401,7 @@ function flameStackSVG() {
 
 async function openFlameSheet() {
   toggleSheet(false);
+  state.sheetView = { type: 'flame', venueId: null };
   setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Loading your flame…</div>');
   let me = null;
   try { me = await (await fetch('/api/me')).json(); } catch(e) {}
@@ -552,7 +557,7 @@ function initMap() {
   state.map.on('moveend', () => scheduleLabelCrowding());
   state.map.on('click', (e) => {
     if (e.originalEvent.target.closest('.marker')) return;
-    if (state.selectedId) { stopTracking(); renderHomeSheet(); }
+    if (state.selectedId) { stopTracking(); goHome(); }
     if (window.innerWidth < 768) toggleSheet(true);
   });
 }
@@ -790,8 +795,17 @@ function bigCard(v, sub, photoOverride) {
   </div>`;
 }
 
+// funnel for any "go to home" action that isn't an explicit back/close —
+// a sticky routed venue (state.routeVenueId) wins over an incidental
+// re-render, per clearRoute()'s comment on when a route is allowed to die
+function goHome() {
+  if (state.routeVenueId) { openVenue(state.routeVenueId); return; }
+  renderHomeSheet();
+}
+
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
+  state.sheetView = { type: 'home', venueId: null };
   // does NOT clear the route — a route should only clear when the venue
   // sheet is explicitly closed (see the data-home handler below), a
   // different venue opens, or Directions is toggled off, never just because
@@ -989,8 +1003,12 @@ function openVenue(id) {
   const v = venueById(id);
   if (!v) return;
   toggleSheet(false);
-  clearRoute();
+  // a route only dies when a DIFFERENT venue opens — reopening the routed
+  // venue itself (e.g. sticky re-open from goHome()) must keep it (see #4)
+  if (state.routeVenueId && state.routeVenueId !== id) clearRoute();
+  const hasStickyRoute = state.routeVenueId === id && !!state.currentRouteGeometry;
   state.selectedId = id; updateSelection();
+  state.sheetView = { type: 'venue', venueId: id };
   const st = openStatus(v);
   const evs = venueEvents(id);
 
@@ -1010,7 +1028,9 @@ function openVenue(id) {
   }
 
   let travel;
-  if (state.userPos) {
+  if (hasStickyRoute) {
+    travel = state.routeLabel;
+  } else if (state.userPos) {
     travel = `${fmtDist(haversine(state.userPos, v))} away · straight line`;
   } else {
     travel = `<span class="sub">tap "near me" up top to see distance</span>`;
@@ -1142,7 +1162,17 @@ function openVenue(id) {
   const dirBtn = document.getElementById('dirBtn');
   if (dirBtn) dirBtn.addEventListener('click', () => toggleRoute(v));
 
-  state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
+  if (hasStickyRoute) {
+    // rebuilding the sheet's HTML wiped dirBtn's dataset and label — put
+    // them back so "Hide route" still works and the map stays framed on
+    // the route instead of re-centring on the venue
+    dirBtn.dataset.showing = '1';
+    document.getElementById('dirLbl').textContent = 'Hide route';
+    const attr = document.getElementById('routeAttribution');
+    if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
+  } else {
+    state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
+  }
 }
 
 /* on-demand road routing for the venue sheet currently open only — never for
@@ -1196,7 +1226,8 @@ async function toggleRoute(v) {
     if (data.distance_m > 40000) {
       lbl.textContent = 'Too far to map';
     } else {
-      showRoute(data.geometry);
+      state.routeLabel = label;
+      showRoute(data.geometry, v.id);
       showRouteBar(label);
       lbl.textContent = 'Hide route';
       dirBtn.dataset.showing = '1';
@@ -1272,9 +1303,10 @@ function frameRoute(geometry) {
   });
 }
 
-function showRoute(geometry) {
+function showRoute(geometry, venueId) {
   updateUserMarker();
   state.currentRouteGeometry = geometry;
+  state.routeVenueId = venueId;   // makes the venue sticky — see goHome()
   drawRouteLayers(geometry);
 
   // routes can run well outside the normal city fence — lift it while shown,
@@ -1308,6 +1340,8 @@ function bindRouteBar() {
 
 function clearRoute() {
   state.currentRouteGeometry = null;
+  state.routeVenueId = null;
+  state.routeLabel = null;
   state.map.setMaxBounds(MAP_BOUNDS.maxBounds);
   state.map.setMinZoom(MAP_BOUNDS.minZoom);
   ['route-line', 'route-casing'].forEach(id => {
@@ -1400,7 +1434,7 @@ function showCelebration(data) {
   ov.querySelector('.cel-done').addEventListener('click', () => {
     ov.classList.remove('show');
     setTimeout(() => ov.remove(), 300);
-    renderHomeSheet();
+    goHome();
   });
 }
 
