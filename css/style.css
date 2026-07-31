@@ -408,23 +408,24 @@ body {
 }
 .s-sub + .sec-h { border-top: none; padding-top: 0; margin-top: 20px; }
 .sec-h .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; align-self: center; }
-.sec-h .mini-flame { align-self: center; }
+.sec-h .mini-flame { align-self: center; margin: -4px 0; }
 .sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--dim); margin-left: auto; }
 
 .mini-flame { transform-origin: 50% 100%; flex-shrink: 0; }
 .mf-outer, .mf-core { transform-origin: 50% 100%; transform-box: fill-box; }
-.mf-outer { animation: mf-a 2.8s ease-in-out infinite; }
-.mf-core  { animation: mf-b 1.9s ease-in-out infinite; }
+.mf-outer { animation: mf-a 2.2s ease-in-out infinite; }
+.mf-core  { animation: mf-b 1.5s ease-in-out infinite; }
 
 @keyframes mf-a {
-  0%,100% { transform: scaleY(1)    scaleX(1); }
-  40%     { transform: scaleY(1.08) scaleX(.95); }
-  70%     { transform: scaleY(.96)  scaleX(1.04); }
+  0%,100% { transform: scaleY(1)    scaleX(1)   skewX(0deg); }
+  30%     { transform: scaleY(1.22) scaleX(.88) skewX(-4deg); }
+  55%     { transform: scaleY(.92)  scaleX(1.1) skewX(3deg); }
+  80%     { transform: scaleY(1.1)  scaleX(.95) skewX(-2deg); }
 }
 @keyframes mf-b {
-  0%,100% { transform: scaleY(1)    translateY(0);   opacity: 1; }
-  35%     { transform: scaleY(1.14) translateY(-3%); opacity: .85; }
-  65%     { transform: scaleY(.92)  translateY(1%);  opacity: 1; }
+  0%,100% { transform: scaleY(1)    translateY(0)   skewX(2deg);  opacity: 1; }
+  25%     { transform: scaleY(1.35) translateY(-8%) skewX(-5deg); opacity: .7; }
+  60%     { transform: scaleY(.85)  translateY(3%)  skewX(4deg);  opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

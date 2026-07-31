@@ -400,7 +400,7 @@ function flameStackSVG() {
 }
 
 function miniFlame() {
-  return `<svg class="mini-flame" width="13" height="16" viewBox="0 0 72 88" aria-hidden="true">
+  return `<svg class="mini-flame" width="18" height="22" viewBox="0 0 72 88" aria-hidden="true">
     <path class="mf-outer" d="M36 4 C31 21 15 29 15 47 C15 59 23 67 29 73 L36 88 L43 73 C49 67 57 59 57 47 C57 34 49 29 45 18 C43 27 38 29 36 26 C39 18 39 11 36 4 Z" fill="var(--flame)"/>
     <path class="mf-core" d="M36 34 C33 44 27 48 27 56 C27 64 31 69 36 69 C41 69 45 64 45 56 C45 49 41 45 38 38 C37 42 36 42 36 40 Z" fill="var(--gold)"/>
   </svg>`;
