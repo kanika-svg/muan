@@ -404,7 +404,11 @@
       "links": { "facebook": "https://www.facebook.com/KokKokMegaMall", "website": "https://kokkokmegamall.com/", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
       "contact": { "phone": "+8562059887777", "phone_display": "020 59 887 777" },
       "verified": true,
-      "source": "Facebook page KokKokMegaMall, opening date confirmed 2026-07-28"
+      "source": "Facebook page KokKokMegaMall, opening date confirmed 2026-07-28",
+      "parking": {
+        "note": "Three zones — motorbikes at B on the main road, cars A or C",
+        "source": "venue parking map on Facebook"
+      }
     },
     {
       "id": "madame-cocktail",
