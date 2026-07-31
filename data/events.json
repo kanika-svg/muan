@@ -74,6 +74,18 @@
       "source_url": "https://ewent.la",
       "verified": true,
       "photo": "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192711/sittalkdrink_iezqzm.png"
+    },
+    {
+      "id": "kokkok-opening-0808",
+      "venue_id": "kokkok-mega-mall",
+      "title": "KOKKOK Mega Mall opens",
+      "title_lo": "ເປີດ KokKok Mega Mall ປະຕູໄຊ",
+      "date": "2026-08-08",
+      "start_time": null,
+      "price": 0,
+      "short": "Opening day — 70+ brands, parking zone map on their page",
+      "source_url": "https://www.facebook.com/KokKokMegaMall",
+      "verified": true
     }
   ]
 }

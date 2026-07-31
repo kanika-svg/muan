@@ -1118,6 +1118,11 @@ function openVenue(id) {
     <div class="v-fact">
       <div class="info-ic">📘</div>
       <div class="info-main"><a href="${esc(v.links.facebook)}" target="_blank" rel="noopener" style="color:var(--bone);">Facebook page</a></div>
+    </div>` : ''}
+    ${v.links?.website ? `
+    <div class="v-fact">
+      <div class="info-ic">🌐</div>
+      <div class="info-main"><a href="${esc(v.links.website)}" target="_blank" rel="noopener" style="color:var(--bone);">Website</a></div>
     </div>` : ''}`;
 
   for (const ev of evs) {

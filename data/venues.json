@@ -397,13 +397,14 @@
       "lat": 17.9760734,
       "lng": 102.6247692,
       "area": "Kaysone Phomvihane Rd, by Patuxay",
-      "short": "Laos' biggest mall — opening soon",
-      "description": "The huge new Kolao-built mall rising next to Patuxay — set to be the largest in Laos, right on the BRT line in the middle of town. The building is finished and the opening keeps slipping ('soon', per the signs) — when the doors finally open, expect the whole city to show up. We'll be watching.",
+      "short": "Opens 8 August — 70+ brands by Patuxay",
+      "description": "Laos' biggest mall, opening 08.08.2026 next to Patuxay, right on the BRT line in the middle of town — confirmed on their own Facebook page. Over 70 international brands. They've published a parking zone map on their Facebook page, so it's worth picking a zone before you arrive.",
       "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/kokkok_megamart1_in5kif.jpg"],
       "hours": null,
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
+      "links": { "facebook": "https://www.facebook.com/KokKokMegaMall", "website": "https://kokkokmegamall.com/", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
+      "contact": { "phone": "+8562059887777", "phone_display": "020 59 887 777" },
       "verified": true,
-      "source": "Google Maps listing + reviews confirming not yet open, 2026-07-24",
+      "source": "Facebook page KokKokMegaMall, opening date confirmed 2026-07-28",
       "parking": {
         "note": "Parking zone map published on their Facebook page",
         "source": "venue page"
