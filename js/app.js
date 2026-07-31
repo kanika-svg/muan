@@ -399,6 +399,13 @@ function flameStackSVG() {
   </svg>`;
 }
 
+function miniFlame() {
+  return `<svg class="mini-flame" width="13" height="16" viewBox="0 0 72 88" aria-hidden="true">
+    <path class="mf-outer" d="M36 4 C31 21 15 29 15 47 C15 59 23 67 29 73 L36 88 L43 73 C49 67 57 59 57 47 C57 34 49 29 45 18 C43 27 38 29 36 26 C39 18 39 11 36 4 Z" fill="var(--flame)"/>
+    <path class="mf-core" d="M36 34 C33 44 27 48 27 56 C27 64 31 69 36 69 C41 69 45 64 45 56 C45 49 41 45 38 38 C37 42 36 42 36 40 Z" fill="var(--gold)"/>
+  </svg>`;
+}
+
 async function openFlameSheet() {
   toggleSheet(false);
   state.sheetView = { type: 'flame', venueId: null };
@@ -831,8 +838,8 @@ function renderHomeSheet() {
   const showEvents = (f === 'all' || f === 'event');
   const showVenueSections = (f !== 'event');
 
-  const secH = (color, label, note) =>
-    `<div class="sec-h"><span class="dot" style="background:var(--${color});"></span>${label}${note ? `<span class="sec-note">${note}</span>` : ''}</div>`;
+  const secH = (color, label, note, icon) =>
+    `<div class="sec-h">${icon || `<span class="dot" style="background:var(--${color});"></span>`}${label}${note ? `<span class="sec-note">${note}</span>` : ''}</div>`;
 
   const sub = isNight() ? 'ຄືນນີ້ໄປໃສດີ?' : 'ມື້ນີ້ໄປໃສດີ?';
 
@@ -918,7 +925,7 @@ function renderHomeSheet() {
 
   if (showVenueSections && pickVenues.length) {
     rendered = true;
-    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en)) +
+    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en), miniFlame()) +
       pickVenues.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('') +
       `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
