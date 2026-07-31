@@ -1096,6 +1096,11 @@ function openVenue(id) {
         <div class="hours-week" id="hoursWeek">${week}</div>
       </div>
     </div>
+    ${v.parking?.note ? `
+    <div class="v-fact">
+      <div class="info-ic">🅿</div>
+      <div class="info-main">${esc(v.parking.note)}</div>
+    </div>` : ''}
     ${v.contact?.phone ? `
     <div class="v-fact">
       <div class="info-ic">📞</div>

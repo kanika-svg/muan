@@ -403,7 +403,11 @@
       "hours": null,
       "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
       "verified": true,
-      "source": "Google Maps listing + reviews confirming not yet open, 2026-07-24"
+      "source": "Google Maps listing + reviews confirming not yet open, 2026-07-24",
+      "parking": {
+        "note": "Parking zone map published on their Facebook page",
+        "source": "venue page"
+      }
     },
     {
       "id": "madame-cocktail",

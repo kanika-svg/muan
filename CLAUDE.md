@@ -29,6 +29,10 @@ file/variable names) intentionally remain "muan" — do not rename them.
   to the venue's photo on event cards. Useful for events with no pinned
   venue (venue_id: null), and for posters. Same sourcing rule as venue
   photos — no hotlinking or guessing.
+- Optional "parking" object on a venue: { "note": "<one short line, max
+  ~60 chars>", "source": "observed" | "venue page" | "venue told us" }.
+  Omit the field entirely rather than guessing — a wrong parking note
+  sends someone circling the block.
 
 ## Design tokens (do not drift)
 - Ink #131019 / #1C1726 / #241E31 / #2E2740
