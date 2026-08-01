@@ -29,6 +29,10 @@ const state = {
   theme: null,
   tracking: null,
   trackWatchId: null,
+  cafeGalleryIds: [],     // qualifying cafés for the full-screen gallery, set by renderHomeSheet()
+  galleryIds: [],
+  galleryIndex: 0,
+  galleryOpen: false,
 };
 
 /* ---------- geolocation ---------- */
@@ -129,6 +133,7 @@ async function boot() {
     bindLocate();
     bindRouteBar();
     initSheetDrag();
+    initGalleryDrag();
 
     const st = document.getElementById('sheetToggle');
     st.addEventListener('click', () => {
@@ -938,6 +943,27 @@ function renderHomeSheet() {
       <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
   }
 
+  // cafés with enough photos to be worth a full-screen look; the gallery
+  // itself (openGallery()) reads state.cafeGalleryIds set here
+  const cafeGallery = state.venues
+    .filter(v => v.type === 'cafe' && (v.photos?.length || 0) >= 2)
+    .sort((a, b) => (b.photos.length - a.photos.length) ||
+      (a.short_name || a.name).localeCompare(b.short_name || b.name));
+  state.cafeGalleryIds = cafeGallery.map(v => v.id);
+
+  if (showVenueSections && cafeGallery.length) {
+    rendered = true;
+    const face = cafeGallery[0];
+    html += secH('gold', 'Recommended cafés · ຄາເຟແນະນຳ') +
+      `<div class="card card-big" data-open-gallery>
+        <img class="big-thumb" src="${esc(face.photos[0])}" alt="" loading="lazy">
+        <div class="card-body">
+          <div style="font-size:15px;font-weight:700;">${esc(face.short_name || face.name)}</div>
+          <div class="t-sub">${venueLine(face, esc(face.area || ''))}</div>
+        </div>
+      </div>`;
+  }
+
   if (showEvents && upcoming.length) {
     rendered = true;
     html += secH('violet', 'Coming up · ອີເວັນຕໍ່ໄປ') + `<div class="hcards">` +
@@ -1522,7 +1548,7 @@ function initSheetDrag() {
   const sheet = getSheet();
 
   sheet.addEventListener('touchstart', e => {
-    if (window.innerWidth >= 768) return;
+    if (window.innerWidth >= 768 || state.galleryOpen) return;
     // TEMP DIAGNOSTIC — remove once confirmed the sheet no longer sticks
     console.log('[sheet-drag] touchstart', { axis, dragging, sheetDragging: sheet.classList.contains('dragging') });
     if (e.touches.length > 1) { endGesture(); return; }   // a second finger mid-drag is a common way to strand this state
@@ -1540,7 +1566,7 @@ function initSheetDrag() {
   }, { passive: true });
 
   sheet.addEventListener('touchmove', e => {
-    if (window.innerWidth >= 768) return;
+    if (window.innerWidth >= 768 || state.galleryOpen) return;
     const t = e.touches[0];
     const moveX = t.clientX - startX;
     const moveY = t.clientY - startY;
@@ -1602,6 +1628,170 @@ function initSheetDrag() {
   };
   sheet.addEventListener('touchend', onEnd);
   sheet.addEventListener('touchcancel', endGesture);
+}
+
+/* ---------- full-screen café gallery ---------- */
+// "closed" already says so on its own (openStatus() covers "closed today" /
+// "closed" / "hours unconfirmed"); only the not-yet-open case ("opens 10 am")
+// needs a "closed ·" prefix to read honestly at a glance
+function galleryStatusLine(v) {
+  const st = openStatus(v);
+  const statusPart = (st.open || /^closed/.test(st.label) || st.label === 'hours unconfirmed')
+    ? st.label
+    : `closed · ${st.label}`;
+  return state.userPos ? `${statusPart} · ${fmtDist(haversine(state.userPos, v))}` : statusPart;
+}
+
+function renderGalleryCard() {
+  const gallery = document.getElementById('gallery');
+  const v = venueById(state.galleryIds[state.galleryIndex]);
+  if (!v) { closeGallery(); return; }
+  const photo = (v.photos && v.photos[0]) || '';
+  gallery.innerHTML = `
+    <div class="pg-card" id="pgCard">
+      ${photo ? `<img class="pg-hero" src="${esc(photo)}" alt="${esc(v.name)}">` : ''}
+      <div class="pg-scrim"></div>
+      <button class="pg-close" aria-label="Close gallery">✕</button>
+      <div class="pg-dots">${state.galleryIds.map((_, i) =>
+        `<span class="pg-dot ${i === state.galleryIndex ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="pg-info">
+        <div class="pg-name">${esc(v.short_name || v.name)}</div>
+        <div class="pg-status">${esc(galleryStatusLine(v))}</div>
+      </div>
+      ${state.galleryIndex === 0 ? `<div class="pg-hint">tap for details</div>` : ''}
+    </div>`;
+}
+
+// preload only the next card's hero (the direction a fresh gallery is
+// actually swiped in) so an up-swipe never lands on an empty frame
+function preloadGalleryNext() {
+  const v = venueById(state.galleryIds[state.galleryIndex + 1]);
+  const photo = v && v.photos && v.photos[0];
+  if (photo) new Image().src = photo;
+}
+
+function openGallery() {
+  if (!state.cafeGalleryIds.length) return;
+  state.galleryIds = state.cafeGalleryIds;
+  state.galleryIndex = 0;
+  state.galleryOpen = true;
+  document.body.style.overflow = 'hidden';
+  document.getElementById('gallery').hidden = false;
+  renderGalleryCard();
+  preloadGalleryNext();
+}
+
+function closeGallery() {
+  if (!state.galleryOpen) return;
+  state.galleryOpen = false;
+  document.body.style.overflow = '';
+  const gallery = document.getElementById('gallery');
+  gallery.hidden = true;
+  gallery.innerHTML = '';        // clears any inline transform along with it
+  galDragging = false; galDY = 0;
+}
+
+// dragging/dY are module-level like the sheet's own axis/dragging (see
+// endGesture()) so a stray touchcancel or a second finger can't strand them
+let galDragging = false;
+let galDY = 0;
+
+function galSnapBack() {
+  galDragging = false; galDY = 0;
+  const card = document.getElementById('pgCard');
+  if (card) { card.style.transform = ''; card.style.opacity = ''; }
+}
+
+// dir: +1 advances to the next venue, -1 to the previous — same follow/settle
+// pattern as changeFilterAnimated(), just on the vertical axis
+function animateGallerySwap(dir) {
+  const card = document.getElementById('pgCard');
+  const H = window.innerHeight;
+  galDragging = false; galDY = 0;
+  card.classList.add('settling');
+  card.style.transform = `translateY(${-dir * H}px)`;
+  card.style.opacity = '0';
+  setTimeout(() => {
+    state.galleryIndex += dir;
+    renderGalleryCard();
+    preloadGalleryNext();
+    const next = document.getElementById('pgCard');
+    next.style.transform = `translateY(${dir * H * 0.4}px)`;
+    next.style.opacity = '0';
+    requestAnimationFrame(() => {
+      next.classList.add('settling');
+      next.style.transform = 'translateY(0)';
+      next.style.opacity = '1';
+      setTimeout(() => next.classList.remove('settling'), 240);
+    });
+  }, 220);
+}
+
+// touch handlers are delegated on the static #gallery node (its content is
+// fully replaced per card by renderGalleryCard(), same pattern as #sheet /
+// #sheetInner) — never on document or the map, so marker touch handling
+// inside MapLibre is untouched
+function initGalleryDrag() {
+  const gallery = document.getElementById('gallery');
+  let startY = 0;
+
+  gallery.addEventListener('click', e => {
+    if (e.target.closest('.pg-close')) closeGallery();
+  });
+
+  gallery.addEventListener('touchstart', e => {
+    if (e.target.closest('.pg-close')) { galDragging = false; return; }
+    if (e.touches.length > 1) { galSnapBack(); return; }
+    galSnapBack();
+    startY = e.touches[0].clientY;
+    galDragging = true;
+  }, { passive: true });
+
+  gallery.addEventListener('touchmove', e => {
+    if (!galDragging) return;
+    e.preventDefault();          // horizontal movement is ignored entirely — only dy is read below
+    const card = document.getElementById('pgCard');
+    if (!card) return;
+    galDY = e.touches[0].clientY - startY;
+    const atStart = state.galleryIndex === 0 && galDY > 0;          // no previous — resist
+    const atEnd = state.galleryIndex === state.galleryIds.length - 1 && galDY < 0; // no next — resist
+    const move = (atStart || atEnd) ? galDY * 0.25 : galDY;
+    card.style.transform = `translateY(${move}px)`;
+    card.style.opacity = String(1 - Math.min(0.5, Math.abs(move) / window.innerHeight));
+  }, { passive: false });
+
+  const onEnd = () => {
+    if (!galDragging) return;
+    const dy = galDY;
+    if (Math.abs(dy) < 10) {
+      // a tap, not a drag — close the gallery into the venue it was showing
+      const id = state.galleryIds[state.galleryIndex];
+      closeGallery();
+      openVenue(id);
+      return;
+    }
+    const canAdvance = dy < 0 && state.galleryIndex < state.galleryIds.length - 1;
+    const canRetreat = dy > 0 && state.galleryIndex > 0;
+    if (Math.abs(dy) > 70 && (canAdvance || canRetreat)) {
+      animateGallerySwap(dy < 0 ? 1 : -1);
+    } else {
+      // released short of the threshold (or at a no-wrap end) — animate back to rest
+      const card = document.getElementById('pgCard');
+      galDragging = false; galDY = 0;
+      if (card) {
+        card.classList.add('settling');
+        card.style.transform = '';
+        card.style.opacity = '';
+        setTimeout(() => card.classList.remove('settling'), 240);
+      }
+    }
+  };
+  gallery.addEventListener('touchend', onEnd);
+  gallery.addEventListener('touchcancel', galSnapBack);
+
+  document.addEventListener('keydown', e => {
+    if (state.galleryOpen && e.key === 'Escape') closeGallery();
+  });
 }
 
 // order swiped through on mobile; does not wrap at the ends
@@ -1691,6 +1881,8 @@ function setSheet(html) {
   inner.classList.add('anim');
   inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
+  inner.querySelectorAll('[data-open-gallery]').forEach(el =>
+    el.addEventListener('click', openGallery));
   inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => {
       stopTracking();

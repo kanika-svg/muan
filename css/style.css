@@ -672,6 +672,50 @@ body {
   .flame-outer, .flame-mid, .flame-core { animation: none; }
 }
 
+/* full-screen swipe gallery (Recommended cafés) — a fixed overlay above
+   everything else, deliberately not sharing classes with #sheet's own .gal
+   photo strip so neither's styles bleed into the other */
+#gallery {
+  position: fixed; inset: 0; z-index: 60; background: #000;
+  touch-action: none; overflow: hidden;
+}
+#gallery[hidden] { display: none; }
+.pg-card { position: absolute; inset: 0; }
+.pg-card.settling { transition: transform .22s cubic-bezier(.32,1.1,.5,1), opacity .22s ease; }
+.pg-hero { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pg-scrim {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 46%;
+  background: linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,0));
+  pointer-events: none;
+}
+.pg-close {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px;
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: rgba(19,16,25,.55); color: #F5F1E8; font-size: 16px; cursor: pointer;
+}
+.pg-dots {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.pg-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(245,241,232,.35); }
+.pg-dot.on { background: var(--gold); }
+.pg-info {
+  position: absolute; left: 18px; right: 40px;
+  bottom: max(22px, env(safe-area-inset-bottom)); color: #F5F1E8;
+}
+.pg-name { font-size: 20px; font-weight: 700; }
+.pg-status { font-size: 13px; color: rgba(245,241,232,.75); margin-top: 3px; }
+.pg-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  color: #F5F1E8; font-size: 12.5px; background: rgba(19,16,25,.5);
+  padding: 7px 14px; border-radius: 20px; pointer-events: none;
+  animation: pg-hint-fade 2.6s ease forwards;
+}
+@keyframes pg-hint-fade { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pg-hint { animation: none; opacity: 0; }
+}
+
 #sheetHandle { cursor: default; padding: 10px 0 6px; margin-top: -10px; }
 @media (max-width: 767px) {
   #sheet {
