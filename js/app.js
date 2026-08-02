@@ -1642,23 +1642,44 @@ function galleryStatusLine(v) {
   return state.userPos ? `${statusPart} · ${fmtDist(haversine(state.userPos, v))}` : statusPart;
 }
 
+// truncates the long description to ~90 chars at a word boundary — the
+// full text belongs on the venue sheet, not this card
+function galleryDescLine(v) {
+  const d = (v.description || '').trim();
+  if (!d) return '';
+  return d.length <= 90 ? d : d.slice(0, 90).replace(/\s+\S*$/, '') + '…';
+}
+
 function renderGalleryCard() {
   const gallery = document.getElementById('gallery');
   const v = venueById(state.galleryIds[state.galleryIndex]);
   if (!v) { closeGallery(); return; }
-  const photo = (v.photos && v.photos[0]) || '';
+  const photos = v.photos || [];
+  const hero = photos[0] || '';
+  const thumbs = photos.slice(1, 5);
+  const descLine = galleryDescLine(v);
+  const facts = [];
+  if (v.contact?.phone) facts.push('📞');
+  if (v.parking?.note) facts.push('🅿');
+  if (photos.length) facts.push(`${photos.length} photo${photos.length === 1 ? '' : 's'}`);
+
   gallery.innerHTML = `
     <div class="pg-card" id="pgCard">
-      ${photo ? `<img class="pg-hero" src="${esc(photo)}" alt="${esc(v.name)}">` : ''}
-      <div class="pg-scrim"></div>
-      <button class="pg-close" aria-label="Close gallery">✕</button>
-      <div class="pg-dots">${state.galleryIds.map((_, i) =>
-        `<span class="pg-dot ${i === state.galleryIndex ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="pg-hero-wrap">
+        ${hero ? `<img class="pg-hero" src="${esc(hero)}" alt="${esc(v.name)}">` : ''}
+        <button class="pg-close" aria-label="Close gallery">✕</button>
+        <div class="pg-dots">${state.galleryIds.map((_, i) =>
+          `<span class="pg-dot ${i === state.galleryIndex ? 'on' : ''}"></span>`).join('')}</div>
+      </div>
+      ${thumbs.length ? `<div class="pg-strip">${thumbs.map(p =>
+        `<img class="pg-thumb" src="${esc(p)}" alt="" loading="lazy">`).join('')}</div>` : ''}
       <div class="pg-info">
         <div class="pg-name">${esc(v.short_name || v.name)}</div>
         <div class="pg-status">${esc(galleryStatusLine(v))}</div>
+        ${descLine ? `<div class="pg-desc">${esc(descLine)}</div>` : ''}
+        ${facts.length ? `<div class="pg-facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
+        <div class="pg-tap">tap for details</div>
       </div>
-      ${state.galleryIndex === 0 ? `<div class="pg-hint">tap for details</div>` : ''}
     </div>`;
 }
 
@@ -1688,16 +1709,18 @@ function closeGallery() {
   const gallery = document.getElementById('gallery');
   gallery.hidden = true;
   gallery.innerHTML = '';        // clears any inline transform along with it
-  galDragging = false; galDY = 0;
+  galDragging = false; galDY = 0; galDX = 0; galAxis = null;
 }
 
-// dragging/dY are module-level like the sheet's own axis/dragging (see
-// endGesture()) so a stray touchcancel or a second finger can't strand them
+// dragging/dY/dX/axis are module-level like the sheet's own axis/dragging
+// (see endGesture()) so a stray touchcancel or a second finger can't strand them
 let galDragging = false;
 let galDY = 0;
+let galDX = 0;
+let galAxis = null;              // null (undecided) | 'x' (right, bound) | 'y' | 'none' (left, unbound)
 
 function galSnapBack() {
-  galDragging = false; galDY = 0;
+  galDragging = false; galDY = 0; galDX = 0; galAxis = null;
   const card = document.getElementById('pgCard');
   if (card) { card.style.transform = ''; card.style.opacity = ''; }
 }
@@ -1707,7 +1730,7 @@ function galSnapBack() {
 function animateGallerySwap(dir) {
   const card = document.getElementById('pgCard');
   const H = window.innerHeight;
-  galDragging = false; galDY = 0;
+  galDragging = false; galDY = 0; galDX = 0; galAxis = null;
   card.classList.add('settling');
   card.style.transform = `translateY(${-dir * H}px)`;
   card.style.opacity = '0';
@@ -1733,58 +1756,102 @@ function animateGallerySwap(dir) {
 // inside MapLibre is untouched
 function initGalleryDrag() {
   const gallery = document.getElementById('gallery');
-  let startY = 0;
+  let startX = 0, startY = 0;
+
+  const openCurrentVenue = () => {
+    const id = state.galleryIds[state.galleryIndex];
+    closeGallery();
+    openVenue(id);
+  };
 
   gallery.addEventListener('click', e => {
-    if (e.target.closest('.pg-close')) closeGallery();
+    if (e.target.closest('.pg-close')) { closeGallery(); return; }
+    // the strip scrolls natively (excluded from touch-drag below), so a tap
+    // on a thumbnail only ever reaches us as a click, never the touch path
+    if (e.target.closest('.pg-strip')) openCurrentVenue();
   });
 
   gallery.addEventListener('touchstart', e => {
-    if (e.target.closest('.pg-close')) { galDragging = false; return; }
+    if (e.target.closest('.pg-close') || e.target.closest('.pg-strip')) { galDragging = false; return; }
     if (e.touches.length > 1) { galSnapBack(); return; }
     galSnapBack();
+    startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     galDragging = true;
   }, { passive: true });
 
   gallery.addEventListener('touchmove', e => {
     if (!galDragging) return;
-    e.preventDefault();          // horizontal movement is ignored entirely — only dy is read below
+    const t = e.touches[0];
+    const moveX = t.clientX - startX;
+    const moveY = t.clientY - startY;
+    if (galAxis === null) {
+      if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
+      if (Math.abs(moveX) > Math.abs(moveY)) {
+        galAxis = moveX > 0 ? 'x' : 'none';   // right swipe is bound; left is not
+      } else {
+        galAxis = 'y';
+      }
+    }
     const card = document.getElementById('pgCard');
     if (!card) return;
-    galDY = e.touches[0].clientY - startY;
-    const atStart = state.galleryIndex === 0 && galDY > 0;          // no previous — resist
-    const atEnd = state.galleryIndex === state.galleryIds.length - 1 && galDY < 0; // no next — resist
-    const move = (atStart || atEnd) ? galDY * 0.25 : galDY;
-    card.style.transform = `translateY(${move}px)`;
-    card.style.opacity = String(1 - Math.min(0.5, Math.abs(move) / window.innerHeight));
+    if (galAxis === 'y') {
+      e.preventDefault();
+      galDY = moveY;
+      const atStart = state.galleryIndex === 0 && galDY > 0;          // no previous — resist
+      const atEnd = state.galleryIndex === state.galleryIds.length - 1 && galDY < 0; // no next — resist
+      const move = (atStart || atEnd) ? galDY * 0.25 : galDY;
+      card.style.transform = `translateY(${move}px)`;
+      card.style.opacity = String(1 - Math.min(0.5, Math.abs(move) / window.innerHeight));
+    } else if (galAxis === 'x') {
+      e.preventDefault();
+      galDX = moveX;
+      card.style.transform = `translateX(${galDX}px)`;
+      card.style.opacity = String(1 - Math.min(0.5, galDX / window.innerWidth));
+    }
+    // galAxis === 'none': left swipe — deliberately unbound, no transform, no preventDefault
   }, { passive: false });
 
   const onEnd = () => {
     if (!galDragging) return;
-    const dy = galDY;
-    if (Math.abs(dy) < 10) {
-      // a tap, not a drag — close the gallery into the venue it was showing
-      const id = state.galleryIds[state.galleryIndex];
-      closeGallery();
-      openVenue(id);
+    if (galAxis === null) {
+      // never crossed the 12px lock threshold in either direction — a tap
+      openCurrentVenue();
       return;
     }
-    const canAdvance = dy < 0 && state.galleryIndex < state.galleryIds.length - 1;
-    const canRetreat = dy > 0 && state.galleryIndex > 0;
-    if (Math.abs(dy) > 70 && (canAdvance || canRetreat)) {
-      animateGallerySwap(dy < 0 ? 1 : -1);
-    } else {
-      // released short of the threshold (or at a no-wrap end) — animate back to rest
+    if (galAxis === 'x') {
+      if (galDX > 70) { openCurrentVenue(); return; }
+      galSnapBack();
       const card = document.getElementById('pgCard');
-      galDragging = false; galDY = 0;
       if (card) {
         card.classList.add('settling');
         card.style.transform = '';
         card.style.opacity = '';
         setTimeout(() => card.classList.remove('settling'), 240);
       }
+      return;
     }
+    if (galAxis === 'y') {
+      const dy = galDY;
+      const canAdvance = dy < 0 && state.galleryIndex < state.galleryIds.length - 1;
+      const canRetreat = dy > 0 && state.galleryIndex > 0;
+      if (Math.abs(dy) > 70 && (canAdvance || canRetreat)) {
+        animateGallerySwap(dy < 0 ? 1 : -1);
+      } else {
+        // released short of the threshold (or at a no-wrap end) — animate back to rest
+        const card = document.getElementById('pgCard');
+        galDragging = false; galDY = 0; galDX = 0; galAxis = null;
+        if (card) {
+          card.classList.add('settling');
+          card.style.transform = '';
+          card.style.opacity = '';
+          setTimeout(() => card.classList.remove('settling'), 240);
+        }
+      }
+      return;
+    }
+    // galAxis === 'none': left swipe released — inert, snap back to rest with no action
+    galSnapBack();
   };
   gallery.addEventListener('touchend', onEnd);
   gallery.addEventListener('touchcancel', galSnapBack);
