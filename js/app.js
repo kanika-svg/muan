@@ -29,6 +29,7 @@ const state = {
   theme: null,
   tracking: null,
   trackWatchId: null,
+  cafeTab: 'recommended', // 'recommended' | 'all' — sub-tab inside the Cafes filter
   cafeGalleryIds: [],     // qualifying cafés for the full-screen gallery, set by renderHomeSheet()
   galleryIds: [],
   galleryIndex: 0,
@@ -851,28 +852,62 @@ function renderHomeSheet() {
   if (f === 'bar' || f === 'cafe') {
     const color = f === 'bar' ? 'flame' : 'teal';
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
-    const typeVenues = state.venues.filter(v => v.type === f)
-      .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name));
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>`;
     html += secH(color, label);
-    if (!typeVenues.length) {
-      html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
-    } else {
-      for (const v of typeVenues) {
-        const st = openStatus(v);
+
+    const cafeTab = state.cafeTab || 'recommended';
+    if (f === 'cafe') {
+      html += `
+        <div class="seg" role="tablist">
+          <button class="seg-btn ${cafeTab === 'recommended' ? 'on' : ''}" data-cafe-tab="recommended" role="tab" aria-selected="${cafeTab === 'recommended'}">Recommended</button>
+          <button class="seg-btn ${cafeTab === 'all' ? 'on' : ''}" data-cafe-tab="all" role="tab" aria-selected="${cafeTab === 'all'}">All cafés</button>
+        </div>`;
+    }
+
+    if (f === 'cafe' && cafeTab === 'recommended') {
+      // cafés with enough photos to be worth a full-screen look; the gallery
+      // itself (openGallery()) reads state.cafeGalleryIds set here
+      const cafeGallery = state.venues
+        .filter(v => v.type === 'cafe' && (v.photos?.length || 0) >= 2)
+        .sort((a, b) => (b.photos.length - a.photos.length) ||
+          (a.short_name || a.name).localeCompare(b.short_name || b.name));
+      state.cafeGalleryIds = cafeGallery.map(v => v.id);
+      if (!cafeGallery.length) {
+        html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
+      } else {
+        const face = cafeGallery[0];
         html += `
-          <div class="card" data-open-venue="${v.id}">
-            ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`}
+          <div class="card card-big" data-open-gallery>
+            <img class="big-thumb" src="${esc(face.photos[0])}" alt="" loading="lazy">
             <div class="card-body">
-              <div class="row">
-                <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
-                <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
-              </div>
-              <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
+              <div style="font-size:15px;font-weight:700;">${esc(face.short_name || face.name)}</div>
+              <div class="t-sub">${venueLine(face, esc(face.area || ''))}</div>
             </div>
-          </div>`;
+          </div>
+          <div class="t-sub" style="margin-top:8px;">${cafeGallery.length} café${cafeGallery.length === 1 ? '' : 's'} in this list</div>`;
+      }
+    } else {
+      const typeVenues = state.venues.filter(v => v.type === f)
+        .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name));
+      if (!typeVenues.length) {
+        html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
+      } else {
+        for (const v of typeVenues) {
+          const st = openStatus(v);
+          html += `
+            <div class="card" data-open-venue="${v.id}">
+              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`}
+              <div class="card-body">
+                <div class="row">
+                  <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
+                  <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
+                </div>
+                <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
+              </div>
+            </div>`;
+        }
       }
     }
     setSheet(html);
@@ -941,27 +976,6 @@ function renderHomeSheet() {
       `<div class="hcards">` +
       busyVenues.map(v => sectionCard(v, venueLine(v, esc(v.area || '')))).join('') + `</div>
       <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
-  }
-
-  // cafés with enough photos to be worth a full-screen look; the gallery
-  // itself (openGallery()) reads state.cafeGalleryIds set here
-  const cafeGallery = state.venues
-    .filter(v => v.type === 'cafe' && (v.photos?.length || 0) >= 2)
-    .sort((a, b) => (b.photos.length - a.photos.length) ||
-      (a.short_name || a.name).localeCompare(b.short_name || b.name));
-  state.cafeGalleryIds = cafeGallery.map(v => v.id);
-
-  if (showVenueSections && cafeGallery.length) {
-    rendered = true;
-    const face = cafeGallery[0];
-    html += secH('gold', 'Recommended cafés · ຄາເຟແນະນຳ') +
-      `<div class="card card-big" data-open-gallery>
-        <img class="big-thumb" src="${esc(face.photos[0])}" alt="" loading="lazy">
-        <div class="card-body">
-          <div style="font-size:15px;font-weight:700;">${esc(face.short_name || face.name)}</div>
-          <div class="t-sub">${venueLine(face, esc(face.area || ''))}</div>
-        </div>
-      </div>`;
   }
 
   if (showEvents && upcoming.length) {
@@ -1765,11 +1779,32 @@ function initGalleryDrag() {
   };
 
   gallery.addEventListener('click', e => {
+    // desktop only in practice — #gallery is full-bleed under 768px, so a
+    // click can never land directly on it there, only on .pg-card's children
+    if (e.target === gallery) { closeGallery(); return; }
     if (e.target.closest('.pg-close')) { closeGallery(); return; }
     // the strip scrolls natively (excluded from touch-drag below), so a tap
     // on a thumbnail only ever reaches us as a click, never the touch path
     if (e.target.closest('.pg-strip')) openCurrentVenue();
   });
+
+  // desktop nav: mouse wheel and up/down arrows move between venues, same
+  // step animation as a completed swipe. wheelLocked debounces one card per
+  // gesture — trackpads fire many small deltaY events per physical scroll
+  let wheelLocked = false;
+  const stepGallery = dir => {
+    const canAdvance = dir > 0 && state.galleryIndex < state.galleryIds.length - 1;
+    const canRetreat = dir < 0 && state.galleryIndex > 0;
+    if (!canAdvance && !canRetreat) return;
+    animateGallerySwap(dir);
+  };
+  gallery.addEventListener('wheel', e => {
+    if (wheelLocked || Math.abs(e.deltaY) < 4) return;
+    e.preventDefault();
+    wheelLocked = true;
+    stepGallery(e.deltaY > 0 ? 1 : -1);
+    setTimeout(() => { wheelLocked = false; }, 260);
+  }, { passive: false });
 
   gallery.addEventListener('touchstart', e => {
     if (e.target.closest('.pg-close') || e.target.closest('.pg-strip')) { galDragging = false; return; }
@@ -1857,7 +1892,10 @@ function initGalleryDrag() {
   gallery.addEventListener('touchcancel', galSnapBack);
 
   document.addEventListener('keydown', e => {
-    if (state.galleryOpen && e.key === 'Escape') closeGallery();
+    if (!state.galleryOpen) return;
+    if (e.key === 'Escape') { closeGallery(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); stepGallery(1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); stepGallery(-1); return; }
   });
 }
 
@@ -1950,6 +1988,11 @@ function setSheet(html) {
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
   inner.querySelectorAll('[data-open-gallery]').forEach(el =>
     el.addEventListener('click', openGallery));
+  inner.querySelectorAll('[data-cafe-tab]').forEach(el =>
+    el.addEventListener('click', () => {
+      state.cafeTab = el.dataset.cafeTab;
+      renderHomeSheet();
+    }));
   inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => {
       stopTracking();
