@@ -397,6 +397,53 @@ function pauseFlameIfReducedMotion() {
   }
 }
 
+// assets/{404,Confetti,badge-unlock}.svg — same cached-fetch pattern as
+// flame.svg above; none of the four ship a fixed repeatCount (all loop
+// indefinitely), so anything meant to play once (see playOnceInto()) has to
+// be removed on a timer rather than relying on the animation to finish
+let error404SvgCache = null;
+async function error404Svg() {
+  if (!error404SvgCache) error404SvgCache = await (await fetch('assets/404.svg')).text();
+  return error404SvgCache;
+}
+let confettiSvgCache = null;
+async function confettiSvg() {
+  if (!confettiSvgCache) confettiSvgCache = await (await fetch('assets/Confetti.svg')).text();
+  return confettiSvgCache;
+}
+let badgeUnlockSvgCache = null;
+async function badgeUnlockSvg() {
+  if (!badgeUnlockSvgCache) badgeUnlockSvgCache = await (await fetch('assets/badge-unlock.svg')).text();
+  return badgeUnlockSvgCache;
+}
+
+// injects svgHtml into container, pauses it under prefers-reduced-motion,
+// then removes container after ms — for the confetti/badge-unlock
+// celebration animations, which must play once rather than loop forever
+// behind the card
+function playOnceInto(container, svgHtml, ms = 3000) {
+  container.innerHTML = svgHtml;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    container.querySelector('svg')?.pauseAnimations();
+  }
+  setTimeout(() => container.remove(), ms);
+}
+
+// injects assets/404.svg into every placeholder left by renderHomeSheet()'s
+// empty states. Fetched after setSheet() has already rendered the text (not
+// awaited inline), so a slow first-ever fetch never delays the sheet itself
+async function injectEmptyIcons() {
+  const targets = [...document.querySelectorAll('[data-empty-svg]')];
+  if (!targets.length) return;
+  const svgHtml = await error404Svg();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  targets.forEach(el => {
+    if (!el.isConnected) return;
+    el.innerHTML = svgHtml;
+    if (reduced) el.querySelector('svg')?.pauseAnimations();
+  });
+}
+
 function miniFlame() {
   return `<svg class="mini-flame" width="18" height="22" viewBox="0 0 72 88" aria-hidden="true">
     <path class="mf-outer" d="M36 4 C31 21 15 29 15 47 C15 59 23 67 29 73 L36 88 L43 73 C49 67 57 59 57 47 C57 34 49 29 45 18 C43 27 38 29 36 26 C39 18 39 11 36 4 Z" fill="var(--flame)"/>
@@ -960,7 +1007,7 @@ function renderHomeSheet() {
         .sort((a, b) => (b.photos.length - a.photos.length) ||
           (a.short_name || a.name).localeCompare(b.short_name || b.name));
       if (!cafeGallery.length) {
-        html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
+        html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
       } else {
         html += cafeGallery.map(v => collageCardHtml(v)).join('');
       }
@@ -968,7 +1015,7 @@ function renderHomeSheet() {
       const typeVenues = state.venues.filter(v => v.type === f)
         .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name));
       if (!typeVenues.length) {
-        html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
+        html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
       } else {
         for (const v of typeVenues) {
           const st = openStatus(v);
@@ -987,6 +1034,7 @@ function renderHomeSheet() {
       }
     }
     setSheet(html);
+    injectEmptyIcons();
     history.replaceState(null, '', location.pathname);
     const sh = document.getElementById('sheet');
     sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
@@ -1036,7 +1084,7 @@ function renderHomeSheet() {
   if (showEvents && !tonight.length && !upcoming.length) {
     rendered = true;
     html += secH('violet', 'Tonight · ຄືນນີ້') +
-      `<div class="sec-empty">Nothing verified yet — new list every Thursday.</div>`;
+      `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing verified yet — new list every Thursday.</div>`;
   }
 
   if (showVenueSections && pickVenues.length) {
@@ -1086,10 +1134,11 @@ function renderHomeSheet() {
 
 
   if (!rendered) {
-    html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
+    html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
   }
 
   setSheet(html);
+  injectEmptyIcons();
   history.replaceState(null, '', location.pathname);
   const sh = document.getElementById('sheet');
   sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
@@ -1532,6 +1581,7 @@ async function doCheckin(v) {
 
 function showCelebration(data) {
   const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
+  const hasNewBadges = data.new_badges?.length > 0;
   const ov = document.createElement('div');
   ov.className = 'celebrate';
   ov.innerHTML = `
@@ -1540,6 +1590,7 @@ function showCelebration(data) {
       <div class="cel-title">Checked in!</div>
       <div class="cel-venue">${esc(data.venue)}</div>
       <div class="cel-embers"><span class="cel-num" data-target="${data.embers_earned}">0</span><span class="cel-unit">embers</span></div>
+      ${hasNewBadges ? '<div class="cel-badge-unlock" data-badge-svg></div>' : ''}
       <div class="cel-rows">
         <div class="cel-row"><span>Streak</span><b>${data.streak_months} month${data.streak_months>1?'s':''}</b></div>
         <div class="cel-row"><span>Your flame</span><b>${stageLabels[data.phai_stage]||data.phai_stage}</b></div>
@@ -1554,10 +1605,20 @@ function showCelebration(data) {
       </div>
       ${data.capped ? '<div class="cel-capped">daily ember cap reached — check-in still counted</div>' : ''}
       <button class="btn cel-done">Nice</button>
+      <div class="cel-confetti" data-confetti-svg></div>
     </div>`;
   document.body.appendChild(ov);
   requestAnimationFrame(() => ov.classList.add('show'));
-  fireConfetti(ov);
+  confettiSvg().then(html => {
+    const el = ov.querySelector('[data-confetti-svg]');
+    if (el) playOnceInto(el, html);
+  });
+  if (hasNewBadges) {
+    badgeUnlockSvg().then(html => {
+      const el = ov.querySelector('[data-badge-svg]');
+      if (el) playOnceInto(el, html);
+    });
+  }
   // count-up
   const num = ov.querySelector('.cel-num');
   const target = +num.dataset.target;
@@ -1569,21 +1630,6 @@ function showCelebration(data) {
     setTimeout(() => ov.remove(), 300);
     goHome();
   });
-}
-
-function fireConfetti(container) {
-  const colors = ['#FF5A3C','#FFC24B','#7C5CE0','#1FBF9C','#F5F1E8'];
-  for (let i=0;i<50;i++){
-    const c=document.createElement('div');
-    c.className='confetti';
-    c.style.left=Math.random()*100+'%';
-    c.style.background=colors[i%colors.length];
-    c.style.borderRadius=i%2?'50%':'2px';
-    c.style.animationDuration=(1.4+Math.random()*1.4)+'s';
-    c.style.animationDelay=Math.random()*0.3+'s';
-    container.appendChild(c);
-    setTimeout(()=>c.remove(),3200);
-  }
 }
 
 /* ---------- helpers ---------- */

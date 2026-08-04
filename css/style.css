@@ -444,7 +444,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .mf-outer, .mf-core { animation: none; }
 }
-.sec-empty { font-size: 12.5px; color: var(--dim); margin-top: 7px; }
+.sec-empty { font-size: 12.5px; color: var(--dim); margin-top: 7px; text-align: center; }
+/* assets/404.svg — viewBox 700x400, sized to a modest width with the
+   aspect ratio locked so it never distorts */
+.sec-empty-ico { width: 120px; aspect-ratio: 700 / 400; margin: 4px auto 8px; }
+.sec-empty-ico svg { display: block; width: 100%; height: 100%; }
 
 /* desktop: sections panel docks right, full height */
 @media (min-width: 768px) {
@@ -527,7 +531,7 @@ body {
 }
 .celebrate.show { opacity: 1; }
 .cel-card {
-  background: var(--ink2); border-radius: 26px; padding: 30px 24px 22px;
+  position: relative; background: var(--ink2); border-radius: 26px; padding: 30px 24px 22px;
   width: 100%; max-width: 340px; text-align: center;
   transform: scale(.8) translateY(20px); transition: transform .42s cubic-bezier(.34,1.56,.64,1);
   box-shadow: 0 24px 60px rgba(0,0,0,.5);
@@ -559,10 +563,20 @@ body {
   box-shadow: 0 4px 0 #C6432A; transition: transform .1s;
 }
 .cel-done:active { transform: translateY(3px); box-shadow: 0 1px 0 #C6432A; }
-.confetti { position: absolute; top: -12px; width: 9px; height: 9px; z-index: 51; animation: cel-fall linear forwards; }
-@keyframes cel-fall { to { transform: translateY(105vh) rotate(560deg); opacity: .9; } }
+/* assets/Confetti.svg — overlaid across the card, clipped to its rounded
+   corners, above the card content but pointer-events: none so it never
+   blocks the "Nice" button underneath. Plays once (see playOnceInto()) */
+.cel-confetti {
+  position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  overflow: hidden; border-radius: inherit;
+}
+.cel-confetti svg { display: block; width: 100%; height: 100%; }
+/* assets/badge-unlock.svg — one instance above the rows, regardless of how
+   many badges were earned this check-in */
+.cel-badge-unlock { width: 96px; aspect-ratio: 1 / 1; margin: 0 auto 8px; }
+.cel-badge-unlock svg { display: block; width: 100%; height: 100%; }
 @media (prefers-reduced-motion: reduce) {
-  .cel-card, .cel-flame, .cel-row, .confetti { animation: none !important; transition: opacity .2s !important; }
+  .cel-card, .cel-flame, .cel-row { animation: none !important; transition: opacity .2s !important; }
   .celebrate.show .cel-card { transform: none; }
 }
 

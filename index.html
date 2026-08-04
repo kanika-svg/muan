@@ -30,23 +30,19 @@
     }
     #splash.gone { opacity: 0; pointer-events: none; }
     .splash-inner { text-align: center; animation: splash-in .5s ease backwards; }
-    .splash-flame { animation: splash-pulse 1.6s ease-in-out infinite; }
-    .splash-flame path:first-child { fill: #FF5A3C; }
-    .splash-flame path:last-child { fill: #131019; }
+    .splash-loader { width: 72px; height: 72px; margin: 0 auto; }
+    .splash-loader svg { display: block; width: 100%; height: 100%; }
     .splash-word {
       margin-top: 14px; font-size: 15px; font-weight: 700; letter-spacing: 3px;
       color: #F5F1E8; font-family: system-ui, sans-serif;
     }
     @keyframes splash-in { from { opacity:0; transform: translateY(8px) } }
-    @keyframes splash-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
     @media (prefers-reduced-motion: reduce) {
-      .splash-inner, .splash-flame { animation: none; }
+      .splash-inner { animation: none; }
     }
 
     [data-theme="light"] #splash { background: #FFFCF5; }
     [data-theme="light"] .splash-word { color: #2A2419; }
-    [data-theme="light"] .splash-flame path:first-child { fill: #D93A1F; }
-    [data-theme="light"] .splash-flame path:last-child { fill: #FFFCF5; }
   </style>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61,13 +57,19 @@
 <body>
 <div id="splash">
   <div class="splash-inner">
-    <svg class="splash-flame" width="72" height="88" viewBox="0 0 72 88" aria-hidden="true">
-      <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z"/>
-      <path d="M36 22 C31 32 23 37 23 48 C23 57 29 63 36 63 C43 63 49 57 49 48 C49 41 44 37 41 31 C40 36 37 37 36 36 C38 31 38 26 36 22 Z"/>
-    </svg>
+    <div class="splash-loader" aria-hidden="true"><svg fill="none" height="100%" width="100%" viewBox="0 0 500 500" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg"><g id="i0"><g transform="translate(290,250)"><animateTransform repeatCount="indefinite" type="translate" attributeName="transform" dur="1.367s" begin="0s" calcMode="spline" values="290 270; 290 270; 290 250; 290 250" keyTimes="0; 0.195122; 0.682927; 1" keySplines="0 0 1 1; 0.333 0 0.667 1; 0 0 1 1" fill="freeze" /><g transform="scale(1,1)"><animateTransform repeatCount="indefinite" type="scale" attributeName="transform" dur="1.367s" begin="0s" calcMode="spline" values="0.7 0.7; 0.7 0.7; 1 1; 1 1" keyTimes="0; 0.195122; 0.682927; 1" keySplines="0 0 1 1; 0.333 0 0.667 1; 0 0 1 1" fill="freeze" /><g transform="translate(0,0)"><g id="i1"><ellipse ry="10" rx="10" cy="0" cx="0" stroke-width="0" stroke="#e8e8e8" fill="#9babc6" /></g></g></g></g></g><g id="i2"><g transform="translate(250,250)"><animateTransform repeatCount="indefinite" type="translate" attributeName="transform" dur="1.367s" begin="0s" calcMode="spline" values="250 270; 250 270; 250 250; 250 250" keyTimes="0; 0.097561; 0.585366; 1" keySplines="0 0 1 1; 0.333 0 0.667 1; 0 0 1 1" fill="freeze" /><g transform="scale(1,1)"><animateTransform repeatCount="indefinite" type="scale" attributeName="transform" dur="1.367s" begin="0s" calcMode="spline" values="0.7 0.7; 0.7 0.7; 1 1; 1 1" keyTimes="0; 0.097561; 0.585366; 1" keySplines="0 0 1 1; 0.333 0 0.667 1; 0 0 1 1" fill="freeze" /><g transform="translate(0,0)"><g id="i1"><ellipse ry="10" rx="10" cy="0" cx="0" stroke-width="0" stroke="#e8e8e8" fill="#9babc6" /></g></g></g></g></g><g id="i3"><g transform="translate(210,250)"><animateTransform repeatCount="indefinite" type="translate" attributeName="transform" dur="1.367s" begin="0s" calcMode="spline" values="210 270; 210 250; 210 250" keyTimes="0; 0.487805; 1" keySplines="0.333 0 0.667 1; 0 0 1 1" fill="freeze" /><g transform="scale(1,1)"><animateTransform repeatCount="indefinite" type="scale" attributeName="transform" dur="1.367s" begin="0s" calcMode="spline" values="0.7 0.7; 1 1; 1 1" keyTimes="0; 0.487805; 1" keySplines="0.333 0 0.667 1; 0 0 1 1" fill="freeze" /><g transform="translate(0,0)"><g id="i1"><ellipse ry="10" rx="10" cy="0" cx="0" stroke-width="0" stroke="#e8e8e8" fill="#9babc6" /></g></g></g></g></g></svg></div>
     <div class="splash-word">PAISAIDEE</div>
   </div>
 </div>
+<script>
+  // SMIL ignores prefers-reduced-motion (no CSS media-query hook for it),
+  // so it has to be paused imperatively — inline and synchronous like the
+  // theme-detection script above, so it runs before first paint with no
+  // network wait
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelector('.splash-loader svg')?.pauseAnimations();
+  }
+</script>
 <div id="app">
 
   <div id="map"></div>
