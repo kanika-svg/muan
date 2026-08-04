@@ -1,6 +1,14 @@
 # Muan — Phase 2 spec: check-ins, Embers & Phai
 
-STATUS: Gate 1 passed (friends validation). Slice A built and live. Slices B–E remain gated on Gate 2 numbers.
+STATUS: Gate 1 passed (friends validation).
+- Slice A (auth, check-ins, streak) — complete and live.
+- Gamification beyond Slice A — phai stages, heat, badges, avatar items,
+  and the first-sign-in intro — built ahead of Gate 2 because friends
+  specifically asked for it during validation.
+- Still genuinely gated on Gate 2 usage data: comments (need check-in
+  volume to be worth reading), friends/presence, quests, live trending
+  rankings.
+
 This document is the source of truth for phase 2. Claude Code sessions should
 read this before touching any phase 2 work. Design decisions here were made
 deliberately; do not silently change them.
