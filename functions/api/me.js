@@ -37,8 +37,13 @@ export async function onRequest(context) {
 
     const { heat, heat_level } = await computeHeat(db, user.id);
 
+    // first-ever sign-in only; a returning account with real check-ins
+    // (e.g. a new device) already knows what the flame is
+    const showIntro = !user.intro_seen && (total?.c || 0) === 0;
+
     return Response.json({
       ok: true,
+      show_intro: showIntro,
       handle: user.handle,
       embers_total: user.embers_total || 0,
       streak_months: user.streak_months || 0,

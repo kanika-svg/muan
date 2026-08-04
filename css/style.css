@@ -622,6 +622,23 @@ body {
 .fl-flame[data-heat="burning"] { transform: scale(1);   filter: saturate(1.1) brightness(1.05); }
 .fl-flame[data-heat="roaring"] { transform: scale(1.1); filter: saturate(1.25) brightness(1.12); }
 
+/* first-run intro card (renderFlameIntro() in app.js) — the flame animates
+   cold -> burning over ~1.2s rather than .fl-flame's usual .6s, since here
+   it's the whole point rather than a resting-state cue */
+.fl-flame.intro-flame { transition: transform 1.2s ease, filter 1.2s ease; }
+.fl-intro-title { font-size: 22px; font-weight: 700; color: var(--bone); margin-top: 16px; }
+.fl-intro-lines { max-width: 280px; margin: 10px auto 0; }
+.fl-intro-line {
+  font-size: 13.5px; line-height: 1.5; color: var(--mute); margin-top: 10px;
+  opacity: 0; animation: cel-slide .4s ease backwards;
+}
+.fl-intro-line:nth-child(2) { animation-delay: .15s; }
+.fl-intro-line:nth-child(3) { animation-delay: .3s; }
+@media (prefers-reduced-motion: reduce) {
+  .fl-flame.intro-flame { transition: none; }
+  .fl-intro-line { animation: none; opacity: 1; }
+}
+
 .fl-streak {
   position: absolute; left: 0; right: 0; bottom: 26px;
   font-size: 40px; font-weight: 700; color: #FFF6E8;

@@ -495,6 +495,51 @@ async function openFlameSheet() {
     return;
   }
 
+  if (me.show_intro) { renderFlameIntro(flameHtml, () => renderFlameSheetBody(me, flameHtml)); return; }
+
+  renderFlameSheetBody(me, flameHtml);
+}
+
+// first sign-in only (server flag users.intro_seen, surfaced as
+// me.show_intro from /api/me — see PROBLEM in the task this was added for:
+// a new user otherwise lands straight on an unexplained empty calendar and
+// zero flame). One card: the flame animates cold -> burning over ~1.2s
+// while three lines fade in staggered 150ms apart (see .fl-intro-line in
+// style.css); "Got it" marks it seen server-side — best-effort, since an
+// intro that reappears once is milder than one that traps a broken request
+// — then hands off into the real (still-empty) flame sheet using the same
+// `me` data, no second /api/me round trip.
+function renderFlameIntro(flameHtml, onDone) {
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setSheet(`
+    <div class="fl-wrap">
+      <div class="fl-flame intro-flame" data-heat="${reduced ? 'burning' : 'cold'}">
+        ${flameHtml}
+      </div>
+      <div class="fl-intro-title">Your flame</div>
+      <div class="fl-intro-lines">
+        <div class="fl-intro-line">Check in where you go out — bars, cafés, anywhere on the map.</div>
+        <div class="fl-intro-line">Every check-in feeds it. Embers add up, and your flame grows.</div>
+        <div class="fl-intro-line">Go out at least once a month and it stays lit.</div>
+      </div>
+      <div class="btn-row"><button class="btn cel-done" data-intro-done>Got it</button></div>
+    </div>
+  `);
+  pauseFlameIfReducedMotion();
+  if (!reduced) {
+    const flameEl = document.querySelector('.intro-flame');
+    requestAnimationFrame(() => flameEl?.setAttribute('data-heat', 'burning'));
+  }
+  document.querySelector('[data-intro-done]')?.addEventListener('click', async () => {
+    try { await fetch('/api/intro-seen', { method: 'POST' }); } catch (e) {}
+    onDone();
+  });
+}
+
+// the normal flame-sheet content (calendar, flame, stage, embers, badges) —
+// split out of openFlameSheet() so renderFlameIntro()'s "Got it" can hand
+// off into it directly
+function renderFlameSheetBody(me, flameHtml) {
   const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
   const stageLo = { ember:'ຖ່ານໄຟ', flicker:'ໄຟວິບວັບ', flame:'ແປວໄຟ', blaze:'ໄຟລຸກ', naga:'ໄຟນາກ' };
   const heatLines = {
