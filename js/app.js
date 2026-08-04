@@ -618,6 +618,18 @@ function initMap() {
           }
         } catch (e) { console.warn('[muan] road layer', l.id, e.message); }
       });
+      // road_minor_fill/road_service_fill/road_path only start at minzoom
+      // 15 while their _case casing starts at 13 — between 13 and 15 minor
+      // roads are casing-only and visibly "pop in" solid at 15. Bring the
+      // fill's minzoom down to meet the casing's (13.5, not 13 — the casing
+      // itself doesn't exist below 13, and 13 is still an arterials-only
+      // zoom by design) so the character doesn't change mid-zoom.
+      const LOWER = ['road_minor_fill', 'road_service_fill', 'road_path'];
+      LOWER.forEach(id => {
+        if (!state.map.getLayer(id)) return;
+        const l = state.map.getLayer(id);
+        state.map.setLayerZoomRange(id, 13.5, l.maxzoom ?? 24);
+      });
     }
     if (state.theme === 'light') {
       const symbolLayers = state.map.getStyle().layers.filter(l => l.type === 'symbol');
