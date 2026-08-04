@@ -129,6 +129,7 @@ async function boot() {
     bindChips();
     bindLocate();
     bindRouteBar();
+    bindMapWarning();
     initSheetDrag();
 
     const st = document.getElementById('sheetToggle');
@@ -158,10 +159,27 @@ async function boot() {
       if (state.map) state.map.flyTo({ center: [venueById(vid).lng, venueById(vid).lat], zoom: 15.5 });
     }
 
-    if (state.map) await new Promise(resolve => state.map.once('load', resolve));
-    dismissSplash();
+    // never let a stuck basemap (CDN outage, blocked domain, ad-blocker,
+    // flaky connection) hold the splash — or the rest of the app — hostage.
+    // The sheet/list/gallery don't need tiles at all, so race the real load
+    // against a timeout rather than awaiting it unconditionally
+    if (state.map) {
+      let mapTimedOut = false;
+      await Promise.race([
+        new Promise(resolve => state.map.once('load', resolve)),
+        new Promise(resolve => setTimeout(() => {
+          console.warn('[muan] map load timed out after 8s — continuing without it');
+          mapTimedOut = true;
+          resolve();
+        }, 8000)),
+      ]);
+      if (mapTimedOut) showMapWarning();
+    }
   } catch (err) {
     console.error('[muan] boot failed', err);
+  } finally {
+    // must run whether boot succeeded, threw, or the map never loaded —
+    // a splash that never leaves is worse than an unpolished one
     dismissSplash();
   }
 }
@@ -617,11 +635,22 @@ function initMap() {
     // if one was showing when the style swapped
     if (state.currentRouteGeometry) drawRouteLayers(state.currentRouteGeometry);
   });
+  // markers are DOM elements MapLibre positions over the map — they don't
+  // need tiles to have loaded, so they must not be stuck waiting solely on
+  // 'load' (which may never fire on a CDN outage/blocked domain/ad-blocker).
+  // renderMarkersOnce() guards against running twice if 'load' does still
+  // fire after the fallback timer already rendered them
+  let markersDone = false;
+  function renderMarkersOnce() {
+    if (markersDone) return;
+    markersDone = true;
+    renderMarkers();
+  }
   state.map.on('load', () => {
     state.map.resize();
     requestAnimationFrame(() => {
       state.map.resize();
-      renderMarkers();
+      renderMarkersOnce();
       if (state.venues.length > 1) {
         const b = new maplibregl.LngLatBounds();
         state.venues.forEach(v => b.extend([v.lng, v.lat]));
@@ -629,6 +658,7 @@ function initMap() {
       }
     });
   });
+  setTimeout(renderMarkersOnce, 8000);
   state.map.on('zoom', () => {
     document.getElementById('map').classList.toggle('labels-hidden', state.map.getZoom() < 12.2);
   });
@@ -1517,6 +1547,20 @@ function bindRouteBar() {
   bar.addEventListener('click', (e) => {
     if (e.target.closest('#routeBarClose')) { clearRoute(); return; }
     if (state.currentRouteGeometry) frameRoute(state.currentRouteGeometry);
+  });
+}
+
+// shown once, only if boot()'s map-load race times out — static markup in
+// index.html, a persistent sibling of #sheetInner so it survives every
+// setSheet() re-render until the user dismisses it
+function showMapWarning() {
+  const el = document.getElementById('mapWarning');
+  if (el) el.hidden = false;
+}
+
+function bindMapWarning() {
+  document.getElementById('mapWarningClose')?.addEventListener('click', () => {
+    document.getElementById('mapWarning').hidden = true;
   });
 }
 

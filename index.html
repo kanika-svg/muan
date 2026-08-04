@@ -108,6 +108,10 @@
   <button id="sheetToggle" aria-label="Show or hide the list">‹</button>
   <section id="sheet" aria-live="polite">
     <div id="sheetHandle" aria-hidden="true"></div>
+    <div id="mapWarning" class="map-warning" hidden>
+      <span>Map tiles didn't load — check your connection. The list still works.</span>
+      <button id="mapWarningClose" aria-label="Dismiss">✕</button>
+    </div>
     <div id="sheetInner"></div>
   </section>
 
