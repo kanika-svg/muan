@@ -685,93 +685,57 @@ body {
   .flame-outer, .flame-mid, .flame-core { animation: none; }
 }
 
-/* full-screen swipe gallery (Recommended cafés) — a fixed overlay above
-   everything else, deliberately not sharing classes with #sheet's own .gal
-   photo strip so neither's styles bleed into the other. Full-bleed below
-   768px; becomes a centred modal card above it (see the 768px media query). */
-#gallery {
-  position: fixed; inset: 0; z-index: 60; background: #000;
-  touch-action: none; overflow: hidden;
+/* Cafes › Recommended: photo-collage cards as ordinary sheet content — no
+   overlay, no fixed positioning, no gesture handlers. Deliberately not
+   sharing classes with #sheet's own .gal photo strip (venue detail) so
+   neither's styles bleed into the other. */
+.collage-card {
+  position: relative; height: 300px; margin-top: 10px;
+  border-radius: 14px; overflow: hidden; cursor: pointer;
 }
-#gallery[hidden] { display: none; }
-.pg-card { position: absolute; inset: 0; overflow: hidden; }
-.pg-card.settling { transition: transform .22s cubic-bezier(.32,1.1,.5,1), opacity .22s ease; }
 
-/* photo collage: tile 1 large across the top ~52%, tiles 2-3 split the row
-   beneath it, tiles 4-5 (if present) a third row — see galleryCollageHtml()
-   for how it degrades as photos run out. 2px hairline gaps (the --ink4
-   background showing through) keep it reading as one image block, not a
-   grid of separate photos */
-.pg-collage {
+/* photo grid: tile 1 large across the top (~55%), up to 2 more split the
+   row beneath it (~45%) — see collagePhotosHtml() for how it degrades as
+   photos run out. 2px hairline gaps (the --ink4 background showing
+   through) keep it reading as one image block, not a grid of photos */
+.collage-photos {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   gap: 2px; background: var(--ink4);
 }
-.pg-collage-empty { align-items: center; justify-content: center; color: var(--dim); font-size: 32px; }
-.pg-tile { position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; background: var(--ink3); }
-.pg-tile img {
+.collage-photos-empty { align-items: center; justify-content: center; color: var(--dim); font-size: 32px; }
+.collage-tile { position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; background: var(--ink3); }
+.collage-tile img {
   width: 100%; height: 100%; object-fit: cover; display: block;
   -webkit-user-drag: none; user-select: none;
 }
-.pg-tile-big { flex: 0 0 52%; }
-.pg-tile-big.pg-tile-solo { flex: 1 1 100%; }
-.pg-rest { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
-.pg-row { flex: 1 1 0; min-height: 0; display: flex; gap: 2px; }
-.pg-more {
+.collage-tile-big { flex: 0 0 55%; }
+.collage-tile-big.solo { flex: 1 1 100%; }
+.collage-row { flex: 1 1 0; min-height: 0; display: flex; gap: 2px; }
+.collage-more {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: rgba(19,16,25,.55); color: #F5F1E8; font-size: 20px; font-weight: 700;
 }
 
-.pg-close {
-  position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; z-index: 2;
-  width: 36px; height: 36px; border-radius: 50%; border: none;
-  background: rgba(19,16,25,.55); color: #F5F1E8; font-size: 16px; cursor: pointer;
-}
-.pg-dots {
-  position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 2;
-  display: flex; flex-direction: column; gap: 7px;
-}
-.pg-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(245,241,232,.35); }
-.pg-dot.on { background: var(--gold); }
-
 /* text sits directly on the collage over a bottom scrim — always light-on-
    dark regardless of app theme, since it sits on unpredictable photo
-   content rather than the theme background (same reasoning as .pg-close) */
-.pg-scrim {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 42%;
+   content rather than the theme background */
+.collage-scrim {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 45%;
   background: linear-gradient(to top, rgba(19,16,25,.92), rgba(19,16,25,.72) 55%, rgba(19,16,25,0));
   pointer-events: none;
 }
-.pg-overlay {
+.collage-info {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
-  padding: 14px 20px max(14px, env(safe-area-inset-bottom));
+  padding: 12px 16px 14px;
   display: flex; flex-direction: column; gap: 3px;
 }
-.pg-name { font-size: 24px; font-weight: 700; color: #F5F1E8; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
-.pg-status { font-size: 13px; color: rgba(245,241,232,.78); }
-.pg-desc {
-  font-size: 13px; color: rgba(245,241,232,.78);
+.collage-name { font-size: 20px; font-weight: 700; color: #F5F1E8; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.collage-status { font-size: 12.5px; color: rgba(245,241,232,.78); }
+.collage-desc {
+  font-size: 12.5px; color: rgba(245,241,232,.78);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pg-facts { font-size: 13px; color: rgba(245,241,232,.78); display: flex; gap: 10px; }
-.pg-tap { font-size: 11.5px; color: rgba(245,241,232,.45); margin-top: 2px; }
-
-/* gallery becomes a centred card over a dimmed backdrop instead of a
-   full-bleed phone-shaped overlay — see initGalleryDrag() for the
-   backdrop-click / wheel / arrow-key handlers that pair with this. Must
-   come after the base #gallery/.pg-card rules above so it wins the cascade
-   (equal specificity — source order decides, media query or not) */
-@media (min-width: 768px) {
-  #gallery { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.7); }
-  .pg-card {
-    position: relative; inset: auto;
-    /* sized to content, not stretched to fill the viewport: the collage's
-       own 2:3 ratio drives the height, max-height is only a safety clamp
-       for short windows */
-    width: 100%; max-width: 420px; height: auto; max-height: 90vh; aspect-ratio: 2 / 3;
-    border-radius: 20px; overflow: hidden;
-    box-shadow: 0 24px 60px rgba(0,0,0,.55);
-  }
-}
+.collage-facts { font-size: 12.5px; color: rgba(245,241,232,.78); display: flex; gap: 10px; }
 
 #sheetHandle { cursor: default; padding: 10px 0 6px; margin-top: -10px; }
 @media (max-width: 767px) {

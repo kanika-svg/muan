@@ -30,10 +30,6 @@ const state = {
   tracking: null,
   trackWatchId: null,
   cafeTab: 'recommended', // 'recommended' | 'all' — sub-tab inside the Cafes filter
-  cafeGalleryIds: [],     // qualifying cafés for the full-screen gallery, set by renderHomeSheet()
-  galleryIds: [],
-  galleryIndex: 0,
-  galleryOpen: false,
 };
 
 /* ---------- geolocation ---------- */
@@ -134,7 +130,6 @@ async function boot() {
     bindLocate();
     bindRouteBar();
     initSheetDrag();
-    initGalleryDrag();
 
     const st = document.getElementById('sheetToggle');
     st.addEventListener('click', () => {
@@ -808,6 +803,74 @@ function bigCard(v, sub, photoOverride) {
   </div>`;
 }
 
+/* ---------- Recommended cafés: photo-collage cards ---------- */
+// "closed" already says so on its own (openStatus() covers "closed today" /
+// "closed" / "hours unconfirmed"); only the not-yet-open case ("opens 10 am")
+// needs a "closed ·" prefix to read honestly at a glance
+function collageStatusLine(v) {
+  const st = openStatus(v);
+  const statusPart = (st.open || /^closed/.test(st.label) || st.label === 'hours unconfirmed')
+    ? st.label
+    : `closed · ${st.label}`;
+  return state.userPos ? `${statusPart} · ${fmtDist(haversine(state.userPos, v))}` : statusPart;
+}
+
+// truncates the long description to ~80 chars at a word boundary — the
+// full text belongs on the venue sheet, not this card
+function collageDescLine(v) {
+  const d = (v.description || '').trim();
+  if (!d) return '';
+  return d.length <= 80 ? d : d.slice(0, 80).replace(/\s+\S*$/, '') + '…';
+}
+
+// 1 large photo across the top (~55%), up to 2 more side by side beneath
+// (~45%) — degrades cleanly as photos run out: 2 photos = one large plus
+// one wide beneath. A 4th+ photo folds into a "+N" badge on the last tile
+// rather than growing the grid further.
+function collagePhotosHtml(photos, altName) {
+  if (!photos.length) return `<div class="collage-photos collage-photos-empty">📷</div>`;
+  const n = Math.min(photos.length, 3);
+  const extra = photos.length - 3;
+  let html = `<div class="collage-photos">`;
+  html += `<div class="collage-tile collage-tile-big${n === 1 ? ' solo' : ''}">
+    <img src="${esc(photos[0])}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
+  if (n >= 2) {
+    const more = n >= 3 && extra > 0 ? extra : null;
+    html += `<div class="collage-row">
+      <div class="collage-tile"><img src="${esc(photos[1])}" alt="" loading="lazy" draggable="false"></div>
+      ${n >= 3 ? `<div class="collage-tile">
+        <img src="${esc(photos[2])}" alt="" loading="lazy" draggable="false">
+        ${more ? `<span class="collage-more">+${more}</span>` : ''}
+      </div>` : ''}
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// whole-card-tappable collage card for the Cafes › Recommended tab — an
+// ordinary sheet element (no fixed positioning, no gesture handlers); reuses
+// setSheet()'s [data-open-venue] delegation like every other card
+function collageCardHtml(v) {
+  const photos = v.photos || [];
+  const descLine = collageDescLine(v);
+  const facts = [];
+  if (v.contact?.phone) facts.push('📞');
+  if (v.parking?.note) facts.push('🅿');
+  if (photos.length) facts.push(`${photos.length} photo${photos.length === 1 ? '' : 's'}`);
+  return `
+    <div class="collage-card" data-open-venue="${v.id}">
+      ${collagePhotosHtml(photos, v.name)}
+      <div class="collage-scrim"></div>
+      <div class="collage-info">
+        <div class="collage-name">${esc(v.short_name || v.name)}</div>
+        <div class="collage-status">${esc(collageStatusLine(v))}</div>
+        ${descLine ? `<div class="collage-desc">${esc(descLine)}</div>` : ''}
+        ${facts.length ? `<div class="collage-facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
+      </div>
+    </div>`;
+}
+
 // funnel for any "go to home" action that isn't an explicit back/close —
 // a sticky routed venue (state.routeVenueId) wins over an incidental
 // re-render, per clearRoute()'s comment on when a route is allowed to die
@@ -867,26 +930,15 @@ function renderHomeSheet() {
     }
 
     if (f === 'cafe' && cafeTab === 'recommended') {
-      // cafés with enough photos to be worth a full-screen look; the gallery
-      // itself (openGallery()) reads state.cafeGalleryIds set here
+      // cafés with enough photos for a collage card to be worth showing
       const cafeGallery = state.venues
         .filter(v => v.type === 'cafe' && (v.photos?.length || 0) >= 2)
         .sort((a, b) => (b.photos.length - a.photos.length) ||
           (a.short_name || a.name).localeCompare(b.short_name || b.name));
-      state.cafeGalleryIds = cafeGallery.map(v => v.id);
       if (!cafeGallery.length) {
         html += `<div class="sec-empty">Nothing here right now — try another filter.</div>`;
       } else {
-        const face = cafeGallery[0];
-        html += `
-          <div class="card card-big" data-open-gallery>
-            <img class="big-thumb" src="${esc(face.photos[0])}" alt="" loading="lazy">
-            <div class="card-body">
-              <div style="font-size:15px;font-weight:700;">${esc(face.short_name || face.name)}</div>
-              <div class="t-sub">${venueLine(face, esc(face.area || ''))}</div>
-            </div>
-          </div>
-          <div class="t-sub" style="margin-top:8px;">${cafeGallery.length} café${cafeGallery.length === 1 ? '' : 's'} in this list</div>`;
+        html += cafeGallery.map(v => collageCardHtml(v)).join('');
       }
     } else {
       const typeVenues = state.venues.filter(v => v.type === f)
@@ -1562,7 +1614,7 @@ function initSheetDrag() {
   const sheet = getSheet();
 
   sheet.addEventListener('touchstart', e => {
-    if (window.innerWidth >= 768 || state.galleryOpen) return;
+    if (window.innerWidth >= 768) return;
     // TEMP DIAGNOSTIC — remove once confirmed the sheet no longer sticks
     console.log('[sheet-drag] touchstart', { axis, dragging, sheetDragging: sheet.classList.contains('dragging') });
     if (e.touches.length > 1) { endGesture(); return; }   // a second finger mid-drag is a common way to strand this state
@@ -1580,7 +1632,7 @@ function initSheetDrag() {
   }, { passive: true });
 
   sheet.addEventListener('touchmove', e => {
-    if (window.innerWidth >= 768 || state.galleryOpen) return;
+    if (window.innerWidth >= 768) return;
     const t = e.touches[0];
     const moveX = t.clientX - startX;
     const moveY = t.clientY - startY;
@@ -1642,286 +1694,6 @@ function initSheetDrag() {
   };
   sheet.addEventListener('touchend', onEnd);
   sheet.addEventListener('touchcancel', endGesture);
-}
-
-/* ---------- full-screen café gallery ---------- */
-// "closed" already says so on its own (openStatus() covers "closed today" /
-// "closed" / "hours unconfirmed"); only the not-yet-open case ("opens 10 am")
-// needs a "closed ·" prefix to read honestly at a glance
-function galleryStatusLine(v) {
-  const st = openStatus(v);
-  const statusPart = (st.open || /^closed/.test(st.label) || st.label === 'hours unconfirmed')
-    ? st.label
-    : `closed · ${st.label}`;
-  return state.userPos ? `${statusPart} · ${fmtDist(haversine(state.userPos, v))}` : statusPart;
-}
-
-// truncates the long description to ~90 chars at a word boundary — the
-// full text belongs on the venue sheet, not this card
-function galleryDescLine(v) {
-  const d = (v.description || '').trim();
-  if (!d) return '';
-  return d.length <= 90 ? d : d.slice(0, 90).replace(/\s+\S*$/, '') + '…';
-}
-
-// edge-to-edge photo collage: tile 1 large across the top ~52%, tiles 2-3
-// split the row beneath it, tiles 4-5 (if present) a third row. Degrades as
-// photos run out — 2 photos = one large plus one wide beneath, 3 = the same
-// without the third row. Caps at 5 visible tiles; anything past that folds
-// into a "+N" badge on the 5th.
-function galleryCollageHtml(photos, altName) {
-  if (!photos.length) return `<div class="pg-collage pg-collage-empty">📷</div>`;
-  const tiles = photos.slice(0, 5);
-  const n = tiles.length;
-  const extra = photos.length - tiles.length;
-  const tile = (i, more) => `
-    <div class="pg-tile">
-      <img src="${esc(tiles[i])}" alt="" loading="lazy" draggable="false">
-      ${more ? `<span class="pg-more">+${more}</span>` : ''}
-    </div>`;
-
-  let html = `<div class="pg-collage">`;
-  html += `<div class="pg-tile pg-tile-big${n === 1 ? ' pg-tile-solo' : ''}">
-    <img src="${esc(tiles[0])}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
-  if (n >= 2) {
-    html += `<div class="pg-rest">`;
-    html += `<div class="pg-row">${tile(1)}${n >= 3 ? tile(2) : ''}</div>`;
-    if (n >= 4) html += `<div class="pg-row">${tile(3)}${n >= 5 ? tile(4, extra > 0 ? extra : null) : ''}</div>`;
-    html += `</div>`;
-  }
-  html += `</div>`;
-  return html;
-}
-
-function renderGalleryCard() {
-  const gallery = document.getElementById('gallery');
-  const v = venueById(state.galleryIds[state.galleryIndex]);
-  if (!v) { closeGallery(); return; }
-  const photos = v.photos || [];
-  const descLine = galleryDescLine(v);
-  const facts = [];
-  if (v.contact?.phone) facts.push('📞');
-  if (v.parking?.note) facts.push('🅿');
-  if (photos.length) facts.push(`${photos.length} photo${photos.length === 1 ? '' : 's'}`);
-
-  gallery.innerHTML = `
-    <div class="pg-card" id="pgCard">
-      ${galleryCollageHtml(photos, v.name)}
-      <div class="pg-scrim"></div>
-      <button class="pg-close" aria-label="Close gallery">✕</button>
-      <div class="pg-dots">${state.galleryIds.map((_, i) =>
-        `<span class="pg-dot ${i === state.galleryIndex ? 'on' : ''}"></span>`).join('')}</div>
-      <div class="pg-overlay">
-        <div class="pg-name">${esc(v.short_name || v.name)}</div>
-        <div class="pg-status">${esc(galleryStatusLine(v))}</div>
-        ${descLine ? `<div class="pg-desc">${esc(descLine)}</div>` : ''}
-        ${facts.length ? `<div class="pg-facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
-        <div class="pg-tap">swipe right for details</div>
-      </div>
-    </div>`;
-}
-
-// preload only the next card's hero (the direction a fresh gallery is
-// actually swiped in) so an up-swipe never lands on an empty frame
-function preloadGalleryNext() {
-  const v = venueById(state.galleryIds[state.galleryIndex + 1]);
-  const photo = v && v.photos && v.photos[0];
-  if (photo) new Image().src = photo;
-}
-
-function openGallery() {
-  if (!state.cafeGalleryIds.length) return;
-  state.galleryIds = state.cafeGalleryIds;
-  state.galleryIndex = 0;
-  state.galleryOpen = true;
-  document.body.style.overflow = 'hidden';
-  document.getElementById('gallery').hidden = false;
-  renderGalleryCard();
-  preloadGalleryNext();
-}
-
-function closeGallery() {
-  if (!state.galleryOpen) return;
-  state.galleryOpen = false;
-  document.body.style.overflow = '';
-  const gallery = document.getElementById('gallery');
-  gallery.hidden = true;
-  gallery.innerHTML = '';        // clears any inline transform along with it
-  galDragging = false; galDY = 0; galDX = 0; galAxis = null;
-}
-
-// dragging/dY/dX/axis are module-level like the sheet's own axis/dragging
-// (see endGesture()) so a stray touchcancel or a second finger can't strand them
-let galDragging = false;
-let galDY = 0;
-let galDX = 0;
-let galAxis = null;              // null (undecided) | 'x' (right, bound) | 'y' | 'none' (left, unbound)
-
-function galSnapBack() {
-  galDragging = false; galDY = 0; galDX = 0; galAxis = null;
-  const card = document.getElementById('pgCard');
-  if (card) { card.style.transform = ''; card.style.opacity = ''; }
-}
-
-// dir: +1 advances to the next venue, -1 to the previous — same follow/settle
-// pattern as changeFilterAnimated(), just on the vertical axis
-function animateGallerySwap(dir) {
-  const card = document.getElementById('pgCard');
-  const H = window.innerHeight;
-  galDragging = false; galDY = 0; galDX = 0; galAxis = null;
-  card.classList.add('settling');
-  card.style.transform = `translateY(${-dir * H}px)`;
-  card.style.opacity = '0';
-  setTimeout(() => {
-    state.galleryIndex += dir;
-    renderGalleryCard();
-    preloadGalleryNext();
-    const next = document.getElementById('pgCard');
-    next.style.transform = `translateY(${dir * H * 0.4}px)`;
-    next.style.opacity = '0';
-    requestAnimationFrame(() => {
-      next.classList.add('settling');
-      next.style.transform = 'translateY(0)';
-      next.style.opacity = '1';
-      setTimeout(() => next.classList.remove('settling'), 240);
-    });
-  }, 220);
-}
-
-// touch handlers are delegated on the static #gallery node (its content is
-// fully replaced per card by renderGalleryCard(), same pattern as #sheet /
-// #sheetInner) — never on document or the map, so marker touch handling
-// inside MapLibre is untouched
-function initGalleryDrag() {
-  const gallery = document.getElementById('gallery');
-  let startX = 0, startY = 0;
-
-  const openCurrentVenue = () => {
-    const id = state.galleryIds[state.galleryIndex];
-    closeGallery();
-    openVenue(id);
-  };
-
-  gallery.addEventListener('click', e => {
-    // desktop only in practice — #gallery is full-bleed under 768px, so a
-    // click can never land directly on it there, only on .pg-card's children
-    if (e.target === gallery) { closeGallery(); return; }
-    if (e.target.closest('.pg-close')) { closeGallery(); return; }
-    // the collage itself is inert on tap/click — swipe right is the only
-    // way to open the venue (see onEnd()'s galAxis === 'x' branch)
-  });
-
-  // desktop nav: mouse wheel and up/down arrows move between venues, same
-  // step animation as a completed swipe. wheelLocked debounces one card per
-  // gesture — trackpads fire many small deltaY events per physical scroll
-  let wheelLocked = false;
-  const stepGallery = dir => {
-    const canAdvance = dir > 0 && state.galleryIndex < state.galleryIds.length - 1;
-    const canRetreat = dir < 0 && state.galleryIndex > 0;
-    if (!canAdvance && !canRetreat) return;
-    animateGallerySwap(dir);
-  };
-  gallery.addEventListener('wheel', e => {
-    if (wheelLocked || Math.abs(e.deltaY) < 4) return;
-    e.preventDefault();
-    wheelLocked = true;
-    stepGallery(e.deltaY > 0 ? 1 : -1);
-    setTimeout(() => { wheelLocked = false; }, 260);
-  }, { passive: false });
-
-  gallery.addEventListener('touchstart', e => {
-    if (e.target.closest('.pg-close')) { galDragging = false; return; }
-    if (e.touches.length > 1) { galSnapBack(); return; }
-    galSnapBack();
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    galDragging = true;
-  }, { passive: true });
-
-  gallery.addEventListener('touchmove', e => {
-    if (!galDragging) return;
-    const t = e.touches[0];
-    const moveX = t.clientX - startX;
-    const moveY = t.clientY - startY;
-    if (galAxis === null) {
-      if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
-      if (Math.abs(moveX) > Math.abs(moveY)) {
-        galAxis = moveX > 0 ? 'x' : 'none';   // right swipe is bound; left is not
-      } else {
-        galAxis = 'y';
-      }
-    }
-    const card = document.getElementById('pgCard');
-    if (!card) return;
-    if (galAxis === 'y') {
-      e.preventDefault();
-      galDY = moveY;
-      const atStart = state.galleryIndex === 0 && galDY > 0;          // no previous — resist
-      const atEnd = state.galleryIndex === state.galleryIds.length - 1 && galDY < 0; // no next — resist
-      const move = (atStart || atEnd) ? galDY * 0.25 : galDY;
-      card.style.transform = `translateY(${move}px)`;
-      card.style.opacity = String(1 - Math.min(0.5, Math.abs(move) / window.innerHeight));
-    } else if (galAxis === 'x') {
-      e.preventDefault();
-      galDX = moveX;
-      card.style.transform = `translateX(${galDX}px)`;
-      card.style.opacity = String(1 - Math.min(0.5, galDX / window.innerWidth));
-    }
-    // galAxis === 'none': left swipe — deliberately unbound, no transform, no preventDefault
-  }, { passive: false });
-
-  const onEnd = () => {
-    if (!galDragging) return;
-    if (galAxis === null) {
-      // never crossed the 12px lock threshold in either direction — a tap.
-      // Tap-to-open was removed: swipe right (the galAxis === 'x' branch
-      // below) is the only way to open the venue, so a bare tap does nothing.
-      galSnapBack();
-      return;
-    }
-    if (galAxis === 'x') {
-      if (galDX > 70) { openCurrentVenue(); return; }
-      galSnapBack();
-      const card = document.getElementById('pgCard');
-      if (card) {
-        card.classList.add('settling');
-        card.style.transform = '';
-        card.style.opacity = '';
-        setTimeout(() => card.classList.remove('settling'), 240);
-      }
-      return;
-    }
-    if (galAxis === 'y') {
-      const dy = galDY;
-      const canAdvance = dy < 0 && state.galleryIndex < state.galleryIds.length - 1;
-      const canRetreat = dy > 0 && state.galleryIndex > 0;
-      if (Math.abs(dy) > 70 && (canAdvance || canRetreat)) {
-        animateGallerySwap(dy < 0 ? 1 : -1);
-      } else {
-        // released short of the threshold (or at a no-wrap end) — animate back to rest
-        const card = document.getElementById('pgCard');
-        galDragging = false; galDY = 0; galDX = 0; galAxis = null;
-        if (card) {
-          card.classList.add('settling');
-          card.style.transform = '';
-          card.style.opacity = '';
-          setTimeout(() => card.classList.remove('settling'), 240);
-        }
-      }
-      return;
-    }
-    // galAxis === 'none': left swipe released — inert, snap back to rest with no action
-    galSnapBack();
-  };
-  gallery.addEventListener('touchend', onEnd);
-  gallery.addEventListener('touchcancel', galSnapBack);
-
-  document.addEventListener('keydown', e => {
-    if (!state.galleryOpen) return;
-    if (e.key === 'Escape') { closeGallery(); return; }
-    if (e.key === 'ArrowDown') { e.preventDefault(); stepGallery(1); return; }
-    if (e.key === 'ArrowUp') { e.preventDefault(); stepGallery(-1); return; }
-  });
 }
 
 // order swiped through on mobile; does not wrap at the ends
@@ -2011,8 +1783,6 @@ function setSheet(html) {
   inner.classList.add('anim');
   inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
-  inner.querySelectorAll('[data-open-gallery]').forEach(el =>
-    el.addEventListener('click', openGallery));
   inner.querySelectorAll('[data-cafe-tab]').forEach(el =>
     el.addEventListener('click', () => {
       state.cafeTab = el.dataset.cafeTab;
