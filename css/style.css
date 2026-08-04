@@ -283,6 +283,9 @@ body {
 .info-ic { flex-shrink: 0; width: 20px; text-align: center; }
 .info-main { flex: 1; color: var(--bone); line-height: 1.5; }
 .info-main .sub { color: var(--mute); font-size: 12px; }
+/* shown under the straight-line distance while the routed distance/time is
+   still in flight — see toggleRoute() in app.js */
+.travel-measuring { display: block; color: var(--dim); font-size: 10.5px; margin-top: 1px; }
 
 .act-row { display: flex; gap: 8px; margin: 14px 0 18px; }
 .act {

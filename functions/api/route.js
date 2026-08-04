@@ -52,6 +52,27 @@ export async function onRequest(context) {
       return Response.json({ ok: false }, { status: 200 });
     }
 
+    // round to 4dp (~11m) so two requests from roughly the same spot to the
+    // same venue collide on one cache entry instead of each raw GPS reading
+    // (which never repeats exactly) missing the edge cache and hitting ORS.
+    // Cloudflare's default cache key is the incoming request URL, which
+    // still carries the client's raw coordinates — so the rounded values
+    // are used to build an explicit second cache key below rather than
+    // relying on Cache-Control alone to dedupe them.
+    const round4 = n => Math.round(n * 10000) / 10000;
+    const rFromLat = round4(from_lat), rFromLng = round4(from_lng);
+    const rToLat = round4(to_lat), rToLng = round4(to_lng);
+
+    const cache = caches.default;
+    const cacheKeyUrl = new URL(context.request.url);
+    cacheKeyUrl.search = new URLSearchParams({
+      from_lat: rFromLat, from_lng: rFromLng, to_lat: rToLat, to_lng: rToLng, mode,
+    }).toString();
+    const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
+
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
+
     // mode must be a valid ORS profile — 'driving-car' or 'foot-walking'
     const orsUrl = `https://api.openrouteservice.org/v2/directions/${mode}/geojson`;
 
@@ -63,7 +84,7 @@ export async function onRequest(context) {
         'Accept': 'application/geo+json',
       },
       body: JSON.stringify({
-        coordinates: [[from_lng, from_lat], [to_lng, to_lat]],
+        coordinates: [[rFromLng, rFromLat], [rToLng, rToLat]],
       }),
     });
     const text = await orsRes.text();
@@ -76,13 +97,16 @@ export async function onRequest(context) {
     const feat = data.features?.[0];
     if (!feat?.properties?.summary) return Response.json({ ok: false }, { status: 200 });
 
-    return Response.json({
+    const response = Response.json({
       ok: true,
       distance_m: Math.round(feat.properties.summary.distance),
       duration_s: Math.round(feat.properties.summary.duration),
       geometry: feat.geometry,
       mode,
     }, { headers: { 'Cache-Control': 'public, max-age=86400' } });
+
+    context.waitUntil(cache.put(cacheKey, response.clone()));
+    return response;
   } catch (e) {
     console.error(e);
     return Response.json({ ok: false }, { status: 200 });

@@ -64,16 +64,21 @@ async function requestLocation() {
     } catch (e) { /* permissions API not queryable for geolocation in this browser */ }
   }
   try {
+    // fast coarse fix (cell/wifi, usually well under a second) rather than
+    // waiting on a cold GPS lock (up to 10s) — plenty for routing and for
+    // the 150m check-in radius. refineLocation() chases a sharper fix
+    // afterwards in the background without making the caller wait for it.
     const pos = await new Promise((resolve, reject) =>
       navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true, timeout: 10000, maximumAge: 60000
+        enableHighAccuracy: false, timeout: 4000, maximumAge: 300000
       })
     );
     state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     state.geoError = null;
-    geoDebug('[geo] success');
+    geoDebug('[geo] coarse success');
     updateUserMarker();
     updateLocatePill();
+    refineLocation();
     return state.userPos;
   } catch (err) {
     state.geoError =
@@ -85,6 +90,41 @@ async function requestLocation() {
     updateLocatePill();
     return null;
   }
+}
+
+// silent high-accuracy follow-up fired after requestLocation()'s coarse fix
+// resolves — never awaited and never surfaced as loading state; if a sharper
+// fix arrives it just quietly updates state.userPos and anything reading it
+function refineLocation() {
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      geoDebug('[geo] refined (high-accuracy)');
+      updateUserMarker();
+      updateLocatePill();
+      if (state.selectedId) {
+        const v = venueById(state.selectedId);
+        if (v) updateCheckinButton(v);
+      }
+    },
+    err => geoDebug(`[geo] refine error code=${err.code}`),
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+// called when a venue sheet opens with no fix yet, so a coarse position is
+// usually already sitting in state.userPos by the time the user presses
+// Directions. Only proceeds if permission is already granted — never
+// triggers the browser's permission prompt; if it's 'prompt', 'denied', or
+// unknown (the Permissions API doesn't cover geolocation in every browser),
+// this just does nothing and the Directions/near-me buttons prompt properly
+// on their own when the user actually asks.
+async function warmLocation() {
+  if (state.userPos || !('geolocation' in navigator) || !navigator.permissions) return;
+  try {
+    const perm = await navigator.permissions.query({ name: 'geolocation' });
+    if (perm.state === 'granted') requestLocation();
+  } catch (e) { /* permissions API not queryable for geolocation in this browser */ }
 }
 
 /* ---------- boot ---------- */
@@ -1262,6 +1302,7 @@ function openVenue(id) {
   const v = venueById(id);
   if (!v) return;
   toggleSheet(false);
+  if (!state.userPos) warmLocation();  // so Directions usually has a fix already — see warmLocation()
   // a route only dies when a DIFFERENT venue opens — reopening the routed
   // venue itself (e.g. sticky re-open from goHome()) must keep it (see #4)
   if (state.routeVenueId && state.routeVenueId !== id) clearRoute();
@@ -1471,8 +1512,16 @@ async function toggleRoute(v) {
     updateCheckinButton(v);
   }
 
-  lbl.textContent = 'Loading…';
+  lbl.textContent = 'Finding route…';
   dirBtn.disabled = true;
+  // instant feedback: straight-line distance now, routed distance/time once
+  // the fetch below lands — the user gets something useful in well under a
+  // second even when the ORS round trip takes several
+  const travelEl = document.getElementById('travelLine');
+  if (travelEl) {
+    travelEl.innerHTML = `${fmtDist(haversine(state.userPos, v))} away · straight line` +
+      `<span class="travel-measuring">measuring route…</span>`;
+  }
   try {
     const p = new URLSearchParams({
       from_lat: state.userPos.lat, from_lng: state.userPos.lng,
@@ -1485,7 +1534,6 @@ async function toggleRoute(v) {
 
     const mins = Math.max(1, Math.round(data.duration_s / 60));
     const label = `${fmtDist(data.distance_m)} · ${mins} min drive`;
-    const travelEl = document.getElementById('travelLine');
     if (travelEl) travelEl.innerHTML = label;
     const attr = document.getElementById('routeAttribution');
     if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
@@ -1504,6 +1552,7 @@ async function toggleRoute(v) {
   } catch (e) {
     dirBtn.disabled = false;
     lbl.textContent = 'Route unavailable';
+    if (travelEl) travelEl.innerHTML = `${fmtDist(haversine(state.userPos, v))} away · straight line`;
     setTimeout(() => {
       const l = document.getElementById('dirLbl');
       if (l && l.textContent === 'Route unavailable') l.textContent = 'Directions';
