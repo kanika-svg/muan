@@ -531,6 +531,30 @@ function initMap() {
       state.map.setPaintProperty('water', 'fill-color', '#CBD9DC');
     }
     if (state.theme === 'light') {
+      // Positron's own road colours are already near-white (#fdfdfd fills,
+      // #ddd/#e6e6e6 casings) — the milky canvas filter was pushing them
+      // the rest of the way into the cream background. Recolour at the
+      // source instead of relying on the filter to leave them visible.
+      const roadLayers = state.map.getStyle().layers.filter(l =>
+        l.type === 'line' && /road|street|highway|motorway|trunk|primary|secondary|tertiary|minor|service|path/i.test(l.id));
+      console.log('[muan] positron road layers:', roadLayers.map(l => ({ id: l.id, color: l.paint?.['line-color'] })));
+      roadLayers.forEach(l => {
+        try {
+          state.map.setPaintProperty(l.id, 'line-color', '#C9BCA4');
+          // nudge minor/service/path roads a touch wider so the recolour
+          // actually reads at low zoom instead of staying a hairline
+          if (/minor|service|path|residential/i.test(l.id)) {
+            state.map.setPaintProperty(l.id, 'line-width', [
+              'interpolate', ['linear'], ['zoom'],
+              12, 0.6,
+              14, 1.1,
+              16, 2.2
+            ]);
+          }
+        } catch (e) { console.warn('[muan] road layer', l.id, e.message); }
+      });
+    }
+    if (state.theme === 'light') {
       const symbolLayers = state.map.getStyle().layers.filter(l => l.type === 'symbol');
       console.log('[muan] positron symbol layers:', symbolLayers.map(l => l.id));
       const NOISY = ['place_hamlet','place_village','place_suburb','place_suburbs',

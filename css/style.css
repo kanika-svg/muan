@@ -64,7 +64,7 @@ body {
 
 /* milky tint — canvas only, never the container (markers live in the container) */
 [data-theme="light"] .maplibregl-canvas {
-  filter: sepia(0.22) saturate(1.1) contrast(1.06) hue-rotate(-6deg);
+  filter: sepia(0.14) saturate(1.05) hue-rotate(-6deg);
 }
 
 /* user location dot — not a venue pin, no label */
