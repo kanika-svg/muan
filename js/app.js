@@ -1932,8 +1932,16 @@ function bindChips() {
     ch.addEventListener('click', () => {
       state.filter = ch.dataset.filter;
       syncChipState();
+      // a filter change is an explicit "browse elsewhere" action — return to
+      // the home list regardless of what the sheet currently shows, and treat
+      // a sticky routed venue (state.routeVenueId) the same as pressing back
+      state.selectedId = null;
+      if (state.map) clearRoute();
+      renderHomeSheet();
+      updateSelection();
       renderMarkers();
-      if (!state.selectedId) renderHomeSheet();
+      const sheet = document.getElementById('sheet');
+      if (sheet.classList.contains('collapsed')) toggleSheet(false);
     });
   });
 }
