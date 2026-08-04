@@ -1680,7 +1680,7 @@ function renderGalleryCard() {
   gallery.innerHTML = `
     <div class="pg-card" id="pgCard">
       <div class="pg-hero-wrap">
-        ${hero ? `<img class="pg-hero" src="${esc(hero)}" alt="${esc(v.name)}">` : ''}
+        ${hero ? `<img class="pg-hero" id="pgHero" src="${esc(hero)}" alt="${esc(v.name)}">` : ''}
         <button class="pg-close" aria-label="Close gallery">✕</button>
         <div class="pg-dots">${state.galleryIds.map((_, i) =>
           `<span class="pg-dot ${i === state.galleryIndex ? 'on' : ''}"></span>`).join('')}</div>
@@ -1692,7 +1692,7 @@ function renderGalleryCard() {
         <div class="pg-status">${esc(galleryStatusLine(v))}</div>
         ${descLine ? `<div class="pg-desc">${esc(descLine)}</div>` : ''}
         ${facts.length ? `<div class="pg-facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
-        <div class="pg-tap">tap for details</div>
+        <div class="pg-tap">swipe right for details</div>
       </div>
     </div>`;
 }
@@ -1783,9 +1783,23 @@ function initGalleryDrag() {
     // click can never land directly on it there, only on .pg-card's children
     if (e.target === gallery) { closeGallery(); return; }
     if (e.target.closest('.pg-close')) { closeGallery(); return; }
-    // the strip scrolls natively (excluded from touch-drag below), so a tap
-    // on a thumbnail only ever reaches us as a click, never the touch path
-    if (e.target.closest('.pg-strip')) openCurrentVenue();
+    // the hero itself is inert on tap/click — swipe right is the only way
+    // to open the venue (see onEnd()'s galAxis === 'x' branch). Thumbnails
+    // swap into the hero instead, same pattern as the venue-sheet's own
+    // .gal-thumb → #galHero (see openVenue())
+    const thumb = e.target.closest('.pg-thumb');
+    if (thumb) {
+      const heroImg = document.getElementById('pgHero');
+      if (heroImg) {
+        heroImg.classList.add('fading');
+        setTimeout(() => {
+          heroImg.src = thumb.src;
+          heroImg.onload = () => heroImg.classList.remove('fading');
+        }, 140);
+      }
+      gallery.querySelectorAll('.pg-thumb').forEach(t => t.classList.remove('sel'));
+      thumb.classList.add('sel');
+    }
   });
 
   // desktop nav: mouse wheel and up/down arrows move between venues, same
@@ -1850,8 +1864,10 @@ function initGalleryDrag() {
   const onEnd = () => {
     if (!galDragging) return;
     if (galAxis === null) {
-      // never crossed the 12px lock threshold in either direction — a tap
-      openCurrentVenue();
+      // never crossed the 12px lock threshold in either direction — a tap.
+      // Tap-to-open was removed: swipe right (the galAxis === 'x' branch
+      // below) is the only way to open the venue, so a bare tap does nothing.
+      galSnapBack();
       return;
     }
     if (galAxis === 'x') {
