@@ -768,19 +768,45 @@ function initMap() {
   });
 }
 
+// below this zoom, markers simplify to dots (see pinSVG(), updateLabelCrowding())
+const DOT_ZOOM_THRESHOLD = 14;
+
+/* both the teardrop pin and the low-zoom dot are always drawn into the SAME
+   fixed-size svg (width/height never change between them — only these two
+   <g> layers' opacity crossfades, driven by .marker.zoom-dot/.selected in
+   style.css) so .marker's own box can never change size or shift position.
+   See updateLabelCrowding() for what toggles .zoom-dot. */
 function pinSVG(color, scale, variant) {
   const s = 30 * scale;
-  const dot = variant === 'event'
+  const badge = variant === 'event'
     ? `<circle class="pin-dot" cx="62" cy="15" r="5" fill="var(--flame)" stroke="var(--ink)" stroke-width="2">
       <animate attributeName="r" values="5;6.2;5" dur="2.4s" repeatCount="indefinite"/>
     </circle>`
     : variant === 'pick'
     ? `<circle class="pin-dot" cx="62" cy="15" r="5" fill="var(--gold)" stroke="var(--ink)" stroke-width="2"/>`
     : '';
+
+  // dot is centred on (36, 80) — as close as possible to the pin's own tip
+  // (36, 84) without the pick ring's outer edge clipping against the
+  // viewBox's bottom edge (0 0 72 88); at rendered size that's a ~2px
+  // difference, imperceptible under the 150ms opacity crossfade, and every
+  // variant shares the same coordinate so the ring stays concentric with the dot
+  const dotFill = variant === 'event' ? 'var(--flame)' : color;
+  const dotClass = variant === 'event' ? 'dot-mark dot-event' : 'dot-mark';
+  const dotPickRing = variant === 'pick'
+    ? `<circle cx="36" cy="80" r="7" fill="none" stroke="var(--gold)" stroke-width="1.5"/>`
+    : '';
+
   return `<svg width="${s}" height="${s * 1.2}" viewBox="0 0 72 88">
-    <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="${color}"/>
-    <circle cx="36" cy="32" r="13" fill="#131019"/>
-    ${dot}
+    <g class="pin-layer">
+      <path d="M36 4 C18 4 6 17 6 33 C6 52 26 70 36 84 C46 70 66 52 66 33 C66 17 54 4 36 4 Z" fill="${color}"/>
+      <circle cx="36" cy="32" r="13" fill="#131019"/>
+      ${badge}
+    </g>
+    <g class="dot-layer">
+      ${dotPickRing}
+      <circle class="${dotClass}" cx="36" cy="80" r="5" fill="${dotFill}" stroke="var(--ink)" stroke-width="2"/>
+    </g>
   </svg>`;
 }
 
@@ -872,8 +898,14 @@ function rectsOverlap(a, b) {
    collides with an already-kept label's rect. re-run (debounced, see
    scheduleLabelCrowding) on zoomend/moveend since screen-space rects shift
    as the map view changes — this is now the only thing governing label
-   visibility mid-crowd, replacing the old fixed zoom-threshold classes. */
+   visibility mid-crowd, replacing the old fixed zoom-threshold classes.
+   Also carries the pin/dot zoom-threshold pass (see DOT_ZOOM_THRESHOLD,
+   pinSVG()) since it needs to recompute on the same zoomend/moveend events,
+   debounced the same way. */
 function updateLabelCrowding() {
+  const isDot = state.map.getZoom() < DOT_ZOOM_THRESHOLD;
+  state.markers.forEach(m => m.el.classList.toggle('zoom-dot', isDot));
+
   state.markers.forEach(m => m.el.classList.remove('label-crowded'));
 
   const sorted = [...state.markers].sort((a, b) => {

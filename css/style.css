@@ -80,6 +80,23 @@ body {
 [data-theme="light"] .marker svg { filter: drop-shadow(0 2px 3px rgba(90,75,45,.35)); }
 /* flame event-dot nearly disappears on the deepened light-theme bar pin (both red) — gold reads instead */
 [data-theme="light"] .marker.type-bar .pin-dot { fill: var(--gold); }
+
+/* low-zoom simplification: the teardrop pin and the plain dot are both
+   always present (see pinSVG() in app.js) inside the same fixed-size svg —
+   only these two layers crossfade, so .marker itself never resizes or
+   shifts. .zoom-dot is toggled by updateLabelCrowding() on the debounced
+   zoomend/moveend pass; .selected forces the pin back on at any zoom. */
+.marker .pin-layer, .marker .dot-layer { transition: opacity .15s linear; }
+.marker .dot-layer { opacity: 0; }
+.marker.zoom-dot .pin-layer { opacity: 0; }
+.marker.zoom-dot .dot-layer { opacity: 1; }
+.marker.zoom-dot.selected .pin-layer { opacity: 1; }
+.marker.zoom-dot.selected .dot-layer { opacity: 0; }
+
+@keyframes dot-event-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.marker .dot-event { animation: dot-event-pulse 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .marker .dot-event { animation: none; } }
+
 .marker .m-label {
   font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--bone);
   text-shadow: 0 1px 3px var(--halo);
@@ -107,7 +124,11 @@ body {
   padding: 1px 6px; border-radius: 999px;
   font-size: 9.5px; font-weight: 700; text-shadow: none;
 }
-.marker.pin-event svg { animation: pinbob 1.6s ease-in-out infinite; }
+/* only bobs while the pin layer is the one actually showing — a bobbing
+   5px dot at low zoom would read as position jitter, not a gentle nudge,
+   and the dot has its own opacity pulse (.dot-event) instead */
+.marker.pin-event:not(.zoom-dot) svg,
+.marker.pin-event.zoom-dot.selected svg { animation: pinbob 1.6s ease-in-out infinite; }
 @keyframes pinbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) { .marker.pin-event svg { animation: none; } }
 
