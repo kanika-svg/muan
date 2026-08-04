@@ -1664,13 +1664,40 @@ function galleryDescLine(v) {
   return d.length <= 90 ? d : d.slice(0, 90).replace(/\s+\S*$/, '') + '…';
 }
 
+// edge-to-edge photo collage: tile 1 large across the top ~52%, tiles 2-3
+// split the row beneath it, tiles 4-5 (if present) a third row. Degrades as
+// photos run out — 2 photos = one large plus one wide beneath, 3 = the same
+// without the third row. Caps at 5 visible tiles; anything past that folds
+// into a "+N" badge on the 5th.
+function galleryCollageHtml(photos, altName) {
+  if (!photos.length) return `<div class="pg-collage pg-collage-empty">📷</div>`;
+  const tiles = photos.slice(0, 5);
+  const n = tiles.length;
+  const extra = photos.length - tiles.length;
+  const tile = (i, more) => `
+    <div class="pg-tile">
+      <img src="${esc(tiles[i])}" alt="" loading="lazy" draggable="false">
+      ${more ? `<span class="pg-more">+${more}</span>` : ''}
+    </div>`;
+
+  let html = `<div class="pg-collage">`;
+  html += `<div class="pg-tile pg-tile-big${n === 1 ? ' pg-tile-solo' : ''}">
+    <img src="${esc(tiles[0])}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
+  if (n >= 2) {
+    html += `<div class="pg-rest">`;
+    html += `<div class="pg-row">${tile(1)}${n >= 3 ? tile(2) : ''}</div>`;
+    if (n >= 4) html += `<div class="pg-row">${tile(3)}${n >= 5 ? tile(4, extra > 0 ? extra : null) : ''}</div>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 function renderGalleryCard() {
   const gallery = document.getElementById('gallery');
   const v = venueById(state.galleryIds[state.galleryIndex]);
   if (!v) { closeGallery(); return; }
   const photos = v.photos || [];
-  const hero = photos[0] || '';
-  const thumbs = photos.slice(1, 5);
   const descLine = galleryDescLine(v);
   const facts = [];
   if (v.contact?.phone) facts.push('📞');
@@ -1679,15 +1706,12 @@ function renderGalleryCard() {
 
   gallery.innerHTML = `
     <div class="pg-card" id="pgCard">
-      <div class="pg-hero-wrap">
-        ${hero ? `<img class="pg-hero" id="pgHero" src="${esc(hero)}" alt="${esc(v.name)}">` : ''}
-        <button class="pg-close" aria-label="Close gallery">✕</button>
-        <div class="pg-dots">${state.galleryIds.map((_, i) =>
-          `<span class="pg-dot ${i === state.galleryIndex ? 'on' : ''}"></span>`).join('')}</div>
-      </div>
-      ${thumbs.length ? `<div class="pg-strip">${thumbs.map(p =>
-        `<img class="pg-thumb" src="${esc(p)}" alt="" loading="lazy">`).join('')}</div>` : ''}
-      <div class="pg-info">
+      ${galleryCollageHtml(photos, v.name)}
+      <div class="pg-scrim"></div>
+      <button class="pg-close" aria-label="Close gallery">✕</button>
+      <div class="pg-dots">${state.galleryIds.map((_, i) =>
+        `<span class="pg-dot ${i === state.galleryIndex ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="pg-overlay">
         <div class="pg-name">${esc(v.short_name || v.name)}</div>
         <div class="pg-status">${esc(galleryStatusLine(v))}</div>
         ${descLine ? `<div class="pg-desc">${esc(descLine)}</div>` : ''}
@@ -1783,23 +1807,8 @@ function initGalleryDrag() {
     // click can never land directly on it there, only on .pg-card's children
     if (e.target === gallery) { closeGallery(); return; }
     if (e.target.closest('.pg-close')) { closeGallery(); return; }
-    // the hero itself is inert on tap/click — swipe right is the only way
-    // to open the venue (see onEnd()'s galAxis === 'x' branch). Thumbnails
-    // swap into the hero instead, same pattern as the venue-sheet's own
-    // .gal-thumb → #galHero (see openVenue())
-    const thumb = e.target.closest('.pg-thumb');
-    if (thumb) {
-      const heroImg = document.getElementById('pgHero');
-      if (heroImg) {
-        heroImg.classList.add('fading');
-        setTimeout(() => {
-          heroImg.src = thumb.src;
-          heroImg.onload = () => heroImg.classList.remove('fading');
-        }, 140);
-      }
-      gallery.querySelectorAll('.pg-thumb').forEach(t => t.classList.remove('sel'));
-      thumb.classList.add('sel');
-    }
+    // the collage itself is inert on tap/click — swipe right is the only
+    // way to open the venue (see onEnd()'s galAxis === 'x' branch)
   });
 
   // desktop nav: mouse wheel and up/down arrows move between venues, same
@@ -1821,7 +1830,7 @@ function initGalleryDrag() {
   }, { passive: false });
 
   gallery.addEventListener('touchstart', e => {
-    if (e.target.closest('.pg-close') || e.target.closest('.pg-strip')) { galDragging = false; return; }
+    if (e.target.closest('.pg-close')) { galDragging = false; return; }
     if (e.touches.length > 1) { galSnapBack(); return; }
     galSnapBack();
     startX = e.touches[0].clientX;

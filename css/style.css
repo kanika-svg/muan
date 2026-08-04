@@ -694,55 +694,66 @@ body {
   touch-action: none; overflow: hidden;
 }
 #gallery[hidden] { display: none; }
-.pg-card { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.pg-card { position: absolute; inset: 0; overflow: hidden; }
 .pg-card.settling { transition: transform .22s cubic-bezier(.32,1.1,.5,1), opacity .22s ease; }
 
-/* hero: top ~55% of the card */
-.pg-hero-wrap { position: relative; flex: 0 0 55%; min-height: 0; }
-.pg-hero {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  opacity: 1; transition: opacity .18s ease;
+/* photo collage: tile 1 large across the top ~52%, tiles 2-3 split the row
+   beneath it, tiles 4-5 (if present) a third row — see galleryCollageHtml()
+   for how it degrades as photos run out. 2px hairline gaps (the --ink4
+   background showing through) keep it reading as one image block, not a
+   grid of separate photos */
+.pg-collage {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  gap: 2px; background: var(--ink4);
 }
-.pg-hero.fading { opacity: 0; }
+.pg-collage-empty { align-items: center; justify-content: center; color: var(--dim); font-size: 32px; }
+.pg-tile { position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; background: var(--ink3); }
+.pg-tile img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  -webkit-user-drag: none; user-select: none;
+}
+.pg-tile-big { flex: 0 0 52%; }
+.pg-tile-big.pg-tile-solo { flex: 1 1 100%; }
+.pg-rest { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+.pg-row { flex: 1 1 0; min-height: 0; display: flex; gap: 2px; }
+.pg-more {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(19,16,25,.55); color: #F5F1E8; font-size: 20px; font-weight: 700;
+}
+
 .pg-close {
-  position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px;
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; z-index: 2;
   width: 36px; height: 36px; border-radius: 50%; border: none;
   background: rgba(19,16,25,.55); color: #F5F1E8; font-size: 16px; cursor: pointer;
 }
 .pg-dots {
-  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 2;
   display: flex; flex-direction: column; gap: 7px;
 }
 .pg-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(245,241,232,.35); }
 .pg-dot.on { background: var(--gold); }
 
-/* thumbnail strip: up to 4 from photos[1..4], scrolls natively past that */
-.pg-strip {
-  flex: 0 0 auto; display: flex; gap: 6px; padding: 8px 14px;
-  overflow-x: auto; background: var(--ink2);
+/* text sits directly on the collage over a bottom scrim — always light-on-
+   dark regardless of app theme, since it sits on unpredictable photo
+   content rather than the theme background (same reasoning as .pg-close) */
+.pg-scrim {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 42%;
+  background: linear-gradient(to top, rgba(19,16,25,.92), rgba(19,16,25,.72) 55%, rgba(19,16,25,0));
+  pointer-events: none;
 }
-.pg-thumb {
-  flex: 0 0 auto; width: 72px; height: 72px; border-radius: 8px; object-fit: cover;
-  cursor: pointer; opacity: .7; border: 2px solid transparent;
-  transition: opacity .2s, border-color .2s;
+.pg-overlay {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
+  padding: 14px 20px max(14px, env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 3px;
 }
-.pg-thumb.sel { opacity: 1; border-color: var(--flame); }
-
-/* info: solid background, not a scrim — it no longer sits on the photo */
-.pg-info {
-  flex: 1 1 auto; min-height: 0; overflow: hidden;
-  background: var(--ink2); color: var(--bone);
-  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
-  display: flex; flex-direction: column; justify-content: center; gap: 4px;
-}
-.pg-name { font-size: 22px; font-weight: 700; }
-.pg-status { font-size: 13px; color: var(--mute); }
+.pg-name { font-size: 24px; font-weight: 700; color: #F5F1E8; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.pg-status { font-size: 13px; color: rgba(245,241,232,.78); }
 .pg-desc {
-  font-size: 13px; color: var(--mute);
+  font-size: 13px; color: rgba(245,241,232,.78);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pg-facts { font-size: 13px; color: var(--mute); display: flex; gap: 10px; }
-.pg-tap { font-size: 11.5px; color: var(--dim); margin-top: 2px; }
+.pg-facts { font-size: 13px; color: rgba(245,241,232,.78); display: flex; gap: 10px; }
+.pg-tap { font-size: 11.5px; color: rgba(245,241,232,.45); margin-top: 2px; }
 
 /* gallery becomes a centred card over a dimmed backdrop instead of a
    full-bleed phone-shaped overlay — see initGalleryDrag() for the
@@ -753,7 +764,10 @@ body {
   #gallery { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.7); }
   .pg-card {
     position: relative; inset: auto;
-    width: 100%; max-width: 420px; height: 90vh; max-height: 90vh;
+    /* sized to content, not stretched to fill the viewport: the collage's
+       own 2:3 ratio drives the height, max-height is only a safety clamp
+       for short windows */
+    width: 100%; max-width: 420px; height: auto; max-height: 90vh; aspect-ratio: 2 / 3;
     border-radius: 20px; overflow: hidden;
     box-shadow: 0 24px 60px rgba(0,0,0,.55);
   }
