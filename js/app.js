@@ -378,26 +378,23 @@ async function signOut() {
   openFlameSheet();
 }
 
-/* three independently-flickering layers so the flame never looks looped;
-   mid/core are scaled about the flame's base point (60,132), not its centre,
-   via a wrapping <g> transform — kept off the animated element so the CSS
-   flicker keyframes (which also target transform) don't wipe it out every frame */
-const FLAME_PATH_D = "M60 6 C48 30 24 44 24 82 C24 112 40 132 60 132 C80 132 96 112 96 82 C96 60 84 48 78 34 C74 46 68 50 64 48 C68 34 66 20 60 6 Z";
-function flameStackSVG() {
-  return `<svg viewBox="0 0 120 140" width="110" height="128">
-    <defs><linearGradient id="flg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFC24B"/><stop offset=".55" stop-color="#FF5A3C"/><stop offset="1" stop-color="#C6432A"/>
-    </linearGradient></defs>
-    <g class="flame-stack">
-      <path class="flame-outer" d="${FLAME_PATH_D}" fill="url(#flg)"/>
-      <g transform="translate(60,132) scale(.72) translate(-60,-132)">
-        <path class="flame-mid" d="${FLAME_PATH_D}" fill="#FF7A2E"/>
-      </g>
-      <g transform="translate(60,132) scale(.42) translate(-60,-132)">
-        <path class="flame-core" d="${FLAME_PATH_D}" fill="#FFD86B"/>
-      </g>
-    </g>
-  </svg>`;
+// Lottie-exported animated flame (assets/flame.svg) — self-contained SMIL,
+// no scripts or external refs, loops at 1.083s. Fetched once and cached;
+// too large (38 KB) to inline into a template string.
+let flameSvgCache = null;
+async function flameSvg() {
+  if (!flameSvgCache) flameSvgCache = await (await fetch('assets/flame.svg')).text();
+  return flameSvgCache;
+}
+
+// SMIL animations ignore prefers-reduced-motion (it's a CSS media feature;
+// SMIL has no equivalent), so it has to be enforced imperatively per the
+// SVGSVGElement animation API — call once right after the markup lands in
+// the DOM, since pauseAnimations() only affects animations already running
+function pauseFlameIfReducedMotion() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelector('.fl-flame svg')?.pauseAnimations();
+  }
 }
 
 function miniFlame() {
@@ -414,12 +411,13 @@ async function openFlameSheet() {
   let me = null;
   try { me = await (await fetch('/api/me')).json(); } catch(e) {}
   if (!me || !me.ok) { setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Could not load — try again.</div>'); return; }
+  const flameHtml = await flameSvg();
 
   if (me.signed_out) {
     setSheet(`
       <div class="fl-wrap">
         <div class="fl-flame" style="opacity:.4;">
-          ${flameStackSVG()}
+          ${flameHtml}
         </div>
         <div class="fl-stage">Your flame starts here</div>
         <div class="fl-sub">Sign in to check in, keep streaks and earn embers</div>
@@ -427,6 +425,7 @@ async function openFlameSheet() {
         <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
       </div>
     `);
+    pauseFlameIfReducedMotion();
     initGoogleSignIn('gsi-btn');
     return;
   }
@@ -474,7 +473,7 @@ async function openFlameSheet() {
       ${cal}
 
       <div class="fl-flame" data-heat="${me.heat_level}">
-        ${flameStackSVG()}
+        ${flameHtml}
         <div class="fl-streak">${noCheckins ? '' : me.streak_months}</div>
       </div>
       <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
@@ -501,6 +500,7 @@ async function openFlameSheet() {
       <button class="fl-signout" data-sign-out>Sign out</button>
     </div>
   `);
+  pauseFlameIfReducedMotion();
   document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
 }
