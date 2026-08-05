@@ -518,9 +518,9 @@ async function openFlameSheet() {
   let me = null;
   try { me = await (await fetch('/api/me')).json(); } catch(e) {}
   if (!me || !me.ok) { setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Could not load — try again.</div>'); return; }
-  const flameHtml = await flameSvg();
 
   if (me.signed_out) {
+    const flameHtml = await flameSvg();
     setSheet(`
       <div class="fl-wrap">
         <div class="fl-flame" style="opacity:.4;">
@@ -539,9 +539,27 @@ async function openFlameSheet() {
     return;
   }
 
-  if (me.show_intro) { renderFlameIntro(flameHtml, () => renderFlameSheetBody(me, flameHtml)); return; }
+  // fetched alongside the flame svg rather than inside renderFlameSheetBody
+  // itself, so the flame sheet's usual single render isn't split into two
+  // passes (one without the "Manage your venue" section, one with it)
+  const [flameHtml, myVenues] = await Promise.all([flameSvg(), fetchMyVenues()]);
 
-  renderFlameSheetBody(me, flameHtml);
+  if (me.show_intro) { renderFlameIntro(flameHtml, () => renderFlameSheetBody(me, flameHtml, myVenues)); return; }
+
+  renderFlameSheetBody(me, flameHtml, myVenues);
+}
+
+// venues the signed-in user owns (see migrations/006_owners.sql), for the
+// "Manage your venue" entry point on the flame sheet — fails soft to an
+// empty list on any error, since this is secondary content that shouldn't
+// block the flame sheet itself from rendering
+async function fetchMyVenues() {
+  try {
+    const data = await (await fetch('/api/my-venues')).json();
+    return data.ok ? data.venues : [];
+  } catch (e) {
+    return [];
+  }
 }
 
 // first sign-in only (server flag users.intro_seen, surfaced as
@@ -585,7 +603,7 @@ function renderFlameIntro(flameHtml, onDone) {
 // the normal flame-sheet content (calendar, flame, stage, embers, badges) —
 // split out of openFlameSheet() so renderFlameIntro()'s "Got it" can hand
 // off into it directly
-function renderFlameSheetBody(me, flameHtml) {
+function renderFlameSheetBody(me, flameHtml, myVenues = []) {
   const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
   const stageLo = { ember:'ຖ່ານໄຟ', flicker:'ໄຟວິບວັບ', flame:'ແປວໄຟ', blaze:'ໄຟລຸກ', naga:'ໄຟນາກ' };
   const heatLines = {
@@ -643,6 +661,14 @@ function renderFlameSheetBody(me, flameHtml) {
         <div class="fl-stat"><b>${me.total_checkins}</b><span>check-ins</span></div>
       </div>` : ''}
 
+      ${myVenues.length ? `
+      <div class="fl-manage">
+        <div class="fl-manage-h">Manage your venue</div>
+        ${myVenues.map(v => `<button class="fl-manage-item" data-manage-venue="${v.id}">
+            <span>${esc(v.short_name || v.name)}</span><span class="fl-manage-arrow">›</span>
+          </button>`).join('')}
+      </div>` : ''}
+
       ${me.badges?.length ? `
       <div class="fl-badges">
         ${me.badges.map(b => `<div class="fl-badge" title="${esc(b.description||'')}">
@@ -661,6 +687,367 @@ function renderFlameSheetBody(me, flameHtml) {
   pauseFlameIfReducedMotion();
   document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
+  document.querySelectorAll('[data-manage-venue]').forEach(el => el.addEventListener('click', () => {
+    const v = myVenues.find(mv => mv.id === el.dataset.manageVenue);
+    if (v) openVenueEditor(v);
+  }));
+}
+
+/* ---------- venue owner dashboard: edit form ---------- */
+// server-side whitelist/validation lives in functions/api/venues/[id].js —
+// this form only needs to produce values in the shape that endpoint expects
+// and show its errors back inline; it is not the source of truth for what's
+// allowed to be written.
+const ED_DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
+const ED_DAY_LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+
+// stored "HH:MM-HH:MM" (close hour may run to 27 for past-midnight, see
+// data/venues.json's _schema_notes) -> plain 24h clock for two
+// <input type="time"> elements, which can't represent hours past 23:59
+function edSplitHourRange(str) {
+  if (!str) return null;
+  const [a, b] = str.split('-');
+  const mod = (hhmm) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return String(h % 24).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  };
+  return { open: mod(a), close: mod(b) };
+}
+
+// the reverse: two plain-clock times back into the stored convention — if
+// close reads earlier than open, it's assumed to run past midnight (matches
+// how every overnight venue in the data is already authored, e.g. baron's
+// "20:00-27:00"), so there is no separate "closes after midnight" toggle
+function edBuildHourRange(openStr, closeStr) {
+  const toMins = s => { const [h,m] = s.split(':').map(Number); return h*60+m; };
+  const openMins = toMins(openStr);
+  let closeMins = toMins(closeStr);
+  if (closeMins <= openMins) closeMins += 1440;
+  const fmt = mins => String(Math.floor(mins/60)).padStart(2,'0') + ':' + String(mins%60).padStart(2,'0');
+  return `${openStr}-${fmt(closeMins)}`;
+}
+
+// "0205236087" / "020 5236 6087" / already "+8562052366087" -> the +856
+// form for storage, keeping whatever the owner typed as phone_display
+// verbatim (CLAUDE.md: "phone_display is how locals write it")
+function edDeriveLaoPhone(raw) {
+  const trimmed = (raw || '').trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return { phone: '', phone_display: '' };
+  let national = digits;
+  if (national.startsWith('856')) national = national.slice(3);
+  else if (national.startsWith('0')) national = national.slice(1);
+  return { phone: '+856' + national, phone_display: trimmed };
+}
+
+function edPhotoRowHtml(url, idx, total) {
+  return `
+    <div class="ed-photo" data-photo-url="${esc(url)}">
+      <img src="${esc(cloudinaryResize(url, 200))}" alt="">
+      <div class="ed-photo-actions">
+        <button type="button" class="ed-photo-up" ${idx === 0 ? 'disabled' : ''} aria-label="Move earlier">↑</button>
+        <button type="button" class="ed-photo-down" ${idx === total - 1 ? 'disabled' : ''} aria-label="Move later">↓</button>
+        <button type="button" class="ed-photo-remove" aria-label="Remove">✕</button>
+      </div>
+    </div>`;
+}
+
+function edRenderPhotos(container, photos, onChange) {
+  container.innerHTML = photos.length
+    ? photos.map((p, i) => edPhotoRowHtml(p, i, photos.length)).join('')
+    : '<div class="ed-photos-empty">No photos yet</div>';
+  container.querySelectorAll('.ed-photo').forEach((row, i) => {
+    row.querySelector('.ed-photo-up')?.addEventListener('click', () => {
+      if (i === 0) return;
+      [photos[i-1], photos[i]] = [photos[i], photos[i-1]];
+      edRenderPhotos(container, photos, onChange);
+      onChange();
+    });
+    row.querySelector('.ed-photo-down')?.addEventListener('click', () => {
+      if (i === photos.length - 1) return;
+      [photos[i], photos[i+1]] = [photos[i+1], photos[i]];
+      edRenderPhotos(container, photos, onChange);
+      onChange();
+    });
+    row.querySelector('.ed-photo-remove')?.addEventListener('click', () => {
+      photos.splice(i, 1);
+      edRenderPhotos(container, photos, onChange);
+      onChange();
+    });
+  });
+}
+
+function openVenueEditor(venue) {
+  toggleSheet(false);
+  state.sheetView = { type: 'venue-edit', venueId: venue.id };
+
+  const hours = venue.hours || {};
+  const contact = venue.contact || {};
+  const parking = venue.parking || {};
+  const links = venue.links || {};
+
+  const hoursRowsHtml = ED_DAY_ORDER.map(day => {
+    const range = edSplitHourRange(hours[day]);
+    const isOpen = !!range;
+    return `
+      <div class="ed-hrow" data-day="${day}">
+        <label class="ed-hrow-toggle">
+          <input type="checkbox" class="ed-hopen" ${isOpen ? 'checked' : ''}>
+          <span>${ED_DAY_LABELS[day]}</span>
+        </label>
+        <div class="ed-hrow-times" ${isOpen ? '' : 'hidden'}>
+          <input type="time" class="ed-hfrom" value="${range ? range.open : '17:00'}">
+          <span class="ed-hdash">–</span>
+          <input type="time" class="ed-hto" value="${range ? range.close : '23:00'}">
+        </div>
+      </div>`;
+  }).join('');
+
+  const descLen = (venue.description || '').length;
+
+  setSheet(`
+    <span data-venue-detail hidden></span>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="sheet-x" data-back-manage aria-label="Back">←</button>
+      <div class="s-title" style="flex:1;text-align:center;">Edit venue</div>
+      <span style="width:32px;flex-shrink:0;"></span>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="edName">Name</label>
+      <input type="text" class="ed-input" id="edName" value="${esc(venue.name)}" maxlength="100">
+      <div class="ed-err" data-err-for="name"></div>
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="edShortName">Short name</label>
+      <input type="text" class="ed-input" id="edShortName" value="${esc(venue.short_name || '')}" maxlength="40">
+      <div class="ed-err" data-err-for="short_name"></div>
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="edNameLo">Lao name</label>
+      <input type="text" class="ed-input lao" id="edNameLo" value="${esc(venue.name_lo || '')}" maxlength="60">
+      <div class="ed-err" data-err-for="name_lo"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label">Type</label>
+      <div class="seg ed-type-seg" id="edTypeSeg">
+        <button type="button" class="seg-btn ed-type-btn ${venue.type==='bar'?'on':''}" data-type="bar">Bar</button>
+        <button type="button" class="seg-btn ed-type-btn ${venue.type==='cafe'?'on':''}" data-type="cafe">Café</button>
+        <button type="button" class="seg-btn ed-type-btn ${venue.type==='venue'?'on':''}" data-type="venue">Venue</button>
+      </div>
+      <div class="ed-err" data-err-for="type"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="edArea">Area</label>
+      <input type="text" class="ed-input" id="edArea" value="${esc(venue.area || '')}" maxlength="80">
+      <div class="ed-err" data-err-for="area"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="edShort">Short tagline</label>
+      <input type="text" class="ed-input" id="edShort" value="${esc(venue.short || '')}" maxlength="120">
+      <div class="ed-err" data-err-for="short"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="edDescription">Description</label>
+      <textarea class="ed-textarea" id="edDescription" maxlength="500" rows="4">${esc(venue.description || '')}</textarea>
+      <div class="ed-charcount"><span id="edDescCount">${descLen}</span>/500</div>
+      <div class="ed-err" data-err-for="description"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label">Photos</label>
+      <div class="ed-photos" id="edPhotos"></div>
+      <div class="ed-photo-upload-soon">📷 photo upload coming soon</div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label">Hours</label>
+      <div class="ed-hours" id="edHours">${hoursRowsHtml}</div>
+      <div class="ed-err" data-err-for="hours"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="edPhone">Phone</label>
+      <input type="tel" class="ed-input" id="edPhone" value="${esc(contact.phone_display || '')}" placeholder="020 5236 6087">
+      <div class="ed-hint" id="edPhonePreview">${contact.phone ? 'Saves as ' + esc(contact.phone) : ''}</div>
+      <div class="ed-err" data-err-for="contact"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="edParkingNote">Parking note</label>
+      <input type="text" class="ed-input" id="edParkingNote" value="${esc(parking.note || '')}" maxlength="60" placeholder="e.g. free lot behind the building">
+      <div class="ed-err" data-err-for="parking"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="edFacebook">Facebook link</label>
+      <input type="url" class="ed-input" id="edFacebook" value="${esc(links.facebook || '')}" placeholder="https://facebook.com/...">
+      <div class="ed-err" data-err-for="links"></div>
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="edWebsite">Website</label>
+      <input type="url" class="ed-input" id="edWebsite" value="${esc(links.website || '')}" placeholder="https://...">
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="edMapsUrl">Google Maps link</label>
+      <input type="url" class="ed-input" id="edMapsUrl" value="${esc(links.maps || '')}" placeholder="https://maps.google.com/...">
+      <div class="ed-hint">Changing this asks us to double-check your map pin.</div>
+      <div class="ed-err" data-err-for="maps_url"></div>
+    </div>
+
+    <div class="ed-save-note" id="edSaveNote" hidden></div>
+    <div class="btn-row"><button class="btn btn-go" id="edSaveBtn" disabled style="flex:1;">Save</button></div>
+  `);
+
+  const sheet = document.getElementById('sheet');
+  if (sheet) sheet.scrollTop = 0;
+  document.querySelector('[data-back-manage]')?.addEventListener('click', openFlameSheet);
+
+  wireVenueEditor(venue);
+}
+
+function wireVenueEditor(venue) {
+  const root = document.getElementById('sheetInner');
+  const saveBtn = document.getElementById('edSaveBtn');
+  const saveNote = document.getElementById('edSaveNote');
+  let photosState = (venue.photos || []).slice();
+
+  const readState = () => {
+    const type = root.querySelector('.ed-type-btn.on')?.dataset.type || venue.type;
+    const hours = {};
+    root.querySelectorAll('.ed-hrow').forEach(row => {
+      const day = row.dataset.day;
+      const open = row.querySelector('.ed-hopen').checked;
+      if (!open) { hours[day] = null; return; }
+      const from = row.querySelector('.ed-hfrom').value;
+      const to = row.querySelector('.ed-hto').value;
+      hours[day] = (from && to) ? edBuildHourRange(from, to) : null;
+    });
+    const { phone, phone_display } = edDeriveLaoPhone(root.querySelector('#edPhone').value);
+    const parkingNote = root.querySelector('#edParkingNote').value.trim();
+    return {
+      name: root.querySelector('#edName').value.trim(),
+      short_name: root.querySelector('#edShortName').value.trim(),
+      name_lo: root.querySelector('#edNameLo').value.trim(),
+      type,
+      area: root.querySelector('#edArea').value.trim(),
+      short: root.querySelector('#edShort').value.trim(),
+      description: root.querySelector('#edDescription').value,
+      hours,
+      contact: phone ? { phone, phone_display } : null,
+      parking: parkingNote ? { note: parkingNote, source: 'venue told us' } : null,
+      links: {
+        facebook: root.querySelector('#edFacebook').value.trim(),
+        website: root.querySelector('#edWebsite').value.trim(),
+      },
+      maps_url: root.querySelector('#edMapsUrl').value.trim(),
+      photos: photosState.slice(),
+    };
+  };
+
+  // baseline snapshot, taken from the just-rendered (unedited) DOM — see
+  // edSplitHourRange()/edDeriveLaoPhone()'s comments for why this round-
+  // trips to exactly the stored values with zero edits made
+  let baseline = JSON.stringify(readState());
+
+  const clearErrors = () => root.querySelectorAll('.ed-err').forEach(e => e.textContent = '');
+
+  const refreshDirty = () => {
+    saveBtn.disabled = JSON.stringify(readState()) === baseline;
+  };
+
+  edRenderPhotos(document.getElementById('edPhotos'), photosState, refreshDirty);
+
+  root.querySelectorAll('.ed-type-btn').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.ed-type-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    refreshDirty();
+  }));
+
+  root.querySelectorAll('.ed-hrow').forEach(row => {
+    const toggle = row.querySelector('.ed-hopen');
+    const times = row.querySelector('.ed-hrow-times');
+    toggle.addEventListener('change', () => {
+      times.hidden = !toggle.checked;
+      refreshDirty();
+    });
+    row.querySelector('.ed-hfrom').addEventListener('change', refreshDirty);
+    row.querySelector('.ed-hto').addEventListener('change', refreshDirty);
+  });
+
+  root.querySelector('#edPhone').addEventListener('input', (e) => {
+    const { phone } = edDeriveLaoPhone(e.target.value);
+    const preview = document.getElementById('edPhonePreview');
+    preview.textContent = phone ? `Saves as ${phone}` : '';
+    refreshDirty();
+  });
+
+  root.querySelector('#edDescription').addEventListener('input', (e) => {
+    document.getElementById('edDescCount').textContent = e.target.value.length;
+    refreshDirty();
+  });
+
+  root.querySelectorAll('#edName, #edShortName, #edNameLo, #edArea, #edShort, #edParkingNote, #edFacebook, #edWebsite, #edMapsUrl')
+    .forEach(el => el.addEventListener('input', refreshDirty));
+
+  saveBtn.addEventListener('click', async () => {
+    clearErrors();
+    saveNote.hidden = true;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    const body = readState();
+    try {
+      const res = await fetch(`/api/venues/${encodeURIComponent(venue.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      if (!data) throw new Error('bad response');
+
+      if (!data.ok) {
+        if (data.errors) {
+          for (const [field, msg] of Object.entries(data.errors)) {
+            const el = root.querySelector(`[data-err-for="${field}"]`);
+            if (el) el.textContent = msg;
+          }
+        }
+        saveNote.hidden = false;
+        saveNote.className = 'ed-save-note ed-save-note-error';
+        saveNote.textContent = data.errors ? 'Fix the highlighted fields and try again.' : (data.error || 'Save failed — try again.');
+        saveBtn.textContent = 'Save';
+        saveBtn.disabled = false; // still dirty — let them retry
+        return;
+      }
+
+      // re-baseline to the values just saved, so Save disables again until
+      // the owner changes something new. photosState is mutated in place
+      // (not reassigned) — edRenderPhotos()'s up/down/remove handlers close
+      // over this exact array object, and swapping in a new one here would
+      // silently orphan them on any further photo edit after this save.
+      Object.assign(venue, data.venue);
+      photosState.length = 0;
+      photosState.push(...(venue.photos || []));
+      baseline = JSON.stringify(readState());
+      saveBtn.textContent = 'Save';
+      saveBtn.disabled = true;
+      saveNote.hidden = false;
+      saveNote.className = 'ed-save-note ed-save-note-ok';
+      saveNote.textContent = data.location_review
+        ? "Thanks — we'll check the pin against your map link."
+        : 'Saved.';
+    } catch (e) {
+      saveNote.hidden = false;
+      saveNote.className = 'ed-save-note ed-save-note-error';
+      saveNote.textContent = 'Connection error — try again.';
+      saveBtn.textContent = 'Save';
+      saveBtn.disabled = false;
+    }
+  });
 }
 
 function bindTheme() {

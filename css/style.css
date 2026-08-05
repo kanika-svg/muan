@@ -708,6 +708,21 @@ body {
   color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;
 }
 
+/* "Manage your venue" entry point — only rendered when /api/my-venues
+   returns at least one venue, see renderFlameSheetBody() in app.js */
+.fl-manage { margin-top: 16px; text-align: left; }
+.fl-manage-h {
+  font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--mute); margin-bottom: 6px;
+}
+.fl-manage-item {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; background: var(--ink3); border: none; border-radius: 12px;
+  padding: 12px 14px; margin-top: 6px; color: var(--bone); font-size: 13.5px;
+  font-weight: 700; font-family: var(--font); cursor: pointer;
+}
+.fl-manage-arrow { color: var(--mute); font-size: 16px; }
+
 .gal { margin: 12px 0 4px; }
 .gal-hero {
   width: 100%; aspect-ratio: 16/10; object-fit: cover;
@@ -847,3 +862,91 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   border-top: 1px solid var(--ink3);
   box-shadow: 0 -4px 0 -3px var(--ink3);   /* second hairline above */
 }
+
+/* ============ venue owner edit form (openVenueEditor() in app.js) ============
+   Built assuming a café owner on a phone, not a developer — native mobile
+   controls (<input type="time">, checkboxes) over custom widgets wherever
+   the platform default already does the job, one field per row, no
+   horizontal cramming. Verified to fit at 360px viewport width (see the
+   report on this task for how). */
+.ed-field { margin-top: 16px; }
+.ed-field:first-of-type { margin-top: 14px; }
+.ed-label {
+  display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .3px;
+  text-transform: uppercase; color: var(--mute); margin-bottom: 6px;
+}
+.ed-input, .ed-textarea {
+  width: 100%; background: var(--ink3); border: 1px solid var(--ink4);
+  border-radius: 12px; padding: 11px 13px; font-family: var(--font);
+  font-size: 14px; color: var(--bone);
+}
+.ed-input:focus, .ed-textarea:focus, .ed-hfrom:focus, .ed-hto:focus {
+  outline: none; border-color: var(--flame);
+}
+.ed-textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
+.ed-charcount { text-align: right; font-size: 10.5px; color: var(--dim); margin-top: 4px; }
+.ed-hint { font-size: 11px; color: var(--mute); margin-top: 5px; line-height: 1.4; }
+.ed-err {
+  font-size: 11.5px; color: var(--flame); margin-top: 5px; line-height: 1.4;
+  min-height: 0;
+}
+.ed-err:empty { display: none; }
+
+/* type selector reuses .seg/.seg-btn (the Recommended/All cafés control) so
+   it's proven at this width already rather than a new component */
+.ed-type-seg { margin: 0; }
+
+/* hours: seven rows, each a day toggle + two native time pickers — never a
+   JSON textarea. Close time is plain 24h clock even for venues that close
+   past midnight; edBuildHourRange() in app.js infers the "next day" case
+   from close reading earlier than open, so there's no extra toggle to
+   explain to a non-technical owner. */
+.ed-hours { display: flex; flex-direction: column; gap: 8px; }
+.ed-hrow {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--ink3); border-radius: 12px; padding: 9px 12px;
+}
+.ed-hrow-toggle {
+  display: flex; align-items: center; gap: 7px; flex: 0 0 62px;
+  font-size: 12.5px; font-weight: 700; color: var(--bone); cursor: pointer;
+}
+.ed-hrow-toggle input { width: 16px; height: 16px; accent-color: var(--flame); }
+.ed-hrow-times { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.ed-hrow-times[hidden] { display: none; }
+.ed-hfrom, .ed-hto {
+  flex: 1 1 0; min-width: 0; background: var(--ink); border: 1px solid var(--ink4);
+  border-radius: 9px; padding: 6px 6px; font-family: var(--font);
+  font-size: 12.5px; color: var(--bone);
+}
+.ed-hdash { color: var(--dim); font-size: 12px; flex-shrink: 0; }
+
+/* photos: horizontal scroll strip, one card per photo — reorder/remove
+   only this pass, no add button (photo upload is a later pass) */
+.ed-photos {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.ed-photos::-webkit-scrollbar { display: none; }
+.ed-photos-empty { font-size: 12.5px; color: var(--dim); padding: 8px 0; }
+.ed-photo { flex: 0 0 84px; }
+.ed-photo img {
+  width: 84px; height: 84px; object-fit: cover; border-radius: 10px;
+  display: block; background: var(--ink3);
+}
+.ed-photo-actions { display: flex; gap: 3px; margin-top: 5px; }
+.ed-photo-actions button {
+  flex: 1; height: 26px; background: var(--ink3); border: none; border-radius: 7px;
+  color: var(--mute); font-size: 12px; cursor: pointer;
+}
+.ed-photo-actions button:disabled { opacity: .3; cursor: default; }
+.ed-photo-remove { color: var(--flame) !important; }
+.ed-photo-upload-soon {
+  margin-top: 8px; text-align: center; font-size: 11.5px; color: var(--dim);
+  border: 1px dashed var(--ink4); border-radius: 10px; padding: 10px;
+}
+
+.ed-save-note {
+  text-align: center; font-size: 12.5px; margin-top: 12px; font-weight: 700;
+}
+.ed-save-note-ok { color: var(--teal); }
+.ed-save-note-error { color: var(--flame); }
