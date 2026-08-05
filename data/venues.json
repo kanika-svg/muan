@@ -18,10 +18,18 @@
         "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188313/kongview_poster_zsxype.jpg"
       ],
       "hours": {
-        "mon": "16:30-23:30", "tue": "16:30-23:30", "wed": "16:30-23:30",
-        "thu": "16:30-23:30", "fri": "16:30-23:30", "sat": "16:30-23:30", "sun": "16:30-23:30"
+        "mon": "16:30-23:30",
+        "tue": "16:30-23:30",
+        "wed": "16:30-23:30",
+        "thu": "16:30-23:30",
+        "fri": "16:30-23:30",
+        "sat": "16:30-23:30",
+        "sun": "16:30-23:30"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9678909,102.5805278" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9678909,102.5805278"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -38,10 +46,18 @@
       "description": "Belgian beer institution on the riverfront with one of the biggest bottle lists in Laos, regular 2-for-1 deals and pub food. Casual, popular with both locals and expats.",
       "photos": [],
       "hours": {
-        "mon": "10:00-23:30", "tue": "10:00-23:30", "wed": "10:00-23:30",
-        "thu": "10:00-23:30", "fri": "10:00-23:30", "sat": "10:00-23:30", "sun": "10:00-23:30"
+        "mon": "10:00-23:30",
+        "tue": "10:00-23:30",
+        "wed": "10:00-23:30",
+        "thu": "10:00-23:30",
+        "fri": "10:00-23:30",
+        "sat": "10:00-23:30",
+        "sun": "10:00-23:30"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9630719,102.6058379" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9630719,102.6058379"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -62,10 +78,18 @@
         "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191324/cafesinouk5_ybuvn2.jpg"
       ],
       "hours": {
-        "mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00",
-        "thu": "07:00-22:00", "fri": "07:00-22:00", "sat": "07:00-22:00", "sun": "07:00-22:00"
+        "mon": "07:00-22:00",
+        "tue": "07:00-22:00",
+        "wed": "07:00-22:00",
+        "thu": "07:00-22:00",
+        "fri": "07:00-22:00",
+        "sat": "07:00-22:00",
+        "sun": "07:00-22:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9636131,102.6039109" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9636131,102.6039109"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -80,9 +104,14 @@
       "area": "Ban Phonthan",
       "short": "Mall and exhibition halls, hosts concerts and events",
       "description": "Vientiane's main hall for concerts, fairs and big events. Check the event listing for dates — the building itself is a mall during the day.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/iteccmall1_smreva.jpg"],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/iteccmall1_smreva.jpg"
+      ],
       "hours": null,
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9607924,102.6439024" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9607924,102.6439024"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -99,7 +128,10 @@
       "description": "Vintage-garage bar-restaurant with burgers, pizza and nightly live music — temporarily closed after a fire, using the moment to rebuild wider and better. Follow their page for the reopening. It'll be a big night.",
       "photos": [],
       "hours": null,
-      "links": { "facebook": "https://www.facebook.com/GoDunkLao", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9690462,102.6103675" },
+      "links": {
+        "facebook": "https://www.facebook.com/GoDunkLao",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9690462,102.6103675"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -114,15 +146,28 @@
       "area": "City center",
       "short": "The late-night spot of the moment",
       "description": "Restaurant-bar next door to Go Dunk that picked up the late-night crowd while its neighbour rebuilds. Live bands nightly — The Late play the early set daily, Felicia X VIP take the weekend — with acoustic, hiphop and DJ sets through the night. Table booking: 020 5236 6087.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844331/status1_bxa76f.jpg"],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844331/status1_bxa76f.jpg"
+      ],
       "hours": {
-        "mon": "16:00-26:00", "tue": "16:00-26:00", "wed": "16:00-26:00",
-        "thu": "16:00-26:00", "fri": "16:00-26:00", "sat": "16:00-26:00", "sun": "16:00-26:00"
+        "mon": "16:00-26:00",
+        "tue": "16:00-26:00",
+        "wed": "16:00-26:00",
+        "thu": "16:00-26:00",
+        "fri": "16:00-26:00",
+        "sat": "16:00-26:00",
+        "sun": "16:00-26:00"
       },
-      "links": { "facebook": "https://www.facebook.com/profile.php?id=61551085054102", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.969079,102.609883" },
-      "contact": { "phone": "+8562052366087", "phone_display": "020 5236 6087" },
+      "links": {
+        "facebook": "https://www.facebook.com/profile.php?id=61551085054102",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.969079,102.609883"
+      },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11 (hours not listed there); hours from an in-person visit — approximate, not confirmed directly with the venue"
+      "source": "Google Maps listing, 2026-07-11 (hours not listed there); hours from an in-person visit — approximate, not confirmed directly with the venue",
+      "contact": {
+        "phone": "+8562052366087",
+        "phone_display": "020 5236 6087"
+      }
     },
     {
       "id": "rustic-white",
@@ -135,12 +180,22 @@
       "area": "Riverside area",
       "short": "90s music bar with live folk sets and DJ",
       "description": "Music bar built around 90s hits, live folk sets and a DJ. Draws a young crowd — going early gets you a seat. Best with a group.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/rustic1_xinqvh.jpg"],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/rustic1_xinqvh.jpg"
+      ],
       "hours": {
-        "mon": "19:00-24:00", "tue": "19:00-24:00", "wed": "19:00-24:00",
-        "thu": "19:00-24:00", "fri": "19:00-24:00", "sat": "19:00-24:00", "sun": "19:00-24:00"
+        "mon": "19:00-24:00",
+        "tue": "19:00-24:00",
+        "wed": "19:00-24:00",
+        "thu": "19:00-24:00",
+        "fri": "19:00-24:00",
+        "sat": "19:00-24:00",
+        "sun": "19:00-24:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9582834,102.6107121" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9582834,102.6107121"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -155,12 +210,22 @@
       "area": "2nd floor above Starbucks, riverside",
       "short": "Cocktail and DJ lounge, 90s and 2000s pop",
       "description": "Upstairs cocktail lounge with DJ sets leaning 90s and 2000s pop. Dressier and pricier than the average Vientiane bar — bottle service for tables — with a big-city club feel. Closed Tuesdays, open late on weekends.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/baronpf_nolj3c.jpg"],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/baronpf_nolj3c.jpg"
+      ],
       "hours": {
-        "mon": "20:00-26:00", "tue": null, "wed": "20:00-26:00",
-        "thu": "20:00-26:00", "fri": "20:00-27:00", "sat": "20:00-27:00", "sun": "20:00-26:00"
+        "mon": "20:00-26:00",
+        "tue": null,
+        "wed": "20:00-26:00",
+        "thu": "20:00-26:00",
+        "fri": "20:00-27:00",
+        "sat": "20:00-27:00",
+        "sun": "20:00-26:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9632547,102.6054528" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9632547,102.6054528"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -181,7 +246,10 @@
         "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/mahasanpf_rzgfg8.jpg"
       ],
       "hours": null,
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9631989,102.6054431" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9631989,102.6054431"
+      },
       "verified": true,
       "source": "Google Maps listing 2026-07-11, location confirmed in person"
     },
@@ -202,10 +270,18 @@
         "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/treecoff3_pwp3iq.jpg"
       ],
       "hours": {
-        "mon": "06:30-22:00", "tue": "06:30-22:00", "wed": "06:30-22:00",
-        "thu": "06:30-22:00", "fri": "06:30-22:00", "sat": "06:30-22:00", "sun": "06:30-22:00"
+        "mon": "06:30-22:00",
+        "tue": "06:30-22:00",
+        "wed": "06:30-22:00",
+        "thu": "06:30-22:00",
+        "fri": "06:30-22:00",
+        "sat": "06:30-22:00",
+        "sun": "06:30-22:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663429,102.6018097" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663429,102.6018097"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -222,10 +298,18 @@
       "description": "The photo-spot café — seasonal decor, cotton-candy-topped lattes, beanbags upstairs and well-known bingsu. Tucked in a small soi off Chao Anou. Closed Mondays.",
       "photos": [],
       "hours": {
-        "mon": null, "tue": "09:00-22:00", "wed": "09:00-22:00",
-        "thu": "09:00-22:00", "fri": "09:00-22:00", "sat": "09:00-22:00", "sun": "09:00-22:00"
+        "mon": null,
+        "tue": "09:00-22:00",
+        "wed": "09:00-22:00",
+        "thu": "09:00-22:00",
+        "fri": "09:00-22:00",
+        "sat": "09:00-22:00",
+        "sun": "09:00-22:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650688,102.6021906" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650688,102.6021906"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -246,10 +330,18 @@
         "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191008/cg2_kst3ip.jpg"
       ],
       "hours": {
-        "mon": "07:00-20:00", "tue": "07:00-20:00", "wed": "07:00-20:00",
-        "thu": "07:00-20:00", "fri": "07:00-20:00", "sat": "07:00-20:00", "sun": null
+        "mon": "07:00-20:00",
+        "tue": "07:00-20:00",
+        "wed": "07:00-20:00",
+        "thu": "07:00-20:00",
+        "fri": "07:00-20:00",
+        "sat": "07:00-20:00",
+        "sun": null
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.964785,102.6026191" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.964785,102.6026191"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -266,10 +358,18 @@
       "description": "Retro café styled to the 1920s — gramophone music, vintage decor, drip coffee blends — inside a hostel garden. Unusually for a Vientiane café, it stays open until midnight Thursday to Sunday.",
       "photos": [],
       "hours": {
-        "mon": "07:00-20:00", "tue": "07:00-20:00", "wed": "07:00-20:00",
-        "thu": "07:00-24:00", "fri": "07:00-24:00", "sat": "07:00-24:00", "sun": "07:00-24:00"
+        "mon": "07:00-20:00",
+        "tue": "07:00-20:00",
+        "wed": "07:00-20:00",
+        "thu": "07:00-24:00",
+        "fri": "07:00-24:00",
+        "sat": "07:00-24:00",
+        "sun": "07:00-24:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9695095,102.6052324" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9695095,102.6052324"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -286,10 +386,18 @@
       "description": "Compact matcha specialist near That Luang — ceremonial-grade matcha, strawberry daifuku, calm vibe. Closes mid-afternoon, so it's a daytime stop. Closed Saturdays.",
       "photos": [],
       "hours": {
-        "mon": "07:30-16:30", "tue": "07:30-16:30", "wed": "07:30-16:30",
-        "thu": "07:30-16:30", "fri": "07:30-16:30", "sat": null, "sun": "07:30-16:30"
+        "mon": "07:30-16:30",
+        "tue": "07:30-16:30",
+        "wed": "07:30-16:30",
+        "thu": "07:30-16:30",
+        "fri": "07:30-16:30",
+        "sat": null,
+        "sun": "07:30-16:30"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9737332,102.6338178" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9737332,102.6338178"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11"
     },
@@ -304,12 +412,22 @@
       "area": "Chao Anouvong Park, riverfront",
       "short": "Riverside tents — clothes, souvenirs, crafts",
       "description": "The nightly riverside market at Chao Anouvong Park — red-tent stalls with clothes, souvenirs and crafts. Busiest Friday and Saturday evenings, when street performers often join. A standing anchor of the riverfront night. The food stalls are a separate market across the road — don't come to these tents expecting dinner.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/night_market_hrrub8.jpg"],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/night_market_hrrub8.jpg"
+      ],
       "hours": {
-        "mon": "18:00-22:00", "tue": "18:00-22:00", "wed": "18:00-22:00",
-        "thu": "18:00-22:00", "fri": "18:00-22:00", "sat": "18:00-22:00", "sun": "18:00-22:00"
+        "mon": "18:00-22:00",
+        "tue": "18:00-22:00",
+        "wed": "18:00-22:00",
+        "thu": "18:00-22:00",
+        "fri": "18:00-22:00",
+        "sat": "18:00-22:00",
+        "sun": "18:00-22:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9628193,102.6061735" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9628193,102.6061735"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-12"
     },
@@ -326,7 +444,10 @@
       "description": "Open-air nightlife zone on the Mekong boardwalk that took over from the old Cowboy Park — beer and finger-food stalls with a young local crowd, reportedly with free live music on busy nights. No official listing; location approximate.",
       "photos": [],
       "hours": null,
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9604,102.6085" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9604,102.6085"
+      },
       "verified": false,
       "source": "TripAdvisor reports 2026 + boardwalk coordinates estimated — confirm location and schedule in person"
     },
@@ -343,10 +464,18 @@
       "description": "Cafe and restaurant inside the National Library compound with a spacious interior and outdoor garden seating. Fresh, well-priced food — and an occasional venue for community meetups and tech events.",
       "photos": [],
       "hours": {
-        "mon": "10:00-22:00", "tue": "10:00-22:00", "wed": "10:00-22:00",
-        "thu": "10:00-22:00", "fri": "10:00-22:00", "sat": "10:00-22:00", "sun": "10:00-22:00"
+        "mon": "10:00-22:00",
+        "tue": "10:00-22:00",
+        "wed": "10:00-22:00",
+        "thu": "10:00-22:00",
+        "fri": "10:00-22:00",
+        "sat": "10:00-22:00",
+        "sun": "10:00-22:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=18.0083709,102.6436896" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=18.0083709,102.6436896"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-13"
     },
@@ -363,10 +492,18 @@
       "description": "Vientiane's craft brewery — kölsch, IPAs and stouts brewed on site, cozy low-lit taproom. Hosts the big Make Friends + language exchange meetup every Thursday evening. The town's best answer to one-more-Beerlao fatigue.",
       "photos": [],
       "hours": {
-        "mon": "11:00-22:30", "tue": "11:00-22:30", "wed": "11:00-22:30",
-        "thu": "11:00-23:00", "fri": "11:00-23:00", "sat": "11:00-23:00", "sun": "11:00-22:30"
+        "mon": "11:00-22:30",
+        "tue": "11:00-22:30",
+        "wed": "11:00-22:30",
+        "thu": "11:00-23:00",
+        "fri": "11:00-23:00",
+        "sat": "11:00-23:00",
+        "sun": "11:00-22:30"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9491828,102.6190028" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9491828,102.6190028"
+      },
       "verified": true,
       "source": "Google Maps listing + FB events, 2026-07-22"
     },
@@ -381,12 +518,22 @@
       "area": "Khouvieng Rd, Nongchan",
       "short": "Mall — events, food court, cinema crowd",
       "description": "The big air-conditioned mall on Khouvieng — shops, food court, kids' zone, and a regular stage for contests and brand events.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/parkson1_nsxhnl.jpg"],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/parkson1_nsxhnl.jpg"
+      ],
       "hours": {
-        "mon": "09:30-21:00", "tue": "09:30-21:00", "wed": "09:30-21:00",
-        "thu": "09:30-21:00", "fri": "09:30-21:00", "sat": "09:30-21:00", "sun": "09:30-21:00"
+        "mon": "09:30-21:00",
+        "tue": "09:30-21:00",
+        "wed": "09:30-21:00",
+        "thu": "09:30-21:00",
+        "fri": "09:30-21:00",
+        "sat": "09:30-21:00",
+        "sun": "09:30-21:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9613647,102.61853" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9613647,102.61853"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-22"
     },
@@ -396,22 +543,31 @@
       "short_name": "KOKKOK Mega Mall",
       "name_lo": "ກົກກົກ ເມກາມໍ",
       "type": "venue",
-      "status": "opening-soon",
       "lat": 17.9760734,
       "lng": 102.6247692,
       "area": "Kaysone Phomvihane Rd, by Patuxay",
       "short": "Opens 8 August — 70+ brands by Patuxay",
       "description": "Laos' biggest mall, opening 08.08.2026 next to Patuxay, right on the BRT line in the middle of town — confirmed on their own Facebook page. Over 70 international brands.",
-      "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/kokkok_megamart1_in5kif.jpg"],
+      "photos": [
+        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/kokkok_megamart1_in5kif.jpg"
+      ],
       "hours": null,
-      "links": { "facebook": "https://www.facebook.com/KokKokMegaMall", "website": "https://kokkokmegamall.com/", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692" },
-      "contact": { "phone": "+8562059887777", "phone_display": "020 59 887 777" },
+      "links": {
+        "facebook": "https://www.facebook.com/KokKokMegaMall",
+        "website": "https://kokkokmegamall.com/",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692"
+      },
       "verified": true,
       "source": "Facebook page KokKokMegaMall, opening date confirmed 2026-07-28",
+      "contact": {
+        "phone": "+8562059887777",
+        "phone_display": "020 59 887 777"
+      },
       "parking": {
         "note": "Three zones — motorbikes at B on the main road, cars A or C",
         "source": "venue parking map on Facebook"
-      }
+      },
+      "status": "opening-soon"
     },
     {
       "id": "madame-cocktail",
@@ -426,10 +582,18 @@
       "description": "Hidden cocktail bar on the 8th floor of the Lao Poet Hotel — through a curtain and a padded door into a 1930s speakeasy. House-infused spirits, local ingredients, small plates. One of the highest-rated bars in the city.",
       "photos": [],
       "hours": {
-        "mon": "18:00-25:00", "tue": "18:00-25:00", "wed": "18:00-25:00",
-        "thu": "18:00-25:00", "fri": "18:00-25:00", "sat": "18:00-25:00", "sun": "18:00-25:00"
+        "mon": "18:00-25:00",
+        "tue": "18:00-25:00",
+        "wed": "18:00-25:00",
+        "thu": "18:00-25:00",
+        "fri": "18:00-25:00",
+        "sat": "18:00-25:00",
+        "sun": "18:00-25:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663052,102.6056738" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663052,102.6056738"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-25"
     },
@@ -446,10 +610,18 @@
       "description": "Rooftop lounge with a wide view over the city and the Mekong. Happy hour 5–7pm on selected drinks. Popular for sunset — the wall seats go early.",
       "photos": [],
       "hours": {
-        "mon": "17:00-24:00", "tue": "17:00-24:00", "wed": "17:00-24:00",
-        "thu": "17:00-24:00", "fri": "17:00-24:00", "sat": "17:00-24:00", "sun": "17:00-24:00"
+        "mon": "17:00-24:00",
+        "tue": "17:00-24:00",
+        "wed": "17:00-24:00",
+        "thu": "17:00-24:00",
+        "fri": "17:00-24:00",
+        "sat": "17:00-24:00",
+        "sun": "17:00-24:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650263,102.6027337" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650263,102.6027337"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-25"
     },
@@ -466,10 +638,18 @@
       "description": "Rooftop bar on the 15th floor of the Amari — the widest sunset view in Vientiane, out over the Mekong to the fields on the Thai side, with the night market below. Cocktail-led.",
       "photos": [],
       "hours": {
-        "mon": "17:00-24:00", "tue": "17:00-24:00", "wed": "17:00-24:00",
-        "thu": "17:00-24:00", "fri": "17:00-24:00", "sat": "17:00-24:00", "sun": "17:00-24:00"
+        "mon": "17:00-24:00",
+        "tue": "17:00-24:00",
+        "wed": "17:00-24:00",
+        "thu": "17:00-24:00",
+        "fri": "17:00-24:00",
+        "sat": "17:00-24:00",
+        "sun": "17:00-24:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650516,102.6001079" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650516,102.6001079"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-25"
     },
@@ -486,10 +666,18 @@
       "description": "Small live-music bar tucked off Pangkham — look for the red saxophone on the facade. Jazz nights, live bands, Latin dance on Thursdays, and cocktails people cross town for. Closed Mondays.",
       "photos": [],
       "hours": {
-        "mon": null, "tue": "17:00-24:00", "wed": "17:00-24:00",
-        "thu": "17:00-24:00", "fri": "17:00-24:00", "sat": "17:00-24:00", "sun": "17:00-24:00"
+        "mon": null,
+        "tue": "17:00-24:00",
+        "wed": "17:00-24:00",
+        "thu": "17:00-24:00",
+        "fri": "17:00-24:00",
+        "sat": "17:00-24:00",
+        "sun": "17:00-24:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9647287,102.6084091" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9647287,102.6084091"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-25"
     },
@@ -506,10 +694,18 @@
       "description": "Long-running live music pub on Khun Bu Lom — fairy lights, mismatched furniture, a house band that plays covers to a crowd that knows every word. Opens late and runs to 2am. Come for the music.",
       "photos": [],
       "hours": {
-        "mon": "21:00-26:00", "tue": "21:00-26:00", "wed": "21:00-26:00",
-        "thu": "21:00-26:00", "fri": "21:00-26:00", "sat": "21:00-26:00", "sun": "21:00-26:00"
+        "mon": "21:00-26:00",
+        "tue": "21:00-26:00",
+        "wed": "21:00-26:00",
+        "thu": "21:00-26:00",
+        "fri": "21:00-26:00",
+        "sat": "21:00-26:00",
+        "sun": "21:00-26:00"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9674176,102.6010777" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9674176,102.6010777"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-25"
     },
@@ -526,10 +722,18 @@
       "description": "Seventh-floor rooftop restaurant on the riverfront — sunset over the Mekong, Lao and western food, live music some weekend evenings. Booking advised; it fills with groups.",
       "photos": [],
       "hours": {
-        "mon": "16:30-22:30", "tue": "16:30-22:30", "wed": "16:30-22:30",
-        "thu": "16:30-22:30", "fri": "16:30-22:30", "sat": "16:30-22:30", "sun": "16:30-22:30"
+        "mon": "16:30-22:30",
+        "tue": "16:30-22:30",
+        "wed": "16:30-22:30",
+        "thu": "16:30-22:30",
+        "fri": "16:30-22:30",
+        "sat": "16:30-22:30",
+        "sun": "16:30-22:30"
       },
-      "links": { "facebook": "", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9657665,102.5967715" },
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9657665,102.5967715"
+      },
       "verified": true,
       "source": "Google Maps listing, 2026-07-25"
     },
@@ -550,16 +754,24 @@
         "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785181937/sathiti3_ffa25d.jpg"
       ],
       "hours": {
-        "mon": "07:00-18:00", "tue": "07:00-18:00", "wed": "07:00-18:00",
-        "thu": "07:00-18:00", "fri": "07:00-18:00", "sat": "07:00-18:00", "sun": "07:00-18:00"
+        "mon": "07:00-18:00",
+        "tue": "07:00-18:00",
+        "wed": "07:00-18:00",
+        "thu": "07:00-18:00",
+        "fri": "07:00-18:00",
+        "sat": "07:00-18:00",
+        "sun": "07:00-18:00"
       },
-      "contact": { "phone": "+8562056265662", "phone_display": "020 56 265 662" },
       "links": {
         "facebook": "https://www.facebook.com/profile.php?id=61560300636410",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9685234,102.6049603"
       },
       "verified": true,
-      "source": "Facebook page + Google Maps listing (phone matches both), 2026-07-26"
+      "source": "Facebook page + Google Maps listing (phone matches both), 2026-07-26",
+      "contact": {
+        "phone": "+8562056265662",
+        "phone_display": "020 56 265 662"
+      }
     },
     {
       "id": "anthophile",
@@ -583,16 +795,23 @@
       ],
       "hours": {
         "mon": null,
-        "tue": "10:00-18:00", "wed": "10:00-18:00", "thu": "10:00-18:00",
-        "fri": "10:00-18:00", "sat": "10:00-18:00", "sun": "10:00-18:00"
+        "tue": "10:00-18:00",
+        "wed": "10:00-18:00",
+        "thu": "10:00-18:00",
+        "fri": "10:00-18:00",
+        "sat": "10:00-18:00",
+        "sun": "10:00-18:00"
       },
-      "contact": { "phone": "+8562052281119", "phone_display": "020 52 281 119" },
       "links": {
         "facebook": "https://www.facebook.com/profile.php?id=61584339195306",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9814029,102.6799532"
       },
       "verified": true,
-      "source": "Facebook page + Google Maps listing, phone matches both, 2026-07-28"
+      "source": "Facebook page + Google Maps listing, phone matches both, 2026-07-28",
+      "contact": {
+        "phone": "+8562052281119",
+        "phone_display": "020 52 281 119"
+      }
     }
   ]
 }
