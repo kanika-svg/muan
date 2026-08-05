@@ -402,6 +402,8 @@ function openAvatarSheet() {
     `</div>
     <div style="text-align:center;font-size:11.5px;color:var(--mute);margin-top:14px;">your avatar joins check-ins, streaks & comments soon 🔥</div>
     <div class="btn-row"><button class="btn btn-back" data-back-flame style="flex:1;">Done</button></div>`);
+  const sheet = document.getElementById('sheet');
+  if (sheet) sheet.scrollTop = 0;
   document.querySelectorAll('.av-opt').forEach(b => b.addEventListener('click', () => {
     localStorage.setItem('muan-avatar', b.dataset.av);
     document.querySelectorAll('.av-opt').forEach(x => x.classList.remove('sel'));
@@ -530,6 +532,8 @@ async function openFlameSheet() {
         <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
       </div>
     `);
+    const sheet = document.getElementById('sheet');
+    if (sheet) sheet.scrollTop = 0;
     pauseFlameIfReducedMotion();
     initGoogleSignIn('gsi-btn');
     return;
@@ -565,6 +569,8 @@ function renderFlameIntro(flameHtml, onDone) {
       <div class="btn-row"><button class="btn cel-done" data-intro-done>Got it</button></div>
     </div>
   `);
+  const sheet = document.getElementById('sheet');
+  if (sheet) sheet.scrollTop = 0;
   pauseFlameIfReducedMotion();
   if (!reduced) {
     const flameEl = document.querySelector('.intro-flame');
@@ -650,6 +656,8 @@ function renderFlameSheetBody(me, flameHtml) {
       <button class="fl-signout" data-sign-out>Sign out</button>
     </div>
   `);
+  const sheet = document.getElementById('sheet');
+  if (sheet) sheet.scrollTop = 0;
   pauseFlameIfReducedMotion();
   document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
@@ -1595,6 +1603,10 @@ function openVenue(id) {
     <div id="routeAttribution"></div>`;
 
   setSheet(html);
+  // must run after setSheet() has put the new content in the DOM, or the
+  // still-rendering old content's scrollTop assignment gets overwritten
+  const sheet = document.getElementById('sheet');
+  if (sheet) sheet.scrollTop = 0;
   history.replaceState(null, '', '?v=' + v.id);
   document.querySelectorAll('.gal-hero, .gal-thumb').forEach(img => watchImgLoad(img, v));
   document.querySelectorAll('.gal-thumb').forEach(t => t.addEventListener('click', () => {
