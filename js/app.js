@@ -1033,6 +1033,75 @@ function bigCard(v, sub, photoOverride) {
   </div>`;
 }
 
+/* ---------- photo load failures: fall back to the monogram tile ---------- */
+// letter-tile matching .thumb-ph's look (colour-by-type letter on a themed
+// background) — reused as the onerror/timeout fallback for any venue <img>
+// so a photo that fails to load reads the same as "no photos at all"
+// instead of a blank grey box
+function venueMonogramSvgUri(v) {
+  const letter = (v.short_name || v.name).charAt(0).toUpperCase();
+  const fgVar = v.type === 'cafe' ? '--teal' : v.type === 'bar' ? '--flame' : '--violet';
+  const cs = getComputedStyle(document.documentElement);
+  const fg = cs.getPropertyValue(fgVar).trim() || '#8A8494';
+  // .thumb-ph's light theme swaps in a hardcoded background rather than a
+  // shared token (see style.css) — keep this hex in sync with that rule
+  const bg = state.theme === 'light' ? '#DFD4BC' : (cs.getPropertyValue('--ink3').trim() || '#241E31');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">` +
+    `<rect width="240" height="240" fill="${bg}"/>` +
+    `<text x="120" y="128" text-anchor="middle" font-family="Space Grotesk, sans-serif" ` +
+    `font-weight="700" font-size="104" fill="${fg}">${esc(letter)}</text></svg>`;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+
+// wires the fallback for one <img>: onerror swaps in the monogram
+// immediately; a 6s watchdog covers requests that never fire load OR error
+// (a stalled connection, a host that hangs) since a blank box is worse than
+// a letter. onSettled(ok) — used by watchCollageCard() for hero promotion —
+// fires once either way, after any monogram swap has already happened.
+function watchImgLoad(img, v, onSettled) {
+  // re-arms cleanly if called again on an img whose src just changed (see
+  // the gallery's thumbnail-click handler, which swaps #galHero's photo)
+  delete img.dataset.settled;
+  delete img.dataset.monogram;
+  const finish = (ok) => {
+    if (img.dataset.settled === '1') return;
+    img.dataset.settled = '1';
+    if (!ok) {
+      console.warn('[muan] image failed to load:', img.src);
+      img.dataset.monogram = '1';
+      img.onerror = null;
+      img.src = venueMonogramSvgUri(v);
+    }
+    onSettled?.(ok);
+  };
+  img.addEventListener('load', () => finish(true), { once: true });
+  img.addEventListener('error', () => finish(false), { once: true });
+  setTimeout(() => { if (!img.complete || img.naturalWidth === 0) finish(false); }, 6000);
+}
+
+// collage-specific: if the big hero tile's photo fails but a smaller tile's
+// photo is (or later becomes) available, promote that photo into the hero
+// slot rather than leaving the hero on its monogram while a real photo sits
+// unused in a small tile next to it. Runs on every image's settle (load
+// order between tiles isn't guaranteed) so it catches whichever image
+// resolves last, in either direction.
+function watchCollageCard(cardEl, v) {
+  const heroImg = cardEl.querySelector('.collage-tile-big img');
+  const otherImgs = [...cardEl.querySelectorAll('.collage-tile:not(.collage-tile-big) img')];
+  if (!heroImg) { otherImgs.forEach(img => watchImgLoad(img, v)); return; }
+
+  const tryPromote = () => {
+    if (heroImg.dataset.monogram !== '1' || heroImg.dataset.promoted === '1') return;
+    const good = otherImgs.find(img => img.dataset.settled === '1' && img.dataset.monogram !== '1');
+    if (!good) return;
+    heroImg.dataset.promoted = '1';
+    heroImg.src = good.src;
+  };
+
+  watchImgLoad(heroImg, v, tryPromote);
+  otherImgs.forEach(img => watchImgLoad(img, v, tryPromote));
+}
+
 /* ---------- Recommended cafés: photo-collage cards ---------- */
 // "closed" already says so on its own (openStatus() covers "closed today" /
 // "closed" / "hours unconfirmed"); only the not-yet-open case ("opens 10 am")
@@ -1194,6 +1263,10 @@ function renderHomeSheet() {
     }
     setSheet(html);
     injectEmptyIcons();
+    document.querySelectorAll('.collage-card').forEach(card => {
+      const v = venueById(card.dataset.openVenue);
+      if (v) watchCollageCard(card, v);
+    });
     history.replaceState(null, '', location.pathname);
     const sh = document.getElementById('sheet');
     sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
@@ -1470,12 +1543,14 @@ function openVenue(id) {
 
   setSheet(html);
   history.replaceState(null, '', '?v=' + v.id);
+  document.querySelectorAll('.gal-hero, .gal-thumb').forEach(img => watchImgLoad(img, v));
   document.querySelectorAll('.gal-thumb').forEach(t => t.addEventListener('click', () => {
     const hero = document.getElementById('galHero');
     hero.classList.add('fading');
     setTimeout(() => {
       hero.src = photos[+t.dataset.gi];
       hero.onload = () => hero.classList.remove('fading');
+      watchImgLoad(hero, v);   // re-arm for the newly-swapped-in photo
     }, 140);
     document.querySelectorAll('.gal-thumb').forEach(x => x.classList.remove('sel'));
     t.classList.add('sel');
