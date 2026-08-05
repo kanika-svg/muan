@@ -1005,7 +1005,7 @@ function opensLate(v) {
 function sectionCard(v, sub, photoOverride, sub2) {
   const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
   const thumb = photo
-    ? `<img class="thumb" src="${esc(photo)}" alt="" loading="lazy">`
+    ? `<img class="thumb" src="${esc(cloudinaryResize(photo, 200))}" alt="" loading="lazy">`
     : `<div class="thumb thumb-ph" style="color:var(--${v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet'});">${esc((v.short_name || v.name).charAt(0))}</div>`;
   return `<div class="hcard" data-open-venue="${v.id}">
     ${thumb}
@@ -1031,6 +1031,17 @@ function bigCard(v, sub, photoOverride) {
       <div class="t-sub">${sub}</div>
     </div>
   </div>`;
+}
+
+/* ---------- Cloudinary URLs: request the size a slot actually renders at */
+// every stored photo URL requests w_1200 regardless of where it's used —
+// rewrites that one transform segment to the width the calling slot needs
+// (plus dpr_auto for retina) rather than storing multiple URLs per photo.
+// No-ops on anything that isn't in the expected .../upload/w_1200,.../shape,
+// so a differently-hosted or already-rewritten URL just passes through.
+function cloudinaryResize(url, width) {
+  if (typeof url !== 'string') return url;
+  return url.replace(/w_1200(?=,|\/)/, `w_${width},dpr_auto`);
 }
 
 /* ---------- photo load failures: fall back to the monogram tile ---------- */
@@ -1102,6 +1113,43 @@ function watchCollageCard(cardEl, v) {
   otherImgs.forEach(img => watchImgLoad(img, v, tryPromote));
 }
 
+// swaps a card's tiles from their placeholder monogram src to their real
+// (already width-rewritten, see cloudinaryResize()) photo URL, then arms
+// the load/error/timeout fallback for those real requests — called once per
+// card, when observeCollageCards() decides it's actually time to load it
+function loadCollageCardPhotos(cardEl, v) {
+  cardEl.querySelectorAll('img[data-src]').forEach(img => {
+    img.src = img.dataset.src;
+    delete img.dataset.src;
+  });
+  watchCollageCard(cardEl, v);
+}
+
+// ~15 photo requests firing at once across five collage cards blew past the
+// browser's per-host connection limit and most just sat at complete=false
+// indefinitely (see the MEASURED note this was written for). Each card's
+// <img> starts on a monogram placeholder with the real URL parked in
+// data-src (see collagePhotosHtml()); this loads a card's real photos only
+// once it's within ~200px of becoming visible. root must be #sheet, not the
+// window — #sheet is the element that actually scrolls (see its overflow-y
+// in style.css), so viewport-rooted intersection would report every card as
+// always "visible". IntersectionObserver fires immediately for whatever's
+// already in range when observe() is called, so the first card (or few,
+// depending on sheet height) loads right away with no special-casing.
+let collageObserver = null;
+function observeCollageCards() {
+  collageObserver?.disconnect();
+  collageObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      collageObserver.unobserve(entry.target);
+      const v = venueById(entry.target.dataset.openVenue);
+      if (v) loadCollageCardPhotos(entry.target, v);
+    }
+  }, { root: document.getElementById('sheet'), rootMargin: '200px' });
+  document.querySelectorAll('.collage-card').forEach(card => collageObserver.observe(card));
+}
+
 /* ---------- Recommended cafés: photo-collage cards ---------- */
 // "closed" already says so on its own (openStatus() covers "closed today" /
 // "closed" / "hours unconfirmed"); only the not-yet-open case ("opens 10 am")
@@ -1126,19 +1174,27 @@ function collageDescLine(v) {
 // (~45%) — degrades cleanly as photos run out: 2 photos = one large plus
 // one wide beneath. A 4th+ photo folds into a "+N" badge on the last tile
 // rather than growing the grid further.
-function collagePhotosHtml(photos, altName) {
+//
+// every tile starts on the venue's monogram as its actual src (a data URI —
+// no request fires) with the real, size-rewritten photo URL parked in
+// data-src; observeCollageCards() swaps it in once the card is about to
+// scroll into view (see loadCollageCardPhotos()), rather than all three
+// tiles across every card requesting a photo the moment the tab opens.
+function collagePhotosHtml(v, altName) {
+  const photos = v.photos || [];
   if (!photos.length) return `<div class="collage-photos collage-photos-empty">📷</div>`;
+  const placeholder = venueMonogramSvgUri(v);
   const n = Math.min(photos.length, 3);
   const extra = photos.length - 3;
   let html = `<div class="collage-photos">`;
   html += `<div class="collage-tile collage-tile-big${n === 1 ? ' solo' : ''}">
-    <img src="${esc(photos[0])}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
+    <img src="${placeholder}" data-src="${esc(cloudinaryResize(photos[0], 600))}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
   if (n >= 2) {
     const more = n >= 3 && extra > 0 ? extra : null;
     html += `<div class="collage-row">
-      <div class="collage-tile"><img src="${esc(photos[1])}" alt="" loading="lazy" draggable="false"></div>
+      <div class="collage-tile"><img src="${placeholder}" data-src="${esc(cloudinaryResize(photos[1], 300))}" alt="" loading="lazy" draggable="false"></div>
       ${n >= 3 ? `<div class="collage-tile">
-        <img src="${esc(photos[2])}" alt="" loading="lazy" draggable="false">
+        <img src="${placeholder}" data-src="${esc(cloudinaryResize(photos[2], 300))}" alt="" loading="lazy" draggable="false">
         ${more ? `<span class="collage-more">+${more}</span>` : ''}
       </div>` : ''}
     </div>`;
@@ -1159,7 +1215,7 @@ function collageCardHtml(v) {
   if (photos.length) facts.push(`${photos.length} photo${photos.length === 1 ? '' : 's'}`);
   return `
     <div class="collage-card" data-open-venue="${v.id}">
-      ${collagePhotosHtml(photos, v.name)}
+      ${collagePhotosHtml(v, v.name)}
       <div class="collage-scrim"></div>
       <div class="collage-info">
         <div class="collage-name">${esc(v.short_name || v.name)}</div>
@@ -1249,7 +1305,7 @@ function renderHomeSheet() {
           const st = openStatus(v);
           html += `
             <div class="card" data-open-venue="${v.id}">
-              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(v.photos[0])}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`}
+              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryResize(v.photos[0], 200))}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`}
               <div class="card-body">
                 <div class="row">
                   <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
@@ -1263,10 +1319,7 @@ function renderHomeSheet() {
     }
     setSheet(html);
     injectEmptyIcons();
-    document.querySelectorAll('.collage-card').forEach(card => {
-      const v = venueById(card.dataset.openVenue);
-      if (v) watchCollageCard(card, v);
-    });
+    observeCollageCards();
     history.replaceState(null, '', location.pathname);
     const sh = document.getElementById('sheet');
     sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
@@ -1341,7 +1394,7 @@ function renderHomeSheet() {
         const v = venueById(ev.venue_id);
         if (!v) {
           return `<div class="hcard">
-            ${ev.photo ? `<img class="thumb" src="${esc(ev.photo)}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
+            ${ev.photo ? `<img class="thumb" src="${esc(cloudinaryResize(ev.photo, 200))}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
             <div>
               <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
               <div class="hc-sub" style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
@@ -1424,10 +1477,10 @@ function openVenue(id) {
   } else {
     galleryHtml = `
       <div class="gal">
-        <img class="gal-hero" id="galHero" src="${esc(photos[0])}" alt="${esc(v.name)}" loading="lazy">
+        <img class="gal-hero" id="galHero" src="${esc(cloudinaryResize(photos[0], 900))}" alt="${esc(v.name)}" loading="lazy">
         ${photos.length > 1 ? `<div class="gal-thumbs">` +
           photos.map((p, i) =>
-            `<img class="gal-thumb ${i===0?'sel':''}" src="${esc(p)}" data-gi="${i}" alt="" loading="lazy">`
+            `<img class="gal-thumb ${i===0?'sel':''}" src="${esc(cloudinaryResize(p, 200))}" data-gi="${i}" alt="" loading="lazy">`
           ).join('') + `</div>` : ''}
       </div>`;
   }
@@ -1548,7 +1601,7 @@ function openVenue(id) {
     const hero = document.getElementById('galHero');
     hero.classList.add('fading');
     setTimeout(() => {
-      hero.src = photos[+t.dataset.gi];
+      hero.src = cloudinaryResize(photos[+t.dataset.gi], 900);
       hero.onload = () => hero.classList.remove('fading');
       watchImgLoad(hero, v);   // re-arm for the newly-swapped-in photo
     }, 140);
