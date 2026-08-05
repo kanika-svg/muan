@@ -9,9 +9,18 @@ const RIVERSIDE_VENUES = [
   'vte-night-market', 'baron', 'mahasan', 'rustic-white', 'seventh-heaven'
 ];
 
-/* IMPORTANT: this table must be kept in sync with data/venues.json.
-   Every new venue added there must be added here too, or check-ins at it
-   will fail with "unknown venue". */
+/* DEAD CODE — kept commented out as a documented revert path only.
+   As of the venues-table migration (migrations/005_venues.sql), lat/lng/
+   name/hours are read live from D1's `venues` table (see the query in
+   onRequest() below) instead of these hardcoded objects. Verified via a
+   data-diff against D1 immediately before the switch: all 28 ids, every
+   lat/lng, and every hours object matched exactly, so nothing here was
+   silently stale at cutover time. If check-ins start failing for venues
+   that render fine on the map, that's the D1 read to suspect first — these
+   objects are left here so reverting is a one-line change back to them
+   instead of reconstructing this data under pressure. Delete for real once
+   the D1 path has run clean in production for a while.
+
 const VENUE_COORDS = {
   "kong-view": { lat: 17.9678909, lng: 102.5805278, name: "Kong View" },
   "chokdee-cafe": { lat: 17.9630719, lng: 102.6058379, name: "Chokdee Café Belgian Beer Bar" },
@@ -43,7 +52,7 @@ const VENUE_COORDS = {
   "anthophile": { lat: 17.9814029, lng: 102.6799532, name: "Anthophile" }
 };
 
-/* hours duplicated from venues.json — keep in sync when adding venues */
+// hours duplicated from venues.json — keep in sync when adding venues
 const VENUE_HOURS = {
   "kong-view": {
     mon: "16:30-23:30", tue: "16:30-23:30", wed: "16:30-23:30",
@@ -141,6 +150,7 @@ const VENUE_HOURS = {
     fri: "10:00-18:00", sat: "10:00-18:00", sun: "10:00-18:00"
   }
 };
+*/
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -204,10 +214,16 @@ export async function onRequest(context) {
       return Response.json({ ok: false, error: 'missing venue_id, lat or lng' }, { status: 400 });
     }
 
-    const venue = VENUE_COORDS[venue_id];
-    if (!venue) {
+    // lat/lng/name/hours read live from D1 (migrations/005_venues.sql) —
+    // see the dead VENUE_COORDS/VENUE_HOURS comment above for the revert path
+    const venueRow = await context.env.DB.prepare(
+      'SELECT lat, lng, name, hours FROM venues WHERE id = ?'
+    ).bind(venue_id).first();
+    if (!venueRow) {
       return Response.json({ ok: false, error: 'unknown venue' }, { status: 404 });
     }
+    const venue = { lat: venueRow.lat, lng: venueRow.lng, name: venueRow.name };
+    const venueHours = venueRow.hours ? JSON.parse(venueRow.hours) : null;
 
     const configRows = await context.env.DB.prepare(
       `SELECT key, value FROM config WHERE key IN
@@ -249,7 +265,7 @@ export async function onRequest(context) {
       return Response.json({ ok: false, limit: true, message: 'check-in limit reached for tonight' });
     }
 
-    if (!isVenueOpen(VENUE_HOURS[venue_id])) {
+    if (!isVenueOpen(venueHours)) {
       return Response.json({ ok: false, closed: true, message: 'that place is closed right now' });
     }
 

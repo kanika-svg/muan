@@ -115,11 +115,14 @@
       "short": "The late-night spot of the moment",
       "description": "Restaurant-bar next door to Go Dunk that picked up the late-night crowd while its neighbour rebuilds. Live bands nightly — The Late play the early set daily, Felicia X VIP take the weekend — with acoustic, hiphop and DJ sets through the night. Table booking: 020 5236 6087.",
       "photos": ["https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844331/status1_bxa76f.jpg"],
-      "hours": null,
+      "hours": {
+        "mon": "16:00-26:00", "tue": "16:00-26:00", "wed": "16:00-26:00",
+        "thu": "16:00-26:00", "fri": "16:00-26:00", "sat": "16:00-26:00", "sun": "16:00-26:00"
+      },
       "links": { "facebook": "https://www.facebook.com/profile.php?id=61551085054102", "maps": "https://www.google.com/maps/dir/?api=1&destination=17.969079,102.609883" },
       "contact": { "phone": "+8562052366087", "phone_display": "020 5236 6087" },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11 (hours not listed)"
+      "source": "Google Maps listing, 2026-07-11 (hours not listed there); hours from an in-person visit — approximate, not confirmed directly with the venue"
     },
     {
       "id": "rustic-white",

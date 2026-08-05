@@ -148,7 +148,7 @@ async function boot() {
     placeChips();
     window.addEventListener('resize', placeChips);
     const [vRes, eRes, picks] = await Promise.all([
-      fetch('data/venues.json'),
+      fetch('/api/venues'),
       fetch('data/events.json'),
       fetch('data/picks.json')
         .then(r => r.ok ? r.json() : Promise.reject(new Error('picks fetch failed: ' + r.status)))
