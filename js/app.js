@@ -154,7 +154,8 @@ async function boot() {
         .then(r => r.ok ? r.json() : Promise.reject(new Error('picks fetch failed: ' + r.status)))
         .catch(e => { console.warn('[muan] picks unavailable', e); return null; }),
     ]);
-    state.venues = (await vRes.json()).venues;
+    const vData = await vRes.json();
+    state.venues = vData.venues;
     state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
     state.picks = picks;
 
@@ -170,6 +171,8 @@ async function boot() {
     bindLocate();
     bindRouteBar();
     bindMapWarning();
+    bindStaleWarning();
+    if (vData.stale) showStaleWarning();
     initSheetDrag();
 
     const st = document.getElementById('sheetToggle');
@@ -2429,6 +2432,20 @@ function showMapWarning() {
 function bindMapWarning() {
   document.getElementById('mapWarningClose')?.addEventListener('click', () => {
     document.getElementById('mapWarning').hidden = true;
+  });
+}
+
+// shown when /api/venues had to fall back to the bundled data/venues.json
+// mirror (see functions/api/venues.js) because the live D1 query failed —
+// same persistent-sibling-of-#sheetInner pattern as showMapWarning() above
+function showStaleWarning() {
+  const el = document.getElementById('staleWarning');
+  if (el) el.hidden = false;
+}
+
+function bindStaleWarning() {
+  document.getElementById('staleWarningClose')?.addEventListener('click', () => {
+    document.getElementById('staleWarning').hidden = true;
   });
 }
 

@@ -15,6 +15,20 @@ file/variable names) intentionally remain "muan" — do not rename them.
   `--check` doesn't reliably catch the resulting stray token). Verify syntax
   with a real ESM parse instead, e.g. dynamic `import()` of the file via a
   `file://` URL.
+- Migrations must be run against production with `--remote` BEFORE or in the
+  same session as the deploy that depends on them — never after.
+- Code that references a new column must not ship until the migration adding
+  it has actually been applied to `--remote`, not just written to the repo.
+- Before pushing anything that touches the D1 schema, run
+  `wrangler d1 execute muan-db --remote --command="PRAGMA table_info(<table>)"`
+  and confirm every column the new code reads or writes is actually present.
+- Why: migration 008 (signature items) shipped in code before it was run
+  against `--remote`. Every request to /api/venues referenced the missing
+  column and 500'd, which took the whole app down — no venues loaded on any
+  device until the migration was applied by hand. See functions/api/venues.js
+  for the fallback this incident added (bundled data/venues.json, served
+  with `stale: true` if the live D1 query throws) — that fallback is a
+  safety net, not a substitute for this rule.
 
 ## Data integrity rules (non-negotiable)
 - Never invent venue details: no made-up hours, prices, events, addresses, or coordinates.
