@@ -2,9 +2,11 @@ import { getSessionUser } from '../_auth.js';
 
 // PATCH /api/venues/:id — venue owner self-edit (see migrations/006_owners.sql
 // for the ownership table this checks against). Step 2 of the venue owner
-// dashboard: entry point + edit form + this save endpoint. Image upload is
-// explicitly out of scope this pass — photos can be reordered/removed but
-// never added (see PHOTO_FIELD handling below).
+// dashboard: entry point + edit form + this save endpoint. New photos never
+// arrive in this request body as raw uploads — the client uploads directly
+// to Cloudinary (see functions/api/upload-signature.js) and only PATCHes the
+// resulting URL in, which validatePhotos() below checks actually belongs to
+// this venue's own upload folder.
 //
 // The field whitelist here is the only thing that matters for safety: the
 // client's request body is never trusted past this list, no matter what a
@@ -19,6 +21,10 @@ const VENUE_TYPES = ['bar', 'cafe', 'venue'];
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500 };
 const MAX_PARKING_NOTE = 60;
+const MAX_SIG_ITEMS = 3;
+const MAX_SIG_NAME = 60;
+const MAX_SIG_NOTE = 80;
+const MAX_PHOTOS = 8;
 
 function isUrlish(s) {
   return s === '' || /^https?:\/\/\S+$/i.test(s);
@@ -116,24 +122,93 @@ function validateLinksAndMaps(body, currentLinks, errors) {
   return { links, mapsChanged };
 }
 
-// photos: reorder/remove only this pass (no image upload) — every submitted
-// URL must already exist in the venue's current photos, or the whole
-// request is rejected. This is a value-level check, not just a field-
-// presence whitelist: the field name being writable doesn't mean any string
-// is acceptable in it.
-function validatePhotos(photos, currentPhotos, errors) {
+// a photo URL counts as "owned" if it lives in this venue's own Cloudinary
+// folder (see functions/api/upload-signature.js, which signs uploads scoped
+// to exactly this folder) — a client can't forge one of these without a
+// valid signature from that endpoint, since the folder is baked into the
+// signed params there
+function isOwnedCloudinaryUrl(url, cloudName, venueId) {
+  if (typeof url !== 'string' || !cloudName) return false;
+  const prefix = `https://res.cloudinary.com/${cloudName}/image/upload/w_1200/`;
+  if (!url.startsWith(prefix)) return false;
+  const escapedId = venueId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`^v\\d+/paisaidee/venues/${escapedId}/[A-Za-z0-9_-]+\\.[a-z0-9]+$`);
+  return re.test(url.slice(prefix.length));
+}
+
+// reorder/remove any existing photo freely; a *new* URL (not already in the
+// venue's photos) is only accepted if it points into this venue's own
+// Cloudinary upload folder, which only a signed upload from
+// upload-signature.js could have produced. This is a value-level check, not
+// just a field-presence whitelist: the field name being writable doesn't
+// mean any string is acceptable in it.
+function validatePhotos(photos, currentPhotos, venueId, cloudName, errors) {
   if (!Array.isArray(photos)) {
     errors.photos = 'invalid photos';
     return undefined;
   }
+  if (photos.length > MAX_PHOTOS) {
+    errors.photos = `up to ${MAX_PHOTOS} photos per venue`;
+    return undefined;
+  }
   const currentSet = new Set(currentPhotos);
   for (const p of photos) {
-    if (typeof p !== 'string' || !currentSet.has(p)) {
-      errors.photos = 'photo upload is not available yet — you can only reorder or remove existing photos';
+    if (typeof p !== 'string') { errors.photos = 'invalid photos'; return undefined; }
+    if (currentSet.has(p)) continue;
+    if (!isOwnedCloudinaryUrl(p, cloudName, venueId)) {
+      errors.photos = 'that photo was not uploaded for this venue';
       return undefined;
     }
   }
   return photos;
+}
+
+// up to 3 "try this" items (CLAUDE.md: name required, price/note optional,
+// not a full menu). A row with a blank name is dropped rather than
+// rejected — matches the edit form's "all clearable" rows, where clearing
+// a row's name is how an owner deletes that item.
+function validateSignature(signature, errors) {
+  if (signature === null) return null;
+  if (!Array.isArray(signature)) {
+    errors.signature = 'invalid signature items';
+    return undefined;
+  }
+  const out = [];
+  for (const raw of signature) {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      errors.signature = 'invalid signature item';
+      return undefined;
+    }
+    const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+    if (!name) continue;
+    if (name.length > MAX_SIG_NAME) {
+      errors.signature = `item name must be ${MAX_SIG_NAME} characters or fewer`;
+      return undefined;
+    }
+    const item = { name };
+    if (raw.price !== undefined && raw.price !== null && raw.price !== '') {
+      const price = Number(raw.price);
+      if (!Number.isInteger(price) || price < 0) {
+        errors.signature = 'price must be a whole number of kip';
+        return undefined;
+      }
+      item.price = price;
+    }
+    if (typeof raw.note === 'string' && raw.note.trim()) {
+      const note = raw.note.trim();
+      if (note.length > MAX_SIG_NOTE) {
+        errors.signature = `note must be ${MAX_SIG_NOTE} characters or fewer`;
+        return undefined;
+      }
+      item.note = note;
+    }
+    out.push(item);
+  }
+  if (out.length > MAX_SIG_ITEMS) {
+    errors.signature = `up to ${MAX_SIG_ITEMS} items only`;
+    return undefined;
+  }
+  return out.length ? out : null;
 }
 
 export async function onRequest(context) {
@@ -219,8 +294,13 @@ export async function onRequest(context) {
 
     if ('photos' in body) {
       const currentPhotos = JSON.parse(current.photos || '[]');
-      const photos = validatePhotos(body.photos, currentPhotos, errors);
+      const photos = validatePhotos(body.photos, currentPhotos, venueId, context.env.CLOUDINARY_CLOUD_NAME, errors);
       if (photos !== undefined) { sets.push('photos = ?'); binds.push(JSON.stringify(photos)); }
+    }
+
+    if ('signature' in body) {
+      const signature = validateSignature(body.signature, errors);
+      if (signature !== undefined) { sets.push('signature = ?'); binds.push(signature ? JSON.stringify(signature) : null); }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -245,7 +325,7 @@ export async function onRequest(context) {
     const updated = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
               description, photos, hours, contact, parking, links,
-              verified, status, source
+              verified, status, source, signature
        FROM venues WHERE id = ?`
     ).bind(venueId).first();
 
@@ -269,6 +349,7 @@ export async function onRequest(context) {
     if (updated.contact !== null) venue.contact = JSON.parse(updated.contact);
     if (updated.parking !== null) venue.parking = JSON.parse(updated.parking);
     if (updated.status !== null) venue.status = updated.status;
+    if (updated.signature !== null) venue.signature = JSON.parse(updated.signature);
 
     return Response.json({ ok: true, venue, location_review: locationReview });
   } catch (e) {

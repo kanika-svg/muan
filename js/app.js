@@ -700,6 +700,11 @@ function renderFlameSheetBody(me, flameHtml, myVenues = []) {
 // allowed to be written.
 const ED_DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
 const ED_DAY_LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+const MAX_SIG_ITEMS = 3;
+const MAX_SIG_NAME = 60;
+const MAX_SIG_NOTE = 80;
+const MAX_PHOTOS = 8;
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 // stored "HH:MM-HH:MM" (close hour may run to 27 for past-midnight, see
 // data/venues.json's _schema_notes) -> plain 24h clock for two
@@ -738,6 +743,21 @@ function edDeriveLaoPhone(raw) {
   if (national.startsWith('856')) national = national.slice(3);
   else if (national.startsWith('0')) national = national.slice(1);
   return { phone: '+856' + national, phone_display: trimmed };
+}
+
+// three fixed rows regardless of how many items the venue currently has —
+// clearing a row's name is how an owner deletes that item (readState()
+// below drops any row with a blank name), matching the server's
+// validateSignature() in functions/api/venues/[id].js
+function edSigRowHtml(idx, item) {
+  return `
+    <div class="ed-sig-row" data-sig-idx="${idx}">
+      <input type="text" class="ed-input ed-sig-name" placeholder="Item name" maxlength="${MAX_SIG_NAME}" value="${esc(item.name || '')}">
+      <div class="ed-sig-sub">
+        <input type="number" inputmode="numeric" class="ed-input ed-sig-price" placeholder="Price (kip)" min="0" step="1000" value="${item.price != null ? item.price : ''}">
+        <input type="text" class="ed-input ed-sig-note" placeholder="Note (optional)" maxlength="${MAX_SIG_NOTE}" value="${esc(item.note || '')}">
+      </div>
+    </div>`;
 }
 
 function edPhotoRowHtml(url, idx, total) {
@@ -785,6 +805,8 @@ function openVenueEditor(venue) {
   const contact = venue.contact || {};
   const parking = venue.parking || {};
   const links = venue.links || {};
+  const sig = venue.signature || [];
+  const sigRowsHtml = [0, 1, 2].map(i => edSigRowHtml(i, sig[i] || {})).join('');
 
   const hoursRowsHtml = ED_DAY_ORDER.map(day => {
     const range = edSplitHourRange(hours[day]);
@@ -859,9 +881,21 @@ function openVenueEditor(venue) {
     </div>
 
     <div class="ed-field">
+      <label class="ed-label">Signature items <span class="ed-label-sub">up to 3, shown as "Try this"</span></label>
+      <div class="ed-sig-list" id="edSigList">${sigRowsHtml}</div>
+      <div class="ed-err" data-err-for="signature"></div>
+    </div>
+
+    <div class="ed-field">
       <label class="ed-label">Photos</label>
       <div class="ed-photos" id="edPhotos"></div>
-      <div class="ed-photo-upload-soon">📷 photo upload coming soon</div>
+      <input type="file" id="edPhotoFile" accept="image/*" hidden>
+      <button type="button" class="ed-photo-add" id="edPhotoAddBtn">+ Add photo</button>
+      <div class="ed-photo-progress" id="edPhotoProgress" hidden>
+        <div class="ed-photo-progress-track"><div class="ed-photo-progress-bar" id="edPhotoProgressBar"></div></div>
+        <div class="ed-photo-progress-label" id="edPhotoProgressLabel">Uploading… 0%</div>
+      </div>
+      <div class="ed-err" data-err-for="upload"></div>
     </div>
 
     <div class="ed-field">
@@ -946,18 +980,40 @@ function wireVenueEditor(venue) {
       },
       maps_url: root.querySelector('#edMapsUrl').value.trim(),
       photos: photosState.slice(),
+      signature: readSignature(),
     };
   };
 
+  // blank-name rows are dropped, same rule as the server's
+  // validateSignature() — clearing a row's name is how an owner deletes
+  // that item, not a separate "delete" control
+  function readSignature() {
+    const items = [];
+    root.querySelectorAll('.ed-sig-row').forEach(row => {
+      const name = row.querySelector('.ed-sig-name').value.trim();
+      if (!name) return;
+      const priceRaw = row.querySelector('.ed-sig-price').value.trim();
+      const note = row.querySelector('.ed-sig-note').value.trim();
+      const item = { name };
+      if (priceRaw !== '') item.price = Math.round(Number(priceRaw));
+      if (note) item.note = note;
+      items.push(item);
+    });
+    return items.length ? items : null;
+  }
+
   // baseline snapshot, taken from the just-rendered (unedited) DOM — see
   // edSplitHourRange()/edDeriveLaoPhone()'s comments for why this round-
-  // trips to exactly the stored values with zero edits made
-  let baseline = JSON.stringify(readState());
+  // trips to exactly the stored values with zero edits made. Kept as a
+  // parsed object (not a JSON string) so a standalone photo upload (see
+  // wireVenuePhotoUpload() below) can re-baseline just the photos field
+  // without disturbing the dirty/clean state of any other in-progress edit.
+  let baselineState = readState();
 
   const clearErrors = () => root.querySelectorAll('.ed-err').forEach(e => e.textContent = '');
 
   const refreshDirty = () => {
-    saveBtn.disabled = JSON.stringify(readState()) === baseline;
+    saveBtn.disabled = JSON.stringify(readState()) === JSON.stringify(baselineState);
   };
 
   edRenderPhotos(document.getElementById('edPhotos'), photosState, refreshDirty);
@@ -993,6 +1049,15 @@ function wireVenueEditor(venue) {
 
   root.querySelectorAll('#edName, #edShortName, #edNameLo, #edArea, #edShort, #edParkingNote, #edFacebook, #edWebsite, #edMapsUrl')
     .forEach(el => el.addEventListener('input', refreshDirty));
+
+  root.querySelectorAll('.ed-sig-name, .ed-sig-price, .ed-sig-note')
+    .forEach(el => el.addEventListener('input', refreshDirty));
+
+  wireVenuePhotoUpload(venue, root, photosState, () => {
+    edRenderPhotos(document.getElementById('edPhotos'), photosState, refreshDirty);
+    baselineState.photos = photosState.slice();
+    refreshDirty();
+  });
 
   saveBtn.addEventListener('click', async () => {
     clearErrors();
@@ -1032,7 +1097,7 @@ function wireVenueEditor(venue) {
       Object.assign(venue, data.venue);
       photosState.length = 0;
       photosState.push(...(venue.photos || []));
-      baseline = JSON.stringify(readState());
+      baselineState = readState();
       saveBtn.textContent = 'Save';
       saveBtn.disabled = true;
       saveNote.hidden = false;
@@ -1046,6 +1111,135 @@ function wireVenueEditor(venue) {
       saveNote.textContent = 'Connection error — try again.';
       saveBtn.textContent = 'Save';
       saveBtn.disabled = false;
+    }
+  });
+}
+
+// upload a photo straight to Cloudinary using a signature from
+// /api/upload-signature, then PATCH just the photos field onto the venue —
+// deliberately its own save, not folded into the main Save button, so a
+// slow/flaky mobile upload doesn't block on (or get lost with) whatever
+// else the owner is mid-editing elsewhere in the form
+function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
+  const fileInput = root.querySelector('#edPhotoFile');
+  const addBtn = root.querySelector('#edPhotoAddBtn');
+  const progressWrap = root.querySelector('#edPhotoProgress');
+  const progressBar = root.querySelector('#edPhotoProgressBar');
+  const progressLabel = root.querySelector('#edPhotoProgressLabel');
+  const uploadErr = root.querySelector('[data-err-for="upload"]');
+  if (!fileInput || !addBtn) return;
+
+  const refreshAddBtn = () => {
+    const full = photosState.length >= MAX_PHOTOS;
+    addBtn.disabled = full;
+    addBtn.textContent = full ? `Max ${MAX_PHOTOS} photos` : '+ Add photo';
+  };
+  refreshAddBtn();
+
+  // attaches an already-uploaded Cloudinary URL to the venue; split out so
+  // a failed PATCH (upload succeeded, save didn't) can be retried without
+  // re-uploading the file
+  async function attachPhoto(url) {
+    const res = await fetch(`/api/venues/${encodeURIComponent(venue.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photos: photosState.concat(url) }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || !data.ok) {
+      throw new Error((data?.errors?.photos) || data?.error || 'could not save the photo');
+    }
+    venue.photos = data.venue.photos;
+    photosState.length = 0;
+    photosState.push(...venue.photos);
+    refreshAddBtn();
+    onSaved();
+  }
+
+  function showRetry(message, url) {
+    uploadErr.innerHTML = `${esc(message)} — <button type="button" class="ed-photo-retry" id="edPhotoRetryBtn">Retry</button>`;
+    uploadErr.querySelector('#edPhotoRetryBtn').addEventListener('click', async () => {
+      uploadErr.textContent = 'Saving…';
+      try {
+        await attachPhoto(url);
+        uploadErr.textContent = '';
+      } catch (e) {
+        showRetry(e.message || 'could not save the photo', url);
+      }
+    });
+  }
+
+  addBtn.addEventListener('click', () => {
+    uploadErr.textContent = '';
+    fileInput.value = '';
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    uploadErr.textContent = '';
+
+    if (!file.type.startsWith('image/')) { uploadErr.textContent = 'images only'; return; }
+    if (file.size > MAX_PHOTO_BYTES) { uploadErr.textContent = 'max 8MB per photo'; return; }
+
+    addBtn.disabled = true;
+    progressWrap.hidden = false;
+    progressBar.style.width = '0%';
+    progressLabel.textContent = 'Uploading… 0%';
+
+    let uploadedUrl = null;
+    try {
+      const sigRes = await fetch('/api/upload-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venue_id: venue.id }),
+      });
+      const sig = await sigRes.json().catch(() => null);
+      if (!sig || !sig.ok) throw new Error(sig?.error || 'could not start upload');
+
+      const form = new FormData();
+      form.append('file', file);
+      form.append('api_key', sig.api_key);
+      form.append('timestamp', sig.timestamp);
+      form.append('signature', sig.signature);
+      form.append('folder', sig.folder);
+      form.append('allowed_formats', sig.allowed_formats);
+      form.append('max_file_size', sig.max_file_size);
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`);
+        xhr.upload.addEventListener('progress', (e) => {
+          if (!e.lengthComputable) return;
+          const pct = Math.round((e.loaded / e.total) * 100);
+          progressBar.style.width = pct + '%';
+          progressLabel.textContent = `Uploading… ${pct}%`;
+        });
+        xhr.onload = () => {
+          let data;
+          try { data = JSON.parse(xhr.responseText); } catch (e) { reject(new Error('upload failed')); return; }
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else reject(new Error(data?.error?.message || 'upload failed'));
+        };
+        xhr.onerror = () => reject(new Error('connection error during upload'));
+        xhr.send(form);
+      });
+
+      uploadedUrl = `https://res.cloudinary.com/${sig.cloud_name}/image/upload/w_1200/v${uploadResult.version}/${uploadResult.public_id}.${uploadResult.format}`;
+      progressLabel.textContent = 'Saving…';
+      await attachPhoto(uploadedUrl);
+    } catch (e) {
+      if (uploadedUrl) {
+        // the file is already sitting in Cloudinary at this point — no need
+        // to re-upload, just retry attaching it to the venue
+        showRetry(e.message || 'could not save the photo', uploadedUrl);
+      } else {
+        uploadErr.textContent = e.message || 'upload failed — try again';
+      }
+    } finally {
+      progressWrap.hidden = true;
+      refreshAddBtn();
     }
   });
 }
@@ -1960,6 +2154,15 @@ function openVenue(id) {
       <div class="info-ic">ℹ️</div>
       <div class="info-main">${esc(v.description)}</div>
     </div>` : ''}
+    ${v.signature?.length ? `
+    <div class="section-h">Try this · <span class="lao">ລອງອັນນີ້</span></div>
+    <div class="v-sig-list">
+      ${v.signature.map(it => `
+        <div class="v-sig-item">
+          <div class="v-sig-name">${esc(it.name)}</div>
+          ${(it.price != null || it.note) ? `<div class="v-sig-meta">${it.price != null ? fmtKip(it.price) : ''}${it.price != null && it.note ? ' · ' : ''}${it.note ? esc(it.note) : ''}</div>` : ''}
+        </div>`).join('')}
+    </div>` : ''}
     ${v.links?.facebook ? `
     <div class="v-fact">
       <div class="info-ic">📘</div>
@@ -2748,6 +2951,7 @@ const fmtDate = iso => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
 };
 const fmtPrice = p => p === 0 ? 'free' : p == null ? 'price tbc' : `${(p / 1000)}k kip`;
+const fmtKip = n => '₭' + n.toLocaleString('en-US');
 
 const isNight = () => new Date().getHours() >= 17;
 
