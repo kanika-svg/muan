@@ -29,7 +29,7 @@ const SCHEMA_NOTES =
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a
 // multi-line value doesn't survive that quoting intact
-const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, contact, parking, links, verified, status, source, signature FROM venues ORDER BY rowid;";
+const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, contact, parking, links, verified, status, source, signature, pin_status FROM venues ORDER BY rowid;";
 
 // mirrors functions/api/venues.js's row -> JSON reassembly exactly; if that
 // shape ever changes, change it there and here together
@@ -50,6 +50,7 @@ function rowToVenue(r) {
     links: r.links ? JSON.parse(r.links) : {},
     verified: !!r.verified,
     source: r.source,
+    pin_status: r.pin_status,
   };
   if (r.contact !== null) v.contact = JSON.parse(r.contact);
   if (r.parking !== null) v.parking = JSON.parse(r.parking);

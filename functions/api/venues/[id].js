@@ -1,4 +1,8 @@
 import { getSessionUser } from '../_auth.js';
+import {
+  MAX_PHOTOS, isUrlish, validateHours, validateContact,
+  validateParking, validateSignature, validateSimpleFields,
+} from '../_venue-validation.js';
 
 // PATCH /api/venues/:id — venue owner self-edit (see migrations/006_owners.sql
 // for the ownership table this checks against). Step 2 of the venue owner
@@ -10,89 +14,19 @@ import { getSessionUser } from '../_auth.js';
 //
 // The field whitelist here is the only thing that matters for safety: the
 // client's request body is never trusted past this list, no matter what a
-// future UI sends. In particular lat/lng/id/verified/source/status are
-// permanently excluded — owners never move their own pin (server-side GPS
-// validation depends on lat/lng being trustworthy), and checkin_radius_m
-// isn't in this whitelist either, on purpose: it's the check-in geofence,
-// same trust tier as lat/lng, and letting an owner widen it would defeat
-// the anti-farming design check-ins already rely on.
-const SIMPLE_FIELDS = ['name', 'short_name', 'name_lo', 'type', 'area', 'short', 'description'];
-const VENUE_TYPES = ['bar', 'cafe', 'venue'];
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500 };
-const MAX_PARKING_NOTE = 60;
-const MAX_SIG_ITEMS = 3;
-const MAX_SIG_NAME = 60;
-const MAX_SIG_NOTE = 80;
-const MAX_PHOTOS = 8;
-
-function isUrlish(s) {
-  return s === '' || /^https?:\/\/\S+$/i.test(s);
-}
-
-// "HH:MM-HH:MM", close hour may run up to 27 to express past-midnight
-// closing (see data/venues.json's _schema_notes) — close must be strictly
-// after open once both are read as plain minutes-since-midnight
-function validHourRange(str) {
-  const m = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(str);
-  if (!m) return false;
-  const [, oh, om, ch, cm] = m.map(Number);
-  if (oh > 23 || om > 59 || ch > 27 || cm > 59) return false;
-  const openMins = oh * 60 + om;
-  const closeMins = ch * 60 + cm;
-  return closeMins > openMins;
-}
-
-function validateHours(hours, errors) {
-  if (hours === null) return null;
-  if (typeof hours !== 'object' || Array.isArray(hours)) {
-    errors.hours = 'invalid hours';
-    return undefined;
-  }
-  const out = {};
-  for (const day of DAYS) {
-    const v = hours[day];
-    if (v === null || v === undefined) { out[day] = null; continue; }
-    if (typeof v !== 'string' || !validHourRange(v)) {
-      errors.hours = `${day}: expected "HH:MM-HH:MM" or null`;
-      return undefined;
-    }
-    out[day] = v;
-  }
-  return out;
-}
-
-function validateContact(contact, errors) {
-  if (contact === null) return null;
-  if (typeof contact !== 'object' || Array.isArray(contact)) {
-    errors.contact = 'invalid contact';
-    return undefined;
-  }
-  const phone = typeof contact.phone === 'string' ? contact.phone.trim() : '';
-  const phone_display = typeof contact.phone_display === 'string' ? contact.phone_display.trim() : '';
-  if (!phone) return null; // clearing the phone clears the whole contact block
-  if (!/^\+856\d{6,10}$/.test(phone)) {
-    errors.contact = 'phone should derive to +856 followed by 6-10 digits';
-    return undefined;
-  }
-  return { phone, phone_display: phone_display || phone };
-}
-
-function validateParking(parking, errors) {
-  if (parking === null) return null;
-  if (typeof parking !== 'object' || Array.isArray(parking)) {
-    errors.parking = 'invalid parking';
-    return undefined;
-  }
-  const note = typeof parking.note === 'string' ? parking.note.trim() : '';
-  const source = typeof parking.source === 'string' ? parking.source.trim() : '';
-  if (!note) return null;
-  if (note.length > MAX_PARKING_NOTE) {
-    errors.parking = `note must be ${MAX_PARKING_NOTE} characters or fewer`;
-    return undefined;
-  }
-  return { note, source: source || 'venue told us' };
-}
+// future UI sends. In particular lat/lng/id/verified/source/status/pin_status
+// are permanently excluded — owners never move their own pin (server-side
+// GPS validation depends on lat/lng being trustworthy, and a pending venue's
+// pin_status only flips to 'placed' by Kar setting real coordinates by
+// hand, see functions/api/pending.js), and checkin_radius_m isn't in this
+// whitelist either, on purpose: it's the check-in geofence, same trust tier
+// as lat/lng, and letting an owner widen it would defeat the anti-farming
+// design check-ins already rely on.
+//
+// Field validation (validateHours/validateContact/etc.) lives in
+// ../_venue-validation.js, shared with the POST-create path in
+// functions/api/venues.js — same rules apply whether an owner is submitting
+// a brand-new venue or editing one that already exists.
 
 function validateLinksAndMaps(body, currentLinks, errors) {
   const links = { ...currentLinks };
@@ -163,54 +97,6 @@ function validatePhotos(photos, currentPhotos, venueId, cloudName, errors) {
   return photos;
 }
 
-// up to 3 "try this" items (CLAUDE.md: name required, price/note optional,
-// not a full menu). A row with a blank name is dropped rather than
-// rejected — matches the edit form's "all clearable" rows, where clearing
-// a row's name is how an owner deletes that item.
-function validateSignature(signature, errors) {
-  if (signature === null) return null;
-  if (!Array.isArray(signature)) {
-    errors.signature = 'invalid signature items';
-    return undefined;
-  }
-  const out = [];
-  for (const raw of signature) {
-    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-      errors.signature = 'invalid signature item';
-      return undefined;
-    }
-    const name = typeof raw.name === 'string' ? raw.name.trim() : '';
-    if (!name) continue;
-    if (name.length > MAX_SIG_NAME) {
-      errors.signature = `item name must be ${MAX_SIG_NAME} characters or fewer`;
-      return undefined;
-    }
-    const item = { name };
-    if (raw.price !== undefined && raw.price !== null && raw.price !== '') {
-      const price = Number(raw.price);
-      if (!Number.isInteger(price) || price < 0) {
-        errors.signature = 'price must be a whole number of kip';
-        return undefined;
-      }
-      item.price = price;
-    }
-    if (typeof raw.note === 'string' && raw.note.trim()) {
-      const note = raw.note.trim();
-      if (note.length > MAX_SIG_NOTE) {
-        errors.signature = `note must be ${MAX_SIG_NOTE} characters or fewer`;
-        return undefined;
-      }
-      item.note = note;
-    }
-    out.push(item);
-  }
-  if (out.length > MAX_SIG_ITEMS) {
-    errors.signature = `up to ${MAX_SIG_ITEMS} items only`;
-    return undefined;
-  }
-  return out.length ? out : null;
-}
-
 export async function onRequest(context) {
   if (context.request.method !== 'PATCH') {
     return Response.json({ ok: false, error: 'method not allowed' }, { status: 405 });
@@ -244,23 +130,7 @@ export async function onRequest(context) {
     const sets = [];
     const binds = [];
 
-    for (const field of SIMPLE_FIELDS) {
-      if (!(field in body)) continue;
-      const v = body[field];
-      if (field === 'type') {
-        if (!VENUE_TYPES.includes(v)) { errors.type = 'must be bar, cafe, or venue'; continue; }
-      } else {
-        if (typeof v !== 'string') { errors[field] = 'must be text'; continue; }
-        const trimmed = v.trim();
-        if (field === 'name' && !trimmed) { errors[field] = "name can't be empty"; continue; }
-        if (trimmed.length > MAX_LEN[field]) {
-          errors[field] = `must be ${MAX_LEN[field]} characters or fewer`;
-          continue;
-        }
-      }
-      sets.push(`${field} = ?`);
-      binds.push(field === 'type' ? v : v.trim());
-    }
+    validateSimpleFields(body, errors, sets, binds);
 
     if ('hours' in body) {
       const hours = validateHours(body.hours, errors);
@@ -325,7 +195,7 @@ export async function onRequest(context) {
     const updated = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
               description, photos, hours, contact, parking, links,
-              verified, status, source, signature
+              verified, status, source, signature, pin_status
        FROM venues WHERE id = ?`
     ).bind(venueId).first();
 
@@ -345,6 +215,7 @@ export async function onRequest(context) {
       links: updated.links ? JSON.parse(updated.links) : {},
       verified: !!updated.verified,
       source: updated.source,
+      pin_status: updated.pin_status,
     };
     if (updated.contact !== null) venue.contact = JSON.parse(updated.contact);
     if (updated.parking !== null) venue.parking = JSON.parse(updated.parking);

@@ -52,6 +52,14 @@ file/variable names) intentionally remain "muan" — do not rename them.
   ~60 chars>", "source": "observed" | "venue page" | "venue told us" }.
   Omit the field entirely rather than guessing — a wrong parking note
   sends someone circling the block.
+- pin_status: "placed" (real, Kar-confirmed lat/lng) or "pending" (owner
+  submission awaiting Kar setting real coordinates by hand — see
+  functions/api/pending.js). A pending venue has lat/lng NULL — never a
+  guessed or placeholder coordinate. It's excluded from the map (no
+  marker), from check-ins and Directions (nothing to measure against), and
+  from Recommended/Busy Spots/On Fire (those are editorial, Kar's call).
+  It still appears in list sections and type filters so the owner can see
+  their submission went through.
 
 ## Design tokens (do not drift)
 - Ink #131019 / #1C1726 / #241E31 / #2E2740

@@ -222,6 +222,15 @@ export async function onRequest(context) {
     if (!venueRow) {
       return Response.json({ ok: false, error: 'unknown venue' }, { status: 404 });
     }
+    // pending venues (migrations/009_pin_status.sql) have no lat/lng yet —
+    // without this check, `null` coerces to 0 in the haversine arithmetic
+    // below rather than throwing, silently computing "distance to Null
+    // Island" and rejecting as too_far with a nonsense number. The frontend
+    // never shows a check-in button for these (js/app.js openVenue()), so
+    // this only matters against a direct/replayed request.
+    if (venueRow.lat === null || venueRow.lng === null) {
+      return Response.json({ ok: false, error: 'this venue has no confirmed location yet' }, { status: 400 });
+    }
     const venue = { lat: venueRow.lat, lng: venueRow.lng, name: venueRow.name };
     const venueHours = venueRow.hours ? JSON.parse(venueRow.hours) : null;
 

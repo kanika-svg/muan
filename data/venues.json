@@ -31,7 +31,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9678909,102.5805278"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "chokdee-cafe",
@@ -59,7 +60,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9630719,102.6058379"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "sinouk-khemkhong",
@@ -91,7 +93,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9636131,102.6039109"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "itecc-hall",
@@ -113,7 +116,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9607924,102.6439024"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "go-dunk",
@@ -133,7 +137,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9690462,102.6103675"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "status-bar",
@@ -164,6 +169,7 @@
       },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11 (hours not listed there); hours from an in-person visit — approximate, not confirmed directly with the venue",
+      "pin_status": "placed",
       "contact": {
         "phone": "+8562052366087",
         "phone_display": "020 5236 6087"
@@ -197,7 +203,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9582834,102.6107121"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "baron",
@@ -227,7 +234,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9632547,102.6054528"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "mahasan",
@@ -251,7 +259,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9631989,102.6054431"
       },
       "verified": true,
-      "source": "Google Maps listing 2026-07-11, location confirmed in person"
+      "source": "Google Maps listing 2026-07-11, location confirmed in person",
+      "pin_status": "placed"
     },
     {
       "id": "treekoff-watchane",
@@ -283,7 +292,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663429,102.6018097"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "tree-town",
@@ -311,7 +321,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650688,102.6021906"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "common-grounds",
@@ -343,7 +354,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.964785,102.6026191"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "drip-1920s",
@@ -371,7 +383,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9695095,102.6052324"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "maomao-matcha",
@@ -399,7 +412,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9737332,102.6338178"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11"
+      "source": "Google Maps listing, 2026-07-11",
+      "pin_status": "placed"
     },
     {
       "id": "vte-night-market",
@@ -429,7 +443,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9628193,102.6061735"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-12"
+      "source": "Google Maps listing, 2026-07-12",
+      "pin_status": "placed"
     },
     {
       "id": "night-street",
@@ -449,7 +464,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9604,102.6085"
       },
       "verified": false,
-      "source": "TripAdvisor reports 2026 + boardwalk coordinates estimated — confirm location and schedule in person"
+      "source": "TripAdvisor reports 2026 + boardwalk coordinates estimated — confirm location and schedule in person",
+      "pin_status": "placed"
     },
     {
       "id": "farsai-cafe",
@@ -477,7 +493,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=18.0083709,102.6436896"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-13"
+      "source": "Google Maps listing, 2026-07-13",
+      "pin_status": "placed"
     },
     {
       "id": "corebeer",
@@ -505,7 +522,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9491828,102.6190028"
       },
       "verified": true,
-      "source": "Google Maps listing + FB events, 2026-07-22"
+      "source": "Google Maps listing + FB events, 2026-07-22",
+      "pin_status": "placed"
     },
     {
       "id": "parkson-laos",
@@ -535,7 +553,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9613647,102.61853"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-22"
+      "source": "Google Maps listing, 2026-07-22",
+      "pin_status": "placed"
     },
     {
       "id": "kokkok-mega-mall",
@@ -559,6 +578,7 @@
       },
       "verified": true,
       "source": "Facebook page KokKokMegaMall, opening date confirmed 2026-07-28",
+      "pin_status": "placed",
       "contact": {
         "phone": "+8562059887777",
         "phone_display": "020 59 887 777"
@@ -595,7 +615,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9663052,102.6056738"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-25"
+      "source": "Google Maps listing, 2026-07-25",
+      "pin_status": "placed"
     },
     {
       "id": "tipsy-elephant",
@@ -623,7 +644,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650263,102.6027337"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-25"
+      "source": "Google Maps listing, 2026-07-25",
+      "pin_status": "placed"
     },
     {
       "id": "stellar-bar",
@@ -651,7 +673,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650516,102.6001079"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-25"
+      "source": "Google Maps listing, 2026-07-25",
+      "pin_status": "placed"
     },
     {
       "id": "blues-box",
@@ -679,7 +702,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9647287,102.6084091"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-25"
+      "source": "Google Maps listing, 2026-07-25",
+      "pin_status": "placed"
     },
     {
       "id": "wind-west",
@@ -707,7 +731,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9674176,102.6010777"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-25"
+      "source": "Google Maps listing, 2026-07-25",
+      "pin_status": "placed"
     },
     {
       "id": "seventh-heaven",
@@ -735,7 +760,8 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9657665,102.5967715"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-25"
+      "source": "Google Maps listing, 2026-07-25",
+      "pin_status": "placed"
     },
     {
       "id": "sathiti-cafe",
@@ -768,6 +794,7 @@
       },
       "verified": true,
       "source": "Facebook page + Google Maps listing (phone matches both), 2026-07-26",
+      "pin_status": "placed",
       "contact": {
         "phone": "+8562056265662",
         "phone_display": "020 56 265 662"
@@ -808,6 +835,7 @@
       },
       "verified": true,
       "source": "Facebook page + Google Maps listing, phone matches both, 2026-07-28",
+      "pin_status": "placed",
       "contact": {
         "phone": "+8562052281119",
         "phone_display": "020 52 281 119"

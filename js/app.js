@@ -199,7 +199,12 @@ async function boot() {
     const vid = params.get('v');
     if (vid && venueById(vid)) {
       openVenue(vid);
-      if (state.map) state.map.flyTo({ center: [venueById(vid).lng, venueById(vid).lat], zoom: 15.5 });
+      const dv = venueById(vid);
+      // a deep link can point at a pending venue (e.g. an owner sharing
+      // their own submission) — no lat/lng to fly to yet
+      if (state.map && dv.lat != null && dv.lng != null) {
+        state.map.flyTo({ center: [dv.lng, dv.lat], zoom: 15.5 });
+      }
     }
 
     // never let a stuck basemap (CDN outage, blocked domain, ad-blocker,
@@ -668,9 +673,11 @@ function renderFlameSheetBody(me, flameHtml, myVenues = []) {
       <div class="fl-manage">
         <div class="fl-manage-h">Manage your venue</div>
         ${myVenues.map(v => `<button class="fl-manage-item" data-manage-venue="${v.id}">
-            <span>${esc(v.short_name || v.name)}</span><span class="fl-manage-arrow">›</span>
+            <span>${esc(v.short_name || v.name)}${v.pin_status === 'pending' ? '<span class="fl-manage-pending"> · pending</span>' : ''}</span><span class="fl-manage-arrow">›</span>
           </button>`).join('')}
       </div>` : ''}
+
+      <button class="fl-avatar-link" data-list-venue>+ List your venue</button>
 
       ${me.badges?.length ? `
       <div class="fl-badges">
@@ -690,6 +697,7 @@ function renderFlameSheetBody(me, flameHtml, myVenues = []) {
   pauseFlameIfReducedMotion();
   document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
+  document.querySelector('[data-list-venue]')?.addEventListener('click', openVenueSubmitForm);
   document.querySelectorAll('[data-manage-venue]').forEach(el => el.addEventListener('click', () => {
     const v = myVenues.find(mv => mv.id === el.dataset.manageVenue);
     if (v) openVenueEditor(v);
@@ -797,6 +805,255 @@ function edRenderPhotos(container, photos, onChange) {
       edRenderPhotos(container, photos, onChange);
       onChange();
     });
+  });
+}
+
+/* ---------- "List your venue" — owner submission ---------- */
+// same field set as openVenueEditor() below (reuses edSigRowHtml, the hour-
+// row markup, edDeriveLaoPhone/edBuildHourRange), minus Photos — there's no
+// venue id yet for Cloudinary's folder scoping (see upload-signature.js) —
+// plus a required Google Maps link, since that's the only lead Kar has to
+// go place the pin from. No lat/lng input exists here or anywhere else;
+// POST /api/venues always inserts pin_status 'pending' with lat/lng NULL.
+// On success this hands off straight into openVenueEditor() for the venue
+// it just created, since photos and further edits happen there.
+function openVenueSubmitForm() {
+  toggleSheet(false);
+  state.sheetView = { type: 'venue-submit', venueId: null };
+
+  const hoursRowsHtml = ED_DAY_ORDER.map(day => `
+    <div class="ed-hrow" data-day="${day}">
+      <label class="ed-hrow-toggle">
+        <input type="checkbox" class="ed-hopen">
+        <span>${ED_DAY_LABELS[day]}</span>
+      </label>
+      <div class="ed-hrow-times" hidden>
+        <input type="time" class="ed-hfrom" value="17:00">
+        <span class="ed-hdash">–</span>
+        <input type="time" class="ed-hto" value="23:00">
+      </div>
+    </div>`).join('');
+
+  const sigRowsHtml = [0, 1, 2].map(i => edSigRowHtml(i, {})).join('');
+
+  setSheet(`
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="sheet-x" data-back-manage aria-label="Back">←</button>
+      <div class="s-title" style="flex:1;text-align:center;">List your venue</div>
+      <span style="width:32px;flex-shrink:0;"></span>
+    </div>
+    <div class="ed-hint" style="margin:4px 0 10px;">
+      This adds your place to the list right away. It won't show a pin on the map until we confirm the location from your Maps link below.
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="subName">Name</label>
+      <input type="text" class="ed-input" id="subName" maxlength="100">
+      <div class="ed-err" data-err-for="name"></div>
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="subShortName">Short name</label>
+      <input type="text" class="ed-input" id="subShortName" maxlength="40">
+      <div class="ed-err" data-err-for="short_name"></div>
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="subNameLo">Lao name</label>
+      <input type="text" class="ed-input lao" id="subNameLo" maxlength="60">
+      <div class="ed-err" data-err-for="name_lo"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label">Type</label>
+      <div class="seg ed-type-seg" id="subTypeSeg">
+        <button type="button" class="seg-btn ed-type-btn on" data-type="bar">Bar</button>
+        <button type="button" class="seg-btn ed-type-btn" data-type="cafe">Café</button>
+        <button type="button" class="seg-btn ed-type-btn" data-type="venue">Venue</button>
+      </div>
+      <div class="ed-err" data-err-for="type"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="subArea">Area</label>
+      <input type="text" class="ed-input" id="subArea" maxlength="80">
+      <div class="ed-err" data-err-for="area"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="subShort">Short tagline</label>
+      <input type="text" class="ed-input" id="subShort" maxlength="120">
+      <div class="ed-err" data-err-for="short"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="subDescription">Description</label>
+      <textarea class="ed-textarea" id="subDescription" maxlength="500" rows="4"></textarea>
+      <div class="ed-charcount"><span id="subDescCount">0</span>/500</div>
+      <div class="ed-err" data-err-for="description"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label">Signature items <span class="ed-label-sub">up to 3, shown as "Try this"</span></label>
+      <div class="ed-sig-list" id="subSigList">${sigRowsHtml}</div>
+      <div class="ed-err" data-err-for="signature"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label">Hours</label>
+      <div class="ed-hours" id="subHours">${hoursRowsHtml}</div>
+      <div class="ed-err" data-err-for="hours"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="subPhone">Phone</label>
+      <input type="tel" class="ed-input" id="subPhone" placeholder="020 5236 6087">
+      <div class="ed-hint" id="subPhonePreview"></div>
+      <div class="ed-err" data-err-for="contact"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="subParkingNote">Parking note</label>
+      <input type="text" class="ed-input" id="subParkingNote" maxlength="60" placeholder="e.g. free lot behind the building">
+      <div class="ed-err" data-err-for="parking"></div>
+    </div>
+
+    <div class="ed-field">
+      <label class="ed-label" for="subFacebook">Facebook link</label>
+      <input type="url" class="ed-input" id="subFacebook" placeholder="https://facebook.com/...">
+      <div class="ed-err" data-err-for="links"></div>
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="subWebsite">Website</label>
+      <input type="url" class="ed-input" id="subWebsite" placeholder="https://...">
+    </div>
+    <div class="ed-field">
+      <label class="ed-label" for="subMapsUrl">Google Maps link <span class="ed-label-sub">required</span></label>
+      <input type="url" class="ed-input" id="subMapsUrl" placeholder="https://maps.google.com/...">
+      <div class="ed-hint">This is how we place your pin — there's no other way to set it yet.</div>
+      <div class="ed-err" data-err-for="maps_url"></div>
+    </div>
+
+    <div class="ed-save-note" id="subSaveNote" hidden></div>
+    <div class="btn-row"><button class="btn btn-go" id="subSaveBtn" style="flex:1;">Submit</button></div>
+  `);
+
+  const sheet = document.getElementById('sheet');
+  if (sheet) sheet.scrollTop = 0;
+  document.querySelector('[data-back-manage]')?.addEventListener('click', openFlameSheet);
+
+  wireVenueSubmitForm();
+}
+
+function wireVenueSubmitForm() {
+  const root = document.getElementById('sheetInner');
+  const saveBtn = document.getElementById('subSaveBtn');
+  const saveNote = document.getElementById('subSaveNote');
+
+  root.querySelectorAll('.ed-type-btn').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.ed-type-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  }));
+
+  root.querySelectorAll('.ed-hrow').forEach(row => {
+    const toggle = row.querySelector('.ed-hopen');
+    const times = row.querySelector('.ed-hrow-times');
+    toggle.addEventListener('change', () => { times.hidden = !toggle.checked; });
+  });
+
+  root.querySelector('#subPhone').addEventListener('input', (e) => {
+    const { phone } = edDeriveLaoPhone(e.target.value);
+    document.getElementById('subPhonePreview').textContent = phone ? `Saves as ${phone}` : '';
+  });
+
+  root.querySelector('#subDescription').addEventListener('input', (e) => {
+    document.getElementById('subDescCount').textContent = e.target.value.length;
+  });
+
+  const clearErrors = () => root.querySelectorAll('.ed-err').forEach(e => e.textContent = '');
+
+  const readState = () => {
+    const type = root.querySelector('.ed-type-btn.on')?.dataset.type || 'bar';
+    const hours = {};
+    root.querySelectorAll('.ed-hrow').forEach(row => {
+      const day = row.dataset.day;
+      const open = row.querySelector('.ed-hopen').checked;
+      if (!open) { hours[day] = null; return; }
+      const from = row.querySelector('.ed-hfrom').value;
+      const to = row.querySelector('.ed-hto').value;
+      hours[day] = (from && to) ? edBuildHourRange(from, to) : null;
+    });
+    const { phone, phone_display } = edDeriveLaoPhone(root.querySelector('#subPhone').value);
+    const parkingNote = root.querySelector('#subParkingNote').value.trim();
+    const signature = [];
+    root.querySelectorAll('.ed-sig-row').forEach(row => {
+      const name = row.querySelector('.ed-sig-name').value.trim();
+      if (!name) return;
+      const priceRaw = row.querySelector('.ed-sig-price').value.trim();
+      const note = row.querySelector('.ed-sig-note').value.trim();
+      const item = { name };
+      if (priceRaw !== '') item.price = Math.round(Number(priceRaw));
+      if (note) item.note = note;
+      signature.push(item);
+    });
+    return {
+      name: root.querySelector('#subName').value.trim(),
+      short_name: root.querySelector('#subShortName').value.trim(),
+      name_lo: root.querySelector('#subNameLo').value.trim(),
+      type,
+      area: root.querySelector('#subArea').value.trim(),
+      short: root.querySelector('#subShort').value.trim(),
+      description: root.querySelector('#subDescription').value,
+      hours,
+      contact: phone ? { phone, phone_display } : null,
+      parking: parkingNote ? { note: parkingNote, source: 'venue told us' } : null,
+      links: {
+        facebook: root.querySelector('#subFacebook').value.trim(),
+        website: root.querySelector('#subWebsite').value.trim(),
+      },
+      maps_url: root.querySelector('#subMapsUrl').value.trim(),
+      signature: signature.length ? signature : null,
+    };
+  };
+
+  saveBtn.addEventListener('click', async () => {
+    clearErrors();
+    saveNote.hidden = true;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Submitting…';
+    const body = readState();
+    try {
+      const res = await fetch('/api/venues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      if (!data) throw new Error('bad response');
+
+      if (!data.ok) {
+        if (data.errors) {
+          for (const [field, msg] of Object.entries(data.errors)) {
+            const el = root.querySelector(`[data-err-for="${field}"]`);
+            if (el) el.textContent = msg;
+          }
+        }
+        saveNote.hidden = false;
+        saveNote.className = 'ed-save-note ed-save-note-error';
+        saveNote.textContent = data.errors ? 'Fix the highlighted fields and try again.' : (data.error || 'Could not submit — try again.');
+        saveBtn.textContent = 'Submit';
+        saveBtn.disabled = false;
+        return;
+      }
+
+      // straight into the normal dashboard editor — photos and any further
+      // edits happen there from here on
+      openVenueEditor(data.venue);
+    } catch (e) {
+      saveNote.hidden = false;
+      saveNote.className = 'ed-save-note ed-save-note-error';
+      saveNote.textContent = 'Connection error — try again.';
+      saveBtn.textContent = 'Submit';
+      saveBtn.disabled = false;
+    }
   });
 }
 
@@ -1340,9 +1597,12 @@ function initMap() {
     requestAnimationFrame(() => {
       state.map.resize();
       renderMarkersOnce();
-      if (state.venues.length > 1) {
+      // pending venues have no lat/lng to extend the bounds with — see
+      // renderMarkers()'s comment above
+      const placed = state.venues.filter(v => v.lat != null && v.lng != null);
+      if (placed.length > 1) {
         const b = new maplibregl.LngLatBounds();
-        state.venues.forEach(v => b.extend([v.lng, v.lat]));
+        placed.forEach(v => b.extend([v.lng, v.lat]));
         state.map.fitBounds(b, { padding: { top: 90, bottom: 60, left: 70, right: 70 }, maxZoom: 14.5 });
       }
     });
@@ -1433,10 +1693,14 @@ function renderMarkers() {
   state.markers.forEach(m => m.marker.remove());
   state.markers = [];
 
+  // pending venues (migrations/009_pin_status.sql) have no confirmed
+  // lat/lng — no marker at all until Kar places the pin, not a marker at
+  // some placeholder location
   const visible = state.venues.filter(v =>
-    state.filter === 'all' ||
+    v.pin_status !== 'pending' && v.lat != null && v.lng != null &&
+    (state.filter === 'all' ||
     v.type === state.filter ||
-    (state.filter === 'event' && venueEvents(v.id).length > 0)
+    (state.filter === 'event' && venueEvents(v.id).length > 0))
   );
 
   for (const v of visible) {
@@ -1570,7 +1834,10 @@ function openStatus(v) {
 // user is; falls back to the caller-supplied text (usually the area) when
 // location isn't known
 function venueLine(v, fallback) {
-  if (!state.userPos) return fallback;
+  // pending venues (no confirmed lat/lng yet) have nothing to measure a
+  // distance to — fall back rather than compute a bogus "distance to null
+  // island" number
+  if (!state.userPos || v.lat == null || v.lng == null) return fallback;
   return `${fmtDist(haversine(state.userPos, v))} · ${openStatus(v).label}`;
 }
 
@@ -1751,7 +2018,12 @@ function collageStatusLine(v) {
   const statusPart = (st.open || /^closed/.test(st.label) || st.label === 'hours unconfirmed')
     ? st.label
     : `closed · ${st.label}`;
-  return state.userPos ? `${statusPart} · ${fmtDist(haversine(state.userPos, v))}` : statusPart;
+  // reachable in principle even though the Recommended tab already filters
+  // pending venues out (see renderHomeSheet()) — same null-coordinate guard
+  // as venueLine()
+  return (state.userPos && v.lat != null && v.lng != null)
+    ? `${statusPart} · ${fmtDist(haversine(state.userPos, v))}`
+    : statusPart;
 }
 
 // truncates the long description to ~80 chars at a word boundary — the
@@ -1847,8 +2119,12 @@ function renderHomeSheet() {
     // 'event' filter shows no venue-driven sections; handled via showEvents/showVenueSections
 
   const late = state.venues.filter(v => opensLate(v) && matchType(v) && v.status !== 'opening-soon');
-  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType);
-  const busyVenues = (state.picks?.busy_venue_ids || []).map(venueById).filter(Boolean).filter(matchType);
+  // On fire / Busy spots are editorial (Kar's picks, state.picks.*) — a
+  // pending venue (no confirmed location yet) is excluded even if it
+  // somehow ended up in picks.json, same as Recommended below
+  const notPending = v => v.pin_status !== 'pending';
+  const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(notPending);
+  const busyVenues = (state.picks?.busy_venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(notPending);
   const openingSoon = state.venues.filter(v => v.status === 'opening-soon' && matchType(v));
 
   const showEvents = (f === 'all' || f === 'event');
@@ -1877,9 +2153,10 @@ function renderHomeSheet() {
     }
 
     if (f === 'cafe' && cafeTab === 'recommended') {
-      // cafés with enough photos for a collage card to be worth showing
+      // cafés with enough photos for a collage card to be worth showing —
+      // pending venues excluded, same as On fire/Busy spots above
       const cafeGallery = state.venues
-        .filter(v => v.type === 'cafe' && (v.photos?.length || 0) >= 2)
+        .filter(v => v.type === 'cafe' && v.pin_status !== 'pending' && (v.photos?.length || 0) >= 2)
         .sort((a, b) => (b.photos.length - a.photos.length) ||
           (a.short_name || a.name).localeCompare(b.short_name || b.name));
       if (!cafeGallery.length) {
@@ -2061,6 +2338,9 @@ function openVenue(id) {
   state.sheetView = { type: 'venue', venueId: id };
   const st = openStatus(v);
   const evs = venueEvents(id);
+  // owner-submitted venue awaiting Kar's pin (migrations/009_pin_status.sql)
+  // — no confirmed lat/lng, so no check-in, no Directions, no distance
+  const isPending = v.pin_status === 'pending';
 
   const photos = v.photos || [];
   let galleryHtml;
@@ -2078,7 +2358,9 @@ function openVenue(id) {
   }
 
   let travel;
-  if (hasStickyRoute) {
+  if (isPending) {
+    travel = 'Location being confirmed';
+  } else if (hasStickyRoute) {
     travel = state.routeLabel;
   } else if (state.userPos) {
     travel = `${fmtDist(haversine(state.userPos, v))} away · straight line`;
@@ -2111,12 +2393,13 @@ function openVenue(id) {
     ${galleryHtml}
 
     <div class="act-row">
+      ${isPending ? '' : `
       <button class="act" id="checkinBtn" data-venue="${v.id}" disabled>
         <span class="act-ico">🔥</span><span class="act-lbl" id="checkinLabel">Check in</span>
       </button>
       <button class="act" id="dirBtn">
         <span class="act-ico">➤</span><span class="act-lbl" id="dirLbl">Directions</span>
-      </button>
+      </button>`}
       <a class="act act-narrow" id="gmapsBtn"
          href="${esc(v.links?.maps || '#')}" target="_blank" rel="noopener"
          aria-label="Open in Google Maps">
@@ -2245,7 +2528,7 @@ function openVenue(id) {
     document.getElementById('dirLbl').textContent = 'Hide route';
     const attr = document.getElementById('routeAttribution');
     if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
-  } else {
+  } else if (v.lat != null && v.lng != null) {
     state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
   }
 }

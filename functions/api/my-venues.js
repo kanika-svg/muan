@@ -26,7 +26,8 @@ export async function onRequest(context) {
     const rows = await db.prepare(
       `SELECT v.id, v.name, v.short_name, v.name_lo, v.type, v.lat, v.lng,
               v.area, v.short, v.description, v.photos, v.hours, v.contact,
-              v.parking, v.links, v.verified, v.status, v.source, v.signature
+              v.parking, v.links, v.verified, v.status, v.source, v.signature,
+              v.pin_status
        FROM venue_owners o JOIN venues v ON v.id = o.venue_id
        WHERE o.user_id = ? ORDER BY v.rowid`
     ).bind(user.id).all();
@@ -48,6 +49,7 @@ export async function onRequest(context) {
         links: r.links ? JSON.parse(r.links) : {},
         verified: !!r.verified,
         source: r.source,
+        pin_status: r.pin_status,
       };
       if (r.contact !== null) v.contact = JSON.parse(r.contact);
       if (r.parking !== null) v.parking = JSON.parse(r.parking);
