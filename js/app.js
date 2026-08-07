@@ -1653,14 +1653,17 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
       const sig = await sigRes.json().catch(() => null);
       if (!sig || !sig.ok) throw new Error(sig?.error || 'could not start upload');
 
+      // sig.params is exactly the key/value set /api/upload-signature signed
+      // (see its comment on why this can't be reconstructed client-side —
+      // that drift is what caused the "Invalid Signature" bug) — sent
+      // verbatim, plus the three params that are deliberately never signed
       const form = new FormData();
       form.append('file', file);
       form.append('api_key', sig.api_key);
-      form.append('timestamp', sig.timestamp);
       form.append('signature', sig.signature);
-      form.append('folder', sig.folder);
-      form.append('allowed_formats', sig.allowed_formats);
-      form.append('max_file_size', sig.max_file_size);
+      for (const [key, value] of Object.entries(sig.params)) {
+        form.append(key, value);
+      }
 
       const uploadResult = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();

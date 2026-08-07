@@ -7,13 +7,27 @@ import { getSessionUser } from './_auth.js';
 // account. The API secret used to sign never reaches the client — only the
 // resulting signature, timestamp and api_key do.
 //
-// The signed params (folder, allowed_formats, max_file_size, timestamp) are
-// what actually enforce "images only, max 8MB, in this venue's folder" —
-// Cloudinary rejects the upload if the client sends anything other than
-// exactly these values, since changing any of them invalidates the
-// signature. functions/api/venues/[id].js's validatePhotos() then checks,
-// at save time, that any new photo URL actually lives in that folder.
-const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+// The signed params (folder, allowed_formats, timestamp) are what actually
+// enforce "images only, in this venue's folder" — Cloudinary rejects the
+// upload if the client sends anything other than exactly these values,
+// since changing any of them invalidates the signature.
+// functions/api/venues/[id].js's validatePhotos() then checks, at save
+// time, that any new photo URL actually lives in that folder.
+//
+// max_file_size is NOT in this list on purpose, after shipping broken: it
+// is not a documented parameter of Cloudinary's raw /image/upload API (only
+// of upload presets and the JS Upload Widget, neither of which this uses),
+// so Cloudinary silently drops it when computing its own "string to sign"
+// — see the "Invalid Signature" incident this comment was added for. Signing
+// a param Cloudinary itself won't include is an unrecoverable mismatch, no
+// matter what the client sends alongside it. The practical effect: file
+// size is currently only checked client-side (see MAX_PHOTO_BYTES in
+// js/app.js, `file.size > MAX_PHOTO_BYTES`), which is a UX guard, not a
+// security boundary — a modified client can bypass it. Real server-side
+// enforcement would need either a Cloudinary upload preset with
+// max_file_size configured (dashboard/Admin API, not this file) or a
+// post-upload size check that deletes an oversized asset; neither is
+// implemented here.
 const MAX_PHOTOS = 8;
 const ALLOWED_FORMATS = 'jpg,jpeg,png,webp,heic,heif';
 
@@ -70,21 +84,22 @@ export async function onRequest(context) {
     const paramsToSign = {
       allowed_formats: ALLOWED_FORMATS,
       folder,
-      max_file_size: String(MAX_PHOTO_BYTES),
       timestamp: String(timestamp),
     };
     const toSign = Object.keys(paramsToSign).sort().map((k) => `${k}=${paramsToSign[k]}`).join('&');
     const signature = await sha1Hex(toSign + apiSecret);
 
+    // params is the single source of truth for what got signed — the
+    // client (js/app.js wireVenuePhotoUpload) sends exactly these key/value
+    // pairs back plus file/api_key/signature, rather than reconstructing
+    // its own list, so the two can never drift out of sync again the way
+    // max_file_size did above.
     return Response.json({
       ok: true,
       cloud_name: cloudName,
       api_key: apiKey,
-      timestamp,
-      folder,
-      allowed_formats: ALLOWED_FORMATS,
-      max_file_size: MAX_PHOTO_BYTES,
       signature,
+      params: paramsToSign,
     });
   } catch (e) {
     console.error(e);
