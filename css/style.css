@@ -746,6 +746,22 @@ body {
 .ed-rejected-note b { color: var(--flame); }
 .ed-rejected-note div { margin-top: 6px; color: var(--mute); font-size: 11.5px; }
 
+/* gentle, dismissible — a nudge, not a warning, so it uses the same neutral
+   border as an ed-hrow rather than ed-rejected-note's flame one. Shown once
+   right after a submission that left short+description empty (see the
+   justSubmitted branch in wireVenueEditor(), js/app.js); the same message
+   is echoed into the ed-save-note on any later Save that's still empty. */
+.ed-empty-note {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--ink3); border: 1px solid var(--ink4); border-radius: 12px;
+  padding: 10px 14px; margin: 14px 0 4px; font-size: 12px; line-height: 1.4;
+  color: var(--mute);
+}
+.ed-empty-note-close {
+  background: none; border: none; color: var(--mute); font-size: 16px;
+  line-height: 1; cursor: pointer; padding: 0 2px; flex-shrink: 0;
+}
+
 /* admin: pending venue review (js/app.js openAdminPendingSheet()) — one
    card per submission, same visual language as the hours/signature rows
    (ed-hrow/ed-sig-row) rather than a new component */
@@ -914,9 +930,20 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
    report on this task for how). */
 .ed-field { margin-top: 16px; }
 .ed-field:first-of-type { margin-top: 14px; }
-.ed-label {
-  display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .3px;
-  text-transform: uppercase; color: var(--mute); margin-bottom: 6px;
+/* bilingual field label (js/app.js edLabelHtml()) — Lao first and larger,
+   English underneath in smaller dim text, then a required/optional marker.
+   Only used on the two owner forms (List your venue / Edit venue); the
+   rest of the app is untouched. */
+.ed-label { display: block; margin-bottom: 6px; }
+.ed-label-lo { display: block; font-size: 13.5px; font-weight: 700; color: var(--bone); line-height: 1.3; }
+.ed-label-en { display: block; font-size: 10.5px; font-weight: 400; color: var(--mute); margin-top: 1px; line-height: 1.35; }
+.ed-label-req {
+  display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .3px;
+  color: var(--flame); margin-top: 3px;
+}
+.ed-label-opt {
+  display: inline-block; font-size: 9.5px; font-weight: 400;
+  color: var(--mute); margin-top: 3px;
 }
 .ed-input, .ed-textarea {
   width: 100%; background: var(--ink3); border: 1px solid var(--ink4);
@@ -1026,7 +1053,6 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 /* signature items: three fixed rows (name + optional price/note), matching
    the hours rows' one-field-per-row layout. Server drops any row with a
    blank name — see validateSignature() in functions/api/venues/[id].js. */
-.ed-label-sub { text-transform: none; font-weight: 400; letter-spacing: 0; color: var(--dim); }
 .ed-sig-list { display: flex; flex-direction: column; gap: 8px; }
 .ed-sig-row {
   background: var(--ink3); border-radius: 12px; padding: 9px 12px;

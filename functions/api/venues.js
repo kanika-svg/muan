@@ -25,7 +25,7 @@
 import venuesFallback from '../../data/venues.json';
 import { getSessionUser } from './_auth.js';
 import {
-  SIMPLE_FIELDS, VENUE_TYPES, MAX_LEN, isUrlish,
+  SIMPLE_FIELDS, REQUIRED_SIMPLE_FIELDS, VENUE_TYPES, MAX_LEN, isUrlish,
   validateHours, validateContact, validateParking, validateSignature,
 } from './_venue-validation.js';
 
@@ -120,7 +120,7 @@ async function uniqueVenueId(db, name) {
 // same field rules as validateSimpleFields in _venue-validation.js, but for
 // a fresh row every SIMPLE_FIELD is being set at once (not a sparse PATCH),
 // so this returns a plain {field: value} object instead of pushing
-// "field = ?" pairs — name/type are required here in a way PATCH never
+// "field = ?" pairs — name/area/type are required here in a way PATCH never
 // requires them (PATCH only validates a field if it's present at all)
 function validateCreateFields(body, errors) {
   const out = {};
@@ -132,7 +132,7 @@ function validateCreateFields(body, errors) {
       continue;
     }
     const trimmed = typeof v === 'string' ? v.trim() : '';
-    if (field === 'name' && !trimmed) { errors.name = "name can't be empty"; continue; }
+    if (REQUIRED_SIMPLE_FIELDS.has(field) && !trimmed) { errors[field] = `${field} can't be empty`; continue; }
     if (trimmed.length > MAX_LEN[field]) {
       errors[field] = `must be ${MAX_LEN[field]} characters or fewer`;
       continue;

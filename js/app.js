@@ -827,6 +827,59 @@ function edRenderPhotos(container, photos, onChange) {
   });
 }
 
+/* ---------- owner-form field labels (Lao + English) ---------- */
+// Lao labels on the two owner-facing forms only (List your venue / Edit
+// venue) — the rest of the app stays as-is; CLAUDE.md's "Lao-first, English
+// supports" already governs the browsing UI's bilingual headers, this is a
+// separate, narrower fix for a specific evidenced problem: the first real
+// owner submission (Sunin) came in with short/description both null, "."
+// typed into parking to get past it, and her own Facebook link pasted into
+// the Website field too — she said afterwards she didn't know what "short
+// name" or "tagline" meant.
+//
+// TODO(kar): every `lo` string below is my best-attempt translation, not
+// checked by a native Lao speaker — please review this whole block in one
+// pass before any of it ships. Two entries (`website`, and the "optional"
+// marker text used across every optional field) were given to me verbatim
+// and don't need re-checking; everything else does.
+const OWNER_FIELD_LABELS = {
+  name:        { lo: 'ຊື່ຮ້ານ',        en: 'Name' },
+  short_name:  { lo: 'ຊື່ຫຍໍ້',         en: 'Short name — shown on cards instead of the full name' },
+  name_lo:     { lo: 'ຊື່ພາສາລາວ',      en: 'Lao name' },
+  type:        { lo: 'ປະເພດ',          en: 'Type' },
+  area:        { lo: 'ເຂດ',            en: 'Area' },
+  short:       { lo: 'ຄຳຂວັນສັ້ນ',      en: 'Short tagline — one line shown on your card' },
+  description: { lo: 'ຄຳອະທິບາຍ',       en: 'Description' },
+  signature:   { lo: 'ເມນູເດັ່ນ',       en: 'Signature items — up to 3, shown as "Try this"' },
+  photos:      { lo: 'ຮູບພາບ',         en: 'Photos' },
+  hours:       { lo: 'ໂມງເປີດ-ປິດ',     en: 'Hours' },
+  phone:       { lo: 'ເບີໂທ',          en: 'Phone' },
+  parking:     { lo: 'ບ່ອນຈອດລົດ',      en: 'Parking note' },
+  facebook:    { lo: 'ລິ້ງເຟສບຸກ',      en: 'Facebook link' },
+  website:     { lo: 'ເວັບໄຊ (ບໍ່ແມ່ນ Facebook)', en: 'Website — not Facebook' },
+  maps_url:    { lo: 'ລິ້ງ Google Maps', en: 'Google Maps link' },
+};
+
+// mirrors the server's actual requirement — name, type, area, maps_url
+// (see REQUIRED_SIMPLE_FIELDS in functions/api/_venue-validation.js and the
+// maps_url check in functions/api/venues.js's handlePost). Every other
+// field renders the optional marker instead — the concrete fix for the
+// "typed '.' into parking to get past it" problem, since nothing on the
+// old form told her she could just leave it blank.
+const REQUIRED_FIELD_KEYS = new Set(['name', 'type', 'area', 'maps_url']);
+
+function edLabelHtml(key, forId) {
+  const l = OWNER_FIELD_LABELS[key];
+  const marker = REQUIRED_FIELD_KEYS.has(key)
+    ? '<span class="ed-label-req">ຈຳເປັນ / required</span>'
+    : '<span class="ed-label-opt">ບໍ່ຈຳເປັນ / optional</span>';
+  return `<label class="ed-label"${forId ? ` for="${forId}"` : ''}>
+      <span class="ed-label-lo lao">${l.lo}</span>
+      <span class="ed-label-en">${l.en}</span>
+      ${marker}
+    </label>`;
+}
+
 /* ---------- "List your venue" — owner submission ---------- */
 // same field set as openVenueEditor() below (reuses edSigRowHtml, the hour-
 // row markup, edDeriveLaoPhone/edBuildHourRange), minus Photos — there's no
@@ -866,23 +919,23 @@ function openVenueSubmitForm() {
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="subName">Name</label>
+      ${edLabelHtml('name', 'subName')}
       <input type="text" class="ed-input" id="subName" maxlength="100">
       <div class="ed-err" data-err-for="name"></div>
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="subShortName">Short name</label>
-      <input type="text" class="ed-input" id="subShortName" maxlength="40">
+      ${edLabelHtml('short_name', 'subShortName')}
+      <input type="text" class="ed-input" id="subShortName" maxlength="40" placeholder="Sathiti">
       <div class="ed-err" data-err-for="short_name"></div>
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="subNameLo">Lao name</label>
+      ${edLabelHtml('name_lo', 'subNameLo')}
       <input type="text" class="ed-input lao" id="subNameLo" maxlength="60">
       <div class="ed-err" data-err-for="name_lo"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label">Type</label>
+      ${edLabelHtml('type', null)}
       <div class="seg ed-type-seg" id="subTypeSeg">
         <button type="button" class="seg-btn ed-type-btn on" data-type="bar">Bar</button>
         <button type="button" class="seg-btn ed-type-btn" data-type="cafe">Café</button>
@@ -892,60 +945,60 @@ function openVenueSubmitForm() {
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="subArea">Area</label>
-      <input type="text" class="ed-input" id="subArea" maxlength="80">
+      ${edLabelHtml('area', 'subArea')}
+      <input type="text" class="ed-input" id="subArea" maxlength="80" placeholder="Rue Hengboun, Ban Anou">
       <div class="ed-err" data-err-for="area"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="subShort">Short tagline</label>
-      <input type="text" class="ed-input" id="subShort" maxlength="120">
+      ${edLabelHtml('short', 'subShort')}
+      <input type="text" class="ed-input" id="subShort" maxlength="120" placeholder="Belgian beer bar on the riverfront, big bottle list">
       <div class="ed-err" data-err-for="short"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="subDescription">Description</label>
-      <textarea class="ed-textarea" id="subDescription" maxlength="500" rows="4"></textarea>
+      ${edLabelHtml('description', 'subDescription')}
+      <textarea class="ed-textarea" id="subDescription" maxlength="500" rows="4" placeholder="Specialty coffee house on Hengboun run by a competition barista — Champion of the Savannakhet Aeropress 2025 and third in the Vientiane Moka Pot Battle."></textarea>
       <div class="ed-charcount"><span id="subDescCount">0</span>/500</div>
       <div class="ed-err" data-err-for="description"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label">Signature items <span class="ed-label-sub">up to 3, shown as "Try this"</span></label>
+      ${edLabelHtml('signature', null)}
       <div class="ed-sig-list" id="subSigList">${sigRowsHtml}</div>
       <div class="ed-err" data-err-for="signature"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label">Hours</label>
+      ${edLabelHtml('hours', null)}
       <div class="ed-hours" id="subHours">${hoursRowsHtml}</div>
       <div class="ed-err" data-err-for="hours"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="subPhone">Phone</label>
+      ${edLabelHtml('phone', 'subPhone')}
       <input type="tel" class="ed-input" id="subPhone" placeholder="020 5236 6087">
       <div class="ed-hint" id="subPhonePreview"></div>
       <div class="ed-err" data-err-for="contact"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="subParkingNote">Parking note</label>
+      ${edLabelHtml('parking', 'subParkingNote')}
       <input type="text" class="ed-input" id="subParkingNote" maxlength="60" placeholder="e.g. free lot behind the building">
       <div class="ed-err" data-err-for="parking"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="subFacebook">Facebook link</label>
+      ${edLabelHtml('facebook', 'subFacebook')}
       <input type="url" class="ed-input" id="subFacebook" placeholder="https://facebook.com/...">
       <div class="ed-err" data-err-for="links"></div>
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="subWebsite">Website</label>
+      ${edLabelHtml('website', 'subWebsite')}
       <input type="url" class="ed-input" id="subWebsite" placeholder="https://...">
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="subMapsUrl">Google Maps link <span class="ed-label-sub">required</span></label>
+      ${edLabelHtml('maps_url', 'subMapsUrl')}
       <input type="url" class="ed-input" id="subMapsUrl" placeholder="https://maps.google.com/...">
       <div class="ed-hint">This is how we place your pin — there's no other way to set it yet.</div>
       <div class="ed-err" data-err-for="maps_url"></div>
@@ -1121,24 +1174,30 @@ function openVenueEditor(venue, opts = {}) {
       <div>Fix what's above and it'll be reviewed again.</div>
     </div>` : ''}
 
+    ${opts.justSubmitted && !venue.short && !venue.description ? `
+    <div class="ed-empty-note" id="edEmptyNote">
+      <span>Your venue will look empty without a short tagline or description below — add them when you can.</span>
+      <button type="button" class="ed-empty-note-close" id="edEmptyNoteClose" aria-label="Dismiss">×</button>
+    </div>` : ''}
+
     <div class="ed-field">
-      <label class="ed-label" for="edName">Name</label>
+      ${edLabelHtml('name', 'edName')}
       <input type="text" class="ed-input" id="edName" value="${esc(venue.name)}" maxlength="100">
       <div class="ed-err" data-err-for="name"></div>
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="edShortName">Short name</label>
-      <input type="text" class="ed-input" id="edShortName" value="${esc(venue.short_name || '')}" maxlength="40">
+      ${edLabelHtml('short_name', 'edShortName')}
+      <input type="text" class="ed-input" id="edShortName" value="${esc(venue.short_name || '')}" maxlength="40" placeholder="Sathiti">
       <div class="ed-err" data-err-for="short_name"></div>
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="edNameLo">Lao name</label>
+      ${edLabelHtml('name_lo', 'edNameLo')}
       <input type="text" class="ed-input lao" id="edNameLo" value="${esc(venue.name_lo || '')}" maxlength="60">
       <div class="ed-err" data-err-for="name_lo"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label">Type</label>
+      ${edLabelHtml('type', null)}
       <div class="seg ed-type-seg" id="edTypeSeg">
         <button type="button" class="seg-btn ed-type-btn ${venue.type==='bar'?'on':''}" data-type="bar">Bar</button>
         <button type="button" class="seg-btn ed-type-btn ${venue.type==='cafe'?'on':''}" data-type="cafe">Café</button>
@@ -1148,32 +1207,32 @@ function openVenueEditor(venue, opts = {}) {
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="edArea">Area</label>
-      <input type="text" class="ed-input" id="edArea" value="${esc(venue.area || '')}" maxlength="80">
+      ${edLabelHtml('area', 'edArea')}
+      <input type="text" class="ed-input" id="edArea" value="${esc(venue.area || '')}" maxlength="80" placeholder="Rue Hengboun, Ban Anou">
       <div class="ed-err" data-err-for="area"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="edShort">Short tagline</label>
-      <input type="text" class="ed-input" id="edShort" value="${esc(venue.short || '')}" maxlength="120">
+      ${edLabelHtml('short', 'edShort')}
+      <input type="text" class="ed-input" id="edShort" value="${esc(venue.short || '')}" maxlength="120" placeholder="Belgian beer bar on the riverfront, big bottle list">
       <div class="ed-err" data-err-for="short"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="edDescription">Description</label>
-      <textarea class="ed-textarea" id="edDescription" maxlength="500" rows="4">${esc(venue.description || '')}</textarea>
+      ${edLabelHtml('description', 'edDescription')}
+      <textarea class="ed-textarea" id="edDescription" maxlength="500" rows="4" placeholder="Specialty coffee house on Hengboun run by a competition barista — Champion of the Savannakhet Aeropress 2025 and third in the Vientiane Moka Pot Battle.">${esc(venue.description || '')}</textarea>
       <div class="ed-charcount"><span id="edDescCount">${descLen}</span>/500</div>
       <div class="ed-err" data-err-for="description"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label">Signature items <span class="ed-label-sub">up to 3, shown as "Try this"</span></label>
+      ${edLabelHtml('signature', null)}
       <div class="ed-sig-list" id="edSigList">${sigRowsHtml}</div>
       <div class="ed-err" data-err-for="signature"></div>
     </div>
 
     <div class="ed-field" id="edPhotoField">
-      <label class="ed-label">Photos</label>
+      ${edLabelHtml('photos', null)}
       <div class="ed-photo-nudge" id="edPhotoNudge" hidden>
         <span>Add a few photos so people know what to expect</span>
         <button type="button" class="ed-photo-nudge-close" id="edPhotoNudgeClose" aria-label="Dismiss">×</button>
@@ -1189,35 +1248,35 @@ function openVenueEditor(venue, opts = {}) {
     </div>
 
     <div class="ed-field">
-      <label class="ed-label">Hours</label>
+      ${edLabelHtml('hours', null)}
       <div class="ed-hours" id="edHours">${hoursRowsHtml}</div>
       <div class="ed-err" data-err-for="hours"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="edPhone">Phone</label>
+      ${edLabelHtml('phone', 'edPhone')}
       <input type="tel" class="ed-input" id="edPhone" value="${esc(contact.phone_display || '')}" placeholder="020 5236 6087">
       <div class="ed-hint" id="edPhonePreview">${contact.phone ? 'Saves as ' + esc(contact.phone) : ''}</div>
       <div class="ed-err" data-err-for="contact"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="edParkingNote">Parking note</label>
+      ${edLabelHtml('parking', 'edParkingNote')}
       <input type="text" class="ed-input" id="edParkingNote" value="${esc(parking.note || '')}" maxlength="60" placeholder="e.g. free lot behind the building">
       <div class="ed-err" data-err-for="parking"></div>
     </div>
 
     <div class="ed-field">
-      <label class="ed-label" for="edFacebook">Facebook link</label>
+      ${edLabelHtml('facebook', 'edFacebook')}
       <input type="url" class="ed-input" id="edFacebook" value="${esc(links.facebook || '')}" placeholder="https://facebook.com/...">
       <div class="ed-err" data-err-for="links"></div>
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="edWebsite">Website</label>
+      ${edLabelHtml('website', 'edWebsite')}
       <input type="url" class="ed-input" id="edWebsite" value="${esc(links.website || '')}" placeholder="https://...">
     </div>
     <div class="ed-field">
-      <label class="ed-label" for="edMapsUrl">Google Maps link</label>
+      ${edLabelHtml('maps_url', 'edMapsUrl')}
       <input type="url" class="ed-input" id="edMapsUrl" value="${esc(links.maps || '')}" placeholder="https://maps.google.com/...">
       <div class="ed-hint">Changing this asks us to double-check your map pin.</div>
       <div class="ed-err" data-err-for="maps_url"></div>
@@ -1326,6 +1385,10 @@ function wireVenueEditor(venue, opts = {}) {
     }
   }
 
+  document.getElementById('edEmptyNoteClose')?.addEventListener('click', () => {
+    document.getElementById('edEmptyNote').hidden = true;
+  });
+
   root.querySelectorAll('.ed-type-btn').forEach(btn => btn.addEventListener('click', () => {
     root.querySelectorAll('.ed-type-btn').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
@@ -1410,9 +1473,18 @@ function wireVenueEditor(venue, opts = {}) {
       saveBtn.disabled = true;
       saveNote.hidden = false;
       saveNote.className = 'ed-save-note ed-save-note-ok';
-      saveNote.textContent = data.location_review
+      // gentle, not gating — the save already succeeded either way (see
+      // CLAUDE.md task this was added for: Sunin's venue saved with both
+      // fields null and nothing told her). Reinforced here on every save,
+      // not just the first one after submission, since an owner could also
+      // clear both fields back out during a later edit.
+      const stillEmpty = !body.short && !body.description;
+      const base = data.location_review
         ? "Thanks — we'll check the pin against your map link."
         : 'Saved.';
+      saveNote.textContent = stillEmpty
+        ? `${base} Your venue will look empty without a short tagline or description.`
+        : base;
     } catch (e) {
       saveNote.hidden = false;
       saveNote.className = 'ed-save-note ed-save-note-error';

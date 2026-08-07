@@ -4,6 +4,14 @@
 // the exact same rules, same pattern as _auth.js/_heat.js being shared
 // helpers rather than duplicated per-endpoint.
 export const SIMPLE_FIELDS = ['name', 'short_name', 'name_lo', 'type', 'area', 'short', 'description'];
+// the only two SIMPLE_FIELDS an owner can't leave blank — 'type' has its
+// own required check (must be a valid VENUE_TYPES value) and maps_url is
+// required separately in functions/api/venues.js since it isn't a plain
+// column, it lives inside links. Together these four (name, type, area,
+// maps_url) are every required field on the owner forms; everything else
+// is optional — see the "ບໍ່ຈຳເປັນ / optional" marker in js/app.js
+// edLabelHtml(), which mirrors this exact set.
+export const REQUIRED_SIMPLE_FIELDS = new Set(['name', 'area']);
 export const VENUE_TYPES = ['bar', 'cafe', 'venue'];
 export const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500 };
@@ -142,7 +150,7 @@ export function validateSimpleFields(body, errors, sets, binds) {
     } else {
       if (typeof v !== 'string') { errors[field] = 'must be text'; continue; }
       const trimmed = v.trim();
-      if (field === 'name' && !trimmed) { errors[field] = "name can't be empty"; continue; }
+      if (REQUIRED_SIMPLE_FIELDS.has(field) && !trimmed) { errors[field] = `${field} can't be empty`; continue; }
       if (trimmed.length > MAX_LEN[field]) {
         errors[field] = `must be ${MAX_LEN[field]} characters or fewer`;
         continue;
