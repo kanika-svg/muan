@@ -840,6 +840,58 @@
         "phone": "+8562052281119",
         "phone_display": "020 52 281 119"
       }
+    },
+    {
+      "id": "sunin-restaurant-cafe",
+      "name": "Sunin Restaurant & Cafe",
+      "short_name": "Sunin Cafe",
+      "name_lo": "ສຸນິນຄາເຟ່",
+      "type": "cafe",
+      "lat": 18.103722,
+      "lng": 102.7658543,
+      "area": "Naphork, Xaythany, Vientiane",
+      "short": null,
+      "description": null,
+      "photos": [],
+      "hours": {
+        "mon": null,
+        "tue": "09:00-19:00",
+        "wed": "09:00-19:00",
+        "thu": "09:00-19:00",
+        "fri": "09:00-19:00",
+        "sat": "09:00-19:00",
+        "sun": "09:00-19:00"
+      },
+      "links": {
+        "maps": "https://maps.app.goo.gl/S856C9mVB29nRjsZ8?g_st=ic",
+        "facebook": "https://www.facebook.com/share/1NFUgWZiXX/?mibextid=wwXIfr",
+        "website": "https://www.facebook.com/share/1NFUgWZiXX/?mibextid=wwXIfr"
+      },
+      "verified": true,
+      "source": "Owner-submitted; location confirmed against Google Maps 2026-08-07",
+      "pin_status": "placed",
+      "contact": {
+        "phone": "+8562059675922",
+        "phone_display": "02059675922"
+      },
+      "parking": {
+        "note": ".",
+        "source": "venue told us"
+      },
+      "signature": [
+        {
+          "name": "Matcha Latte",
+          "price": 55000
+        },
+        {
+          "name": "Chocolate Straw Matcha",
+          "price": 65000
+        },
+        {
+          "name": "Waffle",
+          "price": 5500
+        }
+      ]
     }
   ]
 }

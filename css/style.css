@@ -938,6 +938,24 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   padding-bottom: 2px;
 }
 .ed-photos::-webkit-scrollbar { display: none; }
+
+/* shown once, right after a submission that had no photos — dismissible,
+   see the justSubmitted branch in wireVenueEditor() in app.js */
+.ed-photo-nudge {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--ink3); border: 1px solid var(--flame);
+  border-radius: 10px; padding: 9px 12px; margin-bottom: 8px;
+  font-size: 12.5px; font-weight: 700; color: var(--bone);
+}
+.ed-photo-nudge-close {
+  background: none; border: none; color: var(--mute); font-size: 16px;
+  line-height: 1; cursor: pointer; padding: 0 2px; flex-shrink: 0;
+}
+.ed-photo-highlight { animation: ed-photo-flash 1.6s ease-out; border-radius: 12px; }
+@keyframes ed-photo-flash {
+  0%, 100% { box-shadow: none; }
+  20%, 65% { box-shadow: 0 0 0 3px var(--flame); }
+}
 .ed-photos-empty { font-size: 12.5px; color: var(--dim); padding: 8px 0; }
 .ed-photo { flex: 0 0 84px; }
 .ed-photo img {

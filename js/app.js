@@ -934,6 +934,7 @@ function openVenueSubmitForm() {
 
     <div class="ed-save-note" id="subSaveNote" hidden></div>
     <div class="btn-row"><button class="btn btn-go" id="subSaveBtn" style="flex:1;">Submit</button></div>
+    <div class="ed-hint" style="text-align:center;">You'll add photos in the next step</div>
   `);
 
   const sheet = document.getElementById('sheet');
@@ -1046,7 +1047,7 @@ function wireVenueSubmitForm() {
 
       // straight into the normal dashboard editor — photos and any further
       // edits happen there from here on
-      openVenueEditor(data.venue);
+      openVenueEditor(data.venue, { justSubmitted: true });
     } catch (e) {
       saveNote.hidden = false;
       saveNote.className = 'ed-save-note ed-save-note-error';
@@ -1057,7 +1058,7 @@ function wireVenueSubmitForm() {
   });
 }
 
-function openVenueEditor(venue) {
+function openVenueEditor(venue, opts = {}) {
   toggleSheet(false);
   state.sheetView = { type: 'venue-edit', venueId: venue.id };
 
@@ -1146,8 +1147,12 @@ function openVenueEditor(venue) {
       <div class="ed-err" data-err-for="signature"></div>
     </div>
 
-    <div class="ed-field">
+    <div class="ed-field" id="edPhotoField">
       <label class="ed-label">Photos</label>
+      <div class="ed-photo-nudge" id="edPhotoNudge" hidden>
+        <span>Add a few photos so people know what to expect</span>
+        <button type="button" class="ed-photo-nudge-close" id="edPhotoNudgeClose" aria-label="Dismiss">×</button>
+      </div>
       <div class="ed-photos" id="edPhotos"></div>
       <input type="file" id="edPhotoFile" accept="image/*" hidden>
       <button type="button" class="ed-photo-add" id="edPhotoAddBtn">+ Add photo</button>
@@ -1201,10 +1206,10 @@ function openVenueEditor(venue) {
   if (sheet) sheet.scrollTop = 0;
   document.querySelector('[data-back-manage]')?.addEventListener('click', openFlameSheet);
 
-  wireVenueEditor(venue);
+  wireVenueEditor(venue, opts);
 }
 
-function wireVenueEditor(venue) {
+function wireVenueEditor(venue, opts = {}) {
   const root = document.getElementById('sheetInner');
   const saveBtn = document.getElementById('edSaveBtn');
   const saveNote = document.getElementById('edSaveNote');
@@ -1277,6 +1282,24 @@ function wireVenueEditor(venue) {
   };
 
   edRenderPhotos(document.getElementById('edPhotos'), photosState, refreshDirty);
+
+  // owners land here straight from a successful submission, and the submit
+  // form has nowhere to add photos yet (no venue id to attach them to) — so
+  // the first real owner submission (Sunin) went out with zero photos and
+  // no indication that a next step existed. Draw the eye to it once, here.
+  if (opts.justSubmitted && photosState.length === 0) {
+    const nudge = document.getElementById('edPhotoNudge');
+    if (nudge) {
+      nudge.hidden = false;
+      document.getElementById('edPhotoNudgeClose')?.addEventListener('click', () => { nudge.hidden = true; });
+    }
+    const photoField = document.getElementById('edPhotoField');
+    if (photoField) {
+      photoField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      photoField.classList.add('ed-photo-highlight');
+      setTimeout(() => photoField.classList.remove('ed-photo-highlight'), 1600);
+    }
+  }
 
   root.querySelectorAll('.ed-type-btn').forEach(btn => btn.addEventListener('click', () => {
     root.querySelectorAll('.ed-type-btn').forEach(b => b.classList.remove('on'));
