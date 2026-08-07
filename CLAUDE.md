@@ -20,15 +20,35 @@ file/variable names) intentionally remain "muan" — do not rename them.
 - Code that references a new column must not ship until the migration adding
   it has actually been applied to `--remote`, not just written to the repo.
 - Before pushing anything that touches the D1 schema, run
-  `wrangler d1 execute muan-db --remote --command="PRAGMA table_info(<table>)"`
-  and confirm every column the new code reads or writes is actually present.
+  `node scripts/check-schema.js`. It reads schema.sql + every migrations/*.sql
+  file, works out what tables/columns they define, checks production D1 for
+  each, and exits non-zero if anything's missing — replaces hand-running
+  `PRAGMA table_info(<table>)` per table, which is the step that got skipped
+  twice (see Why, below). Read-only, safe to run any time.
 - Why: migration 008 (signature items) shipped in code before it was run
   against `--remote`. Every request to /api/venues referenced the missing
   column and 500'd, which took the whole app down — no venues loaded on any
   device until the migration was applied by hand. See functions/api/venues.js
   for the fallback this incident added (bundled data/venues.json, served
   with `stale: true` if the live D1 query throws) — that fallback is a
-  safety net, not a substitute for this rule.
+  safety net, not a substitute for this rule. Migration 010 (rejection_reason)
+  shipped the exact same way and broke /api/my-venues for every owner — the
+  written rule alone had already failed once and failed again, which is why
+  scripts/check-schema.js exists instead of just a stronger reminder.
+- Proposal, not yet wired up: Cloudflare Pages projects can be given a
+  "Build command" (Settings → Builds & deployments) even with no actual
+  build step — set it to `node scripts/check-schema.js` and Cloudflare
+  aborts the deploy if it exits non-zero, so a missing migration blocks the
+  push itself instead of relying on anyone remembering to run a command.
+  Needs `CLOUDFLARE_API_TOKEN` (D1 read access) added as a Pages *build*
+  environment variable — separate from the runtime vars like
+  ADMIN_USER_IDS. Trade-off worth deciding on deliberately, not defaulting
+  into: every push would take a real network round trip to D1 and fail
+  closed if that token ever expires or the account changes, even for
+  changes that don't touch the schema at all (a CSS tweak would be blocked
+  by a stale token same as a real migration gap). Given "no build step" is
+  a deliberate project choice (see top of this file), this is flagged for a
+  decision, not applied.
 
 ## Data integrity rules (non-negotiable)
 - Never invent venue details: no made-up hours, prices, events, addresses, or coordinates.

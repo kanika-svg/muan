@@ -552,37 +552,42 @@ async function openFlameSheet() {
   // passes (one without the "Manage your venue" section, one with it).
   // Pending venues are only fetched for an admin — /api/pending 403s
   // everyone else anyway, no reason to make the round trip.
-  const [flameHtml, myVenues, pendingVenues] = await Promise.all([
-    flameSvg(), fetchMyVenues(), me.is_admin ? fetchPendingVenues() : Promise.resolve([]),
+  const [flameHtml, myVenuesResult, pendingVenuesResult] = await Promise.all([
+    flameSvg(), fetchMyVenues(), me.is_admin ? fetchPendingVenues() : Promise.resolve({ ok: true, venues: [] }),
   ]);
 
-  if (me.show_intro) { renderFlameIntro(flameHtml, () => renderFlameSheetBody(me, flameHtml, myVenues, pendingVenues)); return; }
+  if (me.show_intro) { renderFlameIntro(flameHtml, () => renderFlameSheetBody(me, flameHtml, myVenuesResult, pendingVenuesResult)); return; }
 
-  renderFlameSheetBody(me, flameHtml, myVenues, pendingVenues);
+  renderFlameSheetBody(me, flameHtml, myVenuesResult, pendingVenuesResult);
 }
 
 // venues the signed-in user owns (see migrations/006_owners.sql), for the
-// "Manage your venue" entry point on the flame sheet — fails soft to an
-// empty list on any error, since this is secondary content that shouldn't
-// block the flame sheet itself from rendering
+// "Manage your venue" entry point on the flame sheet. Returns one of two
+// shapes, never a bare array — { ok:true, venues } or { ok:false, venues:[] }
+// — so a failed request and a legitimately-empty list stay distinguishable
+// to the caller. Collapsing both into "just return []" is exactly what let
+// the migration-010 outage go unnoticed: /api/my-venues 500'd for every
+// owner, this used to swallow that into [], and the flame sheet rendered
+// as if nobody owned anything — no error, no retry, nothing to see it by.
 async function fetchMyVenues() {
   try {
     const data = await (await fetch('/api/my-venues')).json();
-    return data.ok ? data.venues : [];
+    return data.ok ? { ok: true, venues: data.venues } : { ok: false, venues: [] };
   } catch (e) {
-    return [];
+    return { ok: false, venues: [] };
   }
 }
 
 // admin-only "Pending venues (N)" entry on the flame sheet — see
-// functions/api/pending.js. Fails soft to an empty list, same reasoning as
-// fetchMyVenues(): secondary content, shouldn't block the sheet.
+// functions/api/pending.js. Same three-state reasoning as fetchMyVenues()
+// above: an admin seeing "(0)" needs to be able to tell "nothing pending"
+// from "the request failed," or a broken endpoint just looks like a quiet day.
 async function fetchPendingVenues() {
   try {
     const data = await (await fetch('/api/pending')).json();
-    return data.ok ? data.venues : [];
+    return data.ok ? { ok: true, venues: data.venues } : { ok: false, venues: [] };
   } catch (e) {
-    return [];
+    return { ok: false, venues: [] };
   }
 }
 
@@ -627,7 +632,7 @@ function renderFlameIntro(flameHtml, onDone) {
 // the normal flame-sheet content (calendar, flame, stage, embers, badges) —
 // split out of openFlameSheet() so renderFlameIntro()'s "Got it" can hand
 // off into it directly
-function renderFlameSheetBody(me, flameHtml, myVenues = [], pendingVenues = []) {
+function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues: [] }, pendingVenuesResult = { ok: true, venues: [] }) {
   const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
   const stageLo = { ember:'ຖ່ານໄຟ', flicker:'ໄຟວິບວັບ', flame:'ແປວໄຟ', blaze:'ໄຟລຸກ', naga:'ໄຟນາກ' };
   const heatLines = {
@@ -685,17 +690,24 @@ function renderFlameSheetBody(me, flameHtml, myVenues = [], pendingVenues = []) 
         <div class="fl-stat"><b>${me.total_checkins}</b><span>check-ins</span></div>
       </div>` : ''}
 
-      ${myVenues.length ? `
+      ${!myVenuesResult.ok ? `
+      <div class="fl-fetch-error">
+        Couldn't load your venues.
+        <button type="button" class="fl-retry" data-retry-flame>Try again</button>
+      </div>` : myVenuesResult.venues.length ? `
       <div class="fl-manage">
         <div class="fl-manage-h">Manage your venue</div>
-        ${myVenues.map(v => `<button class="fl-manage-item" data-manage-venue="${v.id}">
+        ${myVenuesResult.venues.map(v => `<button class="fl-manage-item" data-manage-venue="${v.id}">
             <span>${esc(v.short_name || v.name)}${v.pin_status === 'pending' ? '<span class="fl-manage-pending"> · pending</span>' : ''}${v.pin_status === 'rejected' ? '<span class="fl-manage-rejected"> · rejected</span>' : ''}</span><span class="fl-manage-arrow">›</span>
           </button>`).join('')}
       </div>` : ''}
 
       <button class="fl-avatar-link" data-list-venue>+ List your venue</button>
 
-      ${me.is_admin ? `<button class="fl-avatar-link" data-admin-pending>Pending venues (${pendingVenues.length})</button>` : ''}
+      ${me.is_admin ? (pendingVenuesResult.ok
+        ? `<button class="fl-avatar-link" data-admin-pending>Pending venues (${pendingVenuesResult.venues.length})</button>`
+        : `<button class="fl-avatar-link" data-retry-flame>Pending venues — couldn't load, tap to retry</button>`
+      ) : ''}
 
       ${me.badges?.length ? `
       <div class="fl-badges">
@@ -717,10 +729,14 @@ function renderFlameSheetBody(me, flameHtml, myVenues = [], pendingVenues = []) 
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
   document.querySelector('[data-list-venue]')?.addEventListener('click', openVenueSubmitForm);
   document.querySelectorAll('[data-manage-venue]').forEach(el => el.addEventListener('click', () => {
-    const v = myVenues.find(mv => mv.id === el.dataset.manageVenue);
+    const v = myVenuesResult.venues.find(mv => mv.id === el.dataset.manageVenue);
     if (v) openVenueEditor(v);
   }));
-  document.querySelector('[data-admin-pending]')?.addEventListener('click', () => openAdminPendingSheet(pendingVenues));
+  document.querySelector('[data-admin-pending]')?.addEventListener('click', () => openAdminPendingSheet(pendingVenuesResult.venues));
+  // both the "couldn't load your venues" and "pending venues couldn't load"
+  // states retry the same way: re-run the whole fetch+render cycle, since
+  // both come from the same Promise.all in openFlameSheet()
+  document.querySelectorAll('[data-retry-flame]').forEach(el => el.addEventListener('click', openFlameSheet));
 }
 
 /* ---------- venue owner dashboard: edit form ---------- */

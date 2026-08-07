@@ -735,6 +735,16 @@ body {
 .fl-manage-pending { color: var(--mute); font-weight: 400; font-size: 11.5px; }
 .fl-manage-rejected { color: var(--flame); font-weight: 700; font-size: 11.5px; }
 
+/* a failed fetch, not an empty result — see fetchMyVenues()/
+   fetchPendingVenues() in app.js, which return { ok:false } rather than
+   quietly collapsing into an empty list */
+.fl-fetch-error { margin-top: 16px; text-align: left; font-size: 12.5px; color: var(--mute); }
+.fl-retry {
+  background: none; border: none; color: var(--flame); font-weight: 700;
+  font-size: 12.5px; cursor: pointer; padding: 0; margin-left: 4px;
+  text-decoration: underline; font-family: var(--font);
+}
+
 /* shown inside openVenueEditor() when pin_status is 'rejected' — an owner
    edit sends it back to 'pending' automatically (functions/api/venues/
    [id].js), so this is never a dead end */
