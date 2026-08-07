@@ -8,7 +8,7 @@ const COLORS = { bar: 'var(--pin-bar)', cafe: 'var(--pin-cafe)', event: 'var(--p
 const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
 /* normal map fence — initMap() sets these, clearRoute() restores them after a
    route temporarily lifts the fence */
-const MAP_BOUNDS = { maxBounds: [[102.49, 17.88], [102.75, 18.05]], minZoom: 12.4 };
+const MAP_BOUNDS = { maxBounds: [[102.45, 17.85], [102.82, 18.15]], minZoom: 12.4 };
 const GOOGLE_CLIENT_ID = '768624583305-553qrbhib2mqbbi10ifsr18b8uqu4uvk.apps.googleusercontent.com';
 
 const state = {

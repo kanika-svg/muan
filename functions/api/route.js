@@ -1,5 +1,5 @@
 /* must mirror the maxBounds used in initMap() (js/app.js) */
-const BOUNDS = { minLng: 102.49, minLat: 17.88, maxLng: 102.75, maxLat: 18.05 };
+const BOUNDS = { minLng: 102.45, minLat: 17.85, maxLng: 102.82, maxLat: 18.15 };
 const MODES = ['driving-car', 'foot-walking'];
 const MAX_ORIGIN_KM = 60;
 
