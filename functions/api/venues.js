@@ -38,11 +38,15 @@ async function handleGet(context) {
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
 
+    // 'rejected' (see functions/api/venues/[id]/reject.js) is deliberately
+    // excluded here — a turned-down submission isn't deleted, but it also
+    // shouldn't be publicly browsable. The owner still sees it via the
+    // unfiltered /api/my-venues -> "Manage your venue" (js/app.js)
     const rows = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
               description, photos, hours, contact, parking, links,
               verified, status, source, signature, pin_status
-       FROM venues ORDER BY rowid`
+       FROM venues WHERE pin_status != 'rejected' ORDER BY rowid`
     ).all();
 
     const venues = rows.results.map((r) => {
@@ -84,7 +88,7 @@ async function handleGet(context) {
     // against --remote) stays diagnosable — see CLAUDE.md's workflow rules
     console.error('venues fetch failed, serving bundled fallback:', e);
     return Response.json(
-      { venues: venuesFallback.venues, stale: true },
+      { venues: venuesFallback.venues.filter(v => v.pin_status !== 'rejected'), stale: true },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   }

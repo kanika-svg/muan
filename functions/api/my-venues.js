@@ -27,7 +27,7 @@ export async function onRequest(context) {
       `SELECT v.id, v.name, v.short_name, v.name_lo, v.type, v.lat, v.lng,
               v.area, v.short, v.description, v.photos, v.hours, v.contact,
               v.parking, v.links, v.verified, v.status, v.source, v.signature,
-              v.pin_status
+              v.pin_status, v.rejection_reason
        FROM venue_owners o JOIN venues v ON v.id = o.venue_id
        WHERE o.user_id = ? ORDER BY v.rowid`
     ).bind(user.id).all();
@@ -55,6 +55,7 @@ export async function onRequest(context) {
       if (r.parking !== null) v.parking = JSON.parse(r.parking);
       if (r.status !== null) v.status = r.status;
       if (r.signature !== null) v.signature = JSON.parse(r.signature);
+      if (r.rejection_reason !== null) v.rejection_reason = r.rejection_reason;
       return v;
     });
 

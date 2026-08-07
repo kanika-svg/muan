@@ -549,12 +549,16 @@ async function openFlameSheet() {
 
   // fetched alongside the flame svg rather than inside renderFlameSheetBody
   // itself, so the flame sheet's usual single render isn't split into two
-  // passes (one without the "Manage your venue" section, one with it)
-  const [flameHtml, myVenues] = await Promise.all([flameSvg(), fetchMyVenues()]);
+  // passes (one without the "Manage your venue" section, one with it).
+  // Pending venues are only fetched for an admin — /api/pending 403s
+  // everyone else anyway, no reason to make the round trip.
+  const [flameHtml, myVenues, pendingVenues] = await Promise.all([
+    flameSvg(), fetchMyVenues(), me.is_admin ? fetchPendingVenues() : Promise.resolve([]),
+  ]);
 
-  if (me.show_intro) { renderFlameIntro(flameHtml, () => renderFlameSheetBody(me, flameHtml, myVenues)); return; }
+  if (me.show_intro) { renderFlameIntro(flameHtml, () => renderFlameSheetBody(me, flameHtml, myVenues, pendingVenues)); return; }
 
-  renderFlameSheetBody(me, flameHtml, myVenues);
+  renderFlameSheetBody(me, flameHtml, myVenues, pendingVenues);
 }
 
 // venues the signed-in user owns (see migrations/006_owners.sql), for the
@@ -564,6 +568,18 @@ async function openFlameSheet() {
 async function fetchMyVenues() {
   try {
     const data = await (await fetch('/api/my-venues')).json();
+    return data.ok ? data.venues : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// admin-only "Pending venues (N)" entry on the flame sheet — see
+// functions/api/pending.js. Fails soft to an empty list, same reasoning as
+// fetchMyVenues(): secondary content, shouldn't block the sheet.
+async function fetchPendingVenues() {
+  try {
+    const data = await (await fetch('/api/pending')).json();
     return data.ok ? data.venues : [];
   } catch (e) {
     return [];
@@ -611,7 +627,7 @@ function renderFlameIntro(flameHtml, onDone) {
 // the normal flame-sheet content (calendar, flame, stage, embers, badges) —
 // split out of openFlameSheet() so renderFlameIntro()'s "Got it" can hand
 // off into it directly
-function renderFlameSheetBody(me, flameHtml, myVenues = []) {
+function renderFlameSheetBody(me, flameHtml, myVenues = [], pendingVenues = []) {
   const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
   const stageLo = { ember:'ຖ່ານໄຟ', flicker:'ໄຟວິບວັບ', flame:'ແປວໄຟ', blaze:'ໄຟລຸກ', naga:'ໄຟນາກ' };
   const heatLines = {
@@ -673,11 +689,13 @@ function renderFlameSheetBody(me, flameHtml, myVenues = []) {
       <div class="fl-manage">
         <div class="fl-manage-h">Manage your venue</div>
         ${myVenues.map(v => `<button class="fl-manage-item" data-manage-venue="${v.id}">
-            <span>${esc(v.short_name || v.name)}${v.pin_status === 'pending' ? '<span class="fl-manage-pending"> · pending</span>' : ''}</span><span class="fl-manage-arrow">›</span>
+            <span>${esc(v.short_name || v.name)}${v.pin_status === 'pending' ? '<span class="fl-manage-pending"> · pending</span>' : ''}${v.pin_status === 'rejected' ? '<span class="fl-manage-rejected"> · rejected</span>' : ''}</span><span class="fl-manage-arrow">›</span>
           </button>`).join('')}
       </div>` : ''}
 
       <button class="fl-avatar-link" data-list-venue>+ List your venue</button>
+
+      ${me.is_admin ? `<button class="fl-avatar-link" data-admin-pending>Pending venues (${pendingVenues.length})</button>` : ''}
 
       ${me.badges?.length ? `
       <div class="fl-badges">
@@ -702,6 +720,7 @@ function renderFlameSheetBody(me, flameHtml, myVenues = []) {
     const v = myVenues.find(mv => mv.id === el.dataset.manageVenue);
     if (v) openVenueEditor(v);
   }));
+  document.querySelector('[data-admin-pending]')?.addEventListener('click', () => openAdminPendingSheet(pendingVenues));
 }
 
 /* ---------- venue owner dashboard: edit form ---------- */
@@ -1096,6 +1115,12 @@ function openVenueEditor(venue, opts = {}) {
       <span style="width:32px;flex-shrink:0;"></span>
     </div>
 
+    ${venue.pin_status === 'rejected' ? `
+    <div class="ed-rejected-note">
+      <b>Not approved.</b> ${esc(venue.rejection_reason || '')}
+      <div>Fix what's above and it'll be reviewed again.</div>
+    </div>` : ''}
+
     <div class="ed-field">
       <label class="ed-label" for="edName">Name</label>
       <input type="text" class="ed-input" id="edName" value="${esc(venue.name)}" maxlength="100">
@@ -1395,6 +1420,153 @@ function wireVenueEditor(venue, opts = {}) {
       saveBtn.textContent = 'Save';
       saveBtn.disabled = false;
     }
+  });
+}
+
+/* ---------- admin: pending venue review ---------- */
+// only reachable from the flame sheet's "Pending venues (N)" entry, itself
+// only rendered when /api/me's is_admin is true (js/app.js
+// renderFlameSheetBody()) — but that's UX only, same as everywhere else
+// admin shows up in this file: every actual approve/reject call is
+// re-checked server-side against the session's own user id (see
+// functions/api/venues/[id]/approve.js, reject.js), never trusting this
+// client-side gate.
+function openAdminPendingSheet(pendingVenues) {
+  toggleSheet(false);
+  state.sheetView = { type: 'admin-pending', venueId: null };
+
+  const cardsHtml = pendingVenues.length
+    ? pendingVenues.map(adminPendingCardHtml).join('')
+    : '<div class="s-sub" style="text-align:center;padding:30px 0;">Nothing waiting on review.</div>';
+
+  setSheet(`
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="sheet-x" data-back-flame aria-label="Back">←</button>
+      <div class="s-title" style="flex:1;text-align:center;">Pending venues</div>
+      <span style="width:32px;flex-shrink:0;"></span>
+    </div>
+    <div id="admList">${cardsHtml}</div>
+  `);
+
+  const sheet = document.getElementById('sheet');
+  if (sheet) sheet.scrollTop = 0;
+  document.querySelector('[data-back-flame]')?.addEventListener('click', openFlameSheet);
+
+  wireAdminPendingSheet();
+}
+
+function adminPendingCardHtml(v) {
+  const lat = v.suggested_lat != null ? v.suggested_lat : '';
+  const lng = v.suggested_lng != null ? v.suggested_lng : '';
+  return `
+    <div class="adm-card" data-adm-id="${esc(v.id)}">
+      <div class="adm-name">${esc(v.short_name || v.name)}</div>
+      <div class="adm-meta">${esc(v.area || '—')} · ${esc(v.type)} · submitted by ${esc(v.submitted_by || 'unknown')}</div>
+      ${v.description ? `<div class="adm-desc">${esc(v.description)}</div>` : ''}
+
+      ${v.maps_url
+        ? `<a class="adm-maps-link" href="${esc(v.maps_url)}" target="_blank" rel="noopener noreferrer">Open Maps link ↗</a>`
+        : '<div class="ed-hint">No Maps link submitted.</div>'}
+      <div class="ed-hint">${v.suggested_lat != null
+        ? 'Suggested from the Maps link — check it, not confirmed yet.'
+        : "Couldn't resolve coordinates from the link — enter them by hand."}</div>
+
+      <div class="adm-coords">
+        <input type="number" step="any" class="ed-input adm-lat" placeholder="latitude" value="${lat}">
+        <input type="number" step="any" class="ed-input adm-lng" placeholder="longitude" value="${lng}">
+      </div>
+      <div class="ed-err adm-err"></div>
+
+      <div class="btn-row adm-actions">
+        <button type="button" class="btn btn-go adm-approve" style="flex:1;">Approve</button>
+        <button type="button" class="btn btn-back adm-reject-toggle" style="flex:1;">Reject</button>
+      </div>
+
+      <div class="adm-reject-panel" hidden>
+        <textarea class="ed-textarea adm-reason" maxlength="300" rows="2" placeholder="Why? The owner will see this."></textarea>
+        <div class="btn-row">
+          <button type="button" class="btn btn-go adm-reject-confirm" style="flex:1;">Confirm reject</button>
+          <button type="button" class="btn btn-back adm-reject-cancel" style="flex:1;">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// removes a card once its venue has been approved/rejected, and swaps in
+// the empty state if that was the last one — no full re-fetch needed since
+// the server call already told us it succeeded
+function admRemoveCard(card) {
+  card.remove();
+  const list = document.getElementById('admList');
+  if (list && !list.querySelector('.adm-card')) {
+    list.innerHTML = '<div class="s-sub" style="text-align:center;padding:30px 0;">Nothing waiting on review.</div>';
+  }
+}
+
+function wireAdminPendingSheet() {
+  const root = document.getElementById('sheetInner');
+
+  root.querySelectorAll('.adm-card').forEach(card => {
+    const id = card.dataset.admId;
+    const errEl = card.querySelector('.adm-err');
+    const approveBtn = card.querySelector('.adm-approve');
+    const rejectToggle = card.querySelector('.adm-reject-toggle');
+    const rejectPanel = card.querySelector('.adm-reject-panel');
+    const rejectConfirm = card.querySelector('.adm-reject-confirm');
+    const rejectCancel = card.querySelector('.adm-reject-cancel');
+
+    approveBtn.addEventListener('click', async () => {
+      errEl.textContent = '';
+      const lat = Number(card.querySelector('.adm-lat').value);
+      const lng = Number(card.querySelector('.adm-lng').value);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        errEl.textContent = 'Enter both coordinates before approving.';
+        return;
+      }
+      approveBtn.disabled = true;
+      rejectToggle.disabled = true;
+      approveBtn.textContent = 'Approving…';
+      try {
+        const res = await fetch(`/api/venues/${encodeURIComponent(id)}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!data?.ok) throw new Error(data?.error || 'approve failed');
+        admRemoveCard(card);
+      } catch (e) {
+        errEl.textContent = 'Could not approve — try again.';
+        approveBtn.disabled = false;
+        rejectToggle.disabled = false;
+        approveBtn.textContent = 'Approve';
+      }
+    });
+
+    rejectToggle.addEventListener('click', () => { rejectPanel.hidden = !rejectPanel.hidden; });
+    rejectCancel.addEventListener('click', () => { rejectPanel.hidden = true; });
+
+    rejectConfirm.addEventListener('click', async () => {
+      errEl.textContent = '';
+      const reason = card.querySelector('.adm-reason').value.trim();
+      if (!reason) { errEl.textContent = 'A reason is required.'; return; }
+      rejectConfirm.disabled = true;
+      rejectConfirm.textContent = 'Rejecting…';
+      try {
+        const res = await fetch(`/api/venues/${encodeURIComponent(id)}/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!data?.ok) throw new Error(data?.error || 'reject failed');
+        admRemoveCard(card);
+      } catch (e) {
+        errEl.textContent = 'Could not reject — try again.';
+        rejectConfirm.disabled = false;
+        rejectConfirm.textContent = 'Confirm reject';
+      }
+    });
   });
 }
 

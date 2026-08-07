@@ -115,7 +115,7 @@ export async function onRequest(context) {
     if (!owns) return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
     const current = await db.prepare(
-      'SELECT photos, links FROM venues WHERE id = ?'
+      'SELECT photos, links, pin_status FROM venues WHERE id = ?'
     ).bind(venueId).first();
     if (!current) return Response.json({ ok: false, error: 'not found' }, { status: 404 });
 
@@ -178,6 +178,15 @@ export async function onRequest(context) {
     }
     if (sets.length === 0) {
       return Response.json({ ok: false, error: 'nothing to update' }, { status: 400 });
+    }
+
+    // an edit to a rejected submission is the owner acting on Kar's
+    // feedback (see the ed-rejected-note banner in js/app.js
+    // openVenueEditor()) — send it back into the review queue rather than
+    // leaving it stuck on 'rejected' forever with no way back
+    if (current.pin_status === 'rejected') {
+      sets.push('pin_status = ?', 'rejection_reason = ?');
+      binds.push('pending', null);
     }
 
     sets.push('updated_at = ?');

@@ -1,5 +1,6 @@
 import { getSessionUser } from './_auth.js';
 import { computeHeat } from './_heat.js';
+import { isAdmin } from './_admin.js';
 
 export async function onRequest(context) {
   if (context.request.method !== 'GET')
@@ -44,6 +45,11 @@ export async function onRequest(context) {
     return Response.json({
       ok: true,
       show_intro: showIntro,
+      // display-only — every admin write re-checks this same isAdmin() call
+      // against the session's own user id server-side (see functions/api/
+      // venues/[id]/approve.js, reject.js); a client can't grant itself
+      // admin by faking this field, only by having a session that qualifies
+      is_admin: isAdmin(context, user),
       handle: user.handle,
       embers_total: user.embers_total || 0,
       streak_months: user.streak_months || 0,

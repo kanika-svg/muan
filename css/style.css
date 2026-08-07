@@ -733,6 +733,38 @@ body {
 }
 .fl-manage-arrow { color: var(--mute); font-size: 16px; }
 .fl-manage-pending { color: var(--mute); font-weight: 400; font-size: 11.5px; }
+.fl-manage-rejected { color: var(--flame); font-weight: 700; font-size: 11.5px; }
+
+/* shown inside openVenueEditor() when pin_status is 'rejected' — an owner
+   edit sends it back to 'pending' automatically (functions/api/venues/
+   [id].js), so this is never a dead end */
+.ed-rejected-note {
+  background: var(--ink3); border: 1px solid var(--flame); border-radius: 12px;
+  padding: 12px 14px; margin: 14px 0 4px; font-size: 12.5px; line-height: 1.5;
+  color: var(--bone);
+}
+.ed-rejected-note b { color: var(--flame); }
+.ed-rejected-note div { margin-top: 6px; color: var(--mute); font-size: 11.5px; }
+
+/* admin: pending venue review (js/app.js openAdminPendingSheet()) — one
+   card per submission, same visual language as the hours/signature rows
+   (ed-hrow/ed-sig-row) rather than a new component */
+#admList { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.adm-card {
+  background: var(--ink3); border: 1px solid var(--ink4); border-radius: 14px;
+  padding: 14px;
+}
+.adm-name { font-size: 15px; font-weight: 700; color: var(--bone); }
+.adm-meta { font-size: 11.5px; color: var(--mute); margin-top: 2px; }
+.adm-desc { font-size: 12.5px; color: var(--bone); margin-top: 8px; line-height: 1.4; }
+.adm-maps-link {
+  display: inline-block; margin-top: 10px; font-size: 12.5px; font-weight: 700;
+  color: var(--bone); text-decoration: underline;
+}
+.adm-coords { display: flex; gap: 8px; margin-top: 8px; }
+.adm-coords .ed-input { font-size: 13px; padding: 9px 11px; }
+.adm-actions { margin-top: 10px; }
+.adm-reject-panel { margin-top: 10px; }
 
 .gal { margin: 12px 0 4px; }
 .gal-hero {
