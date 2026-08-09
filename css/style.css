@@ -970,7 +970,17 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     font-size: 10.5px; font-weight: 700; color: var(--mute); cursor: pointer;
   }
   #bottomNav .nav-item.active { color: var(--flame); }
-  #bottomNav .nav-ico { font-size: 19px; line-height: 1; }
+  #bottomNav .nav-ico { display: flex; }
+  #bottomNav .nav-ico svg { display: block; }
+
+  /* the Directions pill and the tracking chip re-frame/measure against the
+     map, which is only actually visible on the Map screen — their own
+     show/hide (the [hidden] attribute, the .on class) stays exactly as-is
+     underneath this; it just stops being enough to make them visible when
+     data-screen isn't "map" too. Desktop is untouched — this is scoped to
+     the same mobile media query as the rest of the screen shell. */
+  #app:not([data-screen="map"]) #routeBar,
+  #app:not([data-screen="map"]) #trackChip { display: none; }
 }
 
 /* double-line section dividers */

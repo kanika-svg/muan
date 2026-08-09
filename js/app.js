@@ -224,6 +224,9 @@ async function boot() {
     initTheme();
     document.querySelector('.brand-mark').innerHTML = logoMark(17, 'var(--ink2)');
     document.getElementById('locateIcon').innerHTML = icoLocate(15);
+    document.getElementById('navHomeIcon').innerHTML = icoHomeNav(21);
+    document.getElementById('navMapIcon').innerHTML = icoMapNav(21);
+    document.getElementById('navYouIcon').innerHTML = icoFlameNav(21);
     bindTheme();
     refreshAvatarBtn();
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
@@ -2081,6 +2084,31 @@ function icoMoon(size) {
     <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/></svg>`;
 }
 
+/* mobile bottom nav — same stroke-icon style as icoLocate/icoSun/icoMoon
+   above (24x24 viewBox, stroke-width 2, currentColor) rather than emoji,
+   which render inconsistently across platforms and clash with that set */
+function icoHomeNav(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 10.5 12 3l9 7.5"/>
+    <path d="M5.5 9v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9"/>
+    <path d="M9.5 20v-6h5v6"/></svg>`;
+}
+function icoMapNav(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 21s-7-5.686-7-11a7 7 0 1 1 14 0c0 5.314-7 11-7 11z"/>
+    <circle cx="12" cy="10" r="2.5"/></svg>`;
+}
+// deliberately a plain single-path outline, not the detailed miniFlame
+// (mf-outer/mf-core layered SVG) used elsewhere — that turns to mush at nav
+// icon size
+function icoFlameNav(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 21c-4 0-7-3-7-7 0-2.8 1.6-5 3-7.2C8.3 8.2 9 10 10 10.5 9.5 7 11 4 12 2c1 2 2.5 5 2 8.5 1-.5 1.7-2.3 2-3.7C17.4 8.8 19 11 19 13.8c0 4.3-3 7.2-7 7.2Z"/></svg>`;
+}
+
 function renderMarkers() {
   state.markers.forEach(m => m.marker.remove());
   state.markers = [];
@@ -3289,7 +3317,14 @@ function initSheetDrag() {
 
   // a drag may start from the handle always, from the title/subtitle only
   // when the list is scrolled to the top, or anywhere on a collapsed sheet
+  // — except on mobile, where the collapse gesture has no meaning any more
+  // now that Home/You are full screens (see the mobile screen-shell CSS):
+  // without this, a vertical drag would still move #sheet via inline style
+  // (which beats that CSS) and then spring back on release, reading as
+  // broken. This only disables the vertical branch below — the horizontal
+  // filter-swipe (axis === 'x') doesn't consult canDrag()/dragging at all.
   const canDrag = (e, sheet) => {
+    if (window.innerWidth < 768) return false;
     if (e.target.closest('#sheetHandle')) return true;
     if (sheet.classList.contains('collapsed')) return true;
     if (sheet.scrollTop > 0) return false;
