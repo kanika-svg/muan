@@ -9,6 +9,16 @@ const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
 /* normal map fence — initMap() sets these, clearRoute() restores them after a
    route temporarily lifts the fence */
 const MAP_BOUNDS = { maxBounds: [[102.45, 17.85], [102.82, 18.15]], minZoom: 12.4 };
+// mobile Map tab: where a "fresh" arrival recentres to — the riverside
+// venue cluster around central Vientiane, not wherever the camera happens
+// to be sitting. See maybeRecenterMap(). The requested [102.6070, 17.9660]
+// @ 14.2 clipped the "ວຽງຈັນ" (Vientiane) place label at a 390px-wide
+// screen's right edge — the label itself renders at [102.6134, 17.9641]
+// (queried via queryRenderedFeatures), east of the dense venue cluster
+// around [102.605, 17.965]. Nudged east and out one notch so both the
+// cluster and the full label sit comfortably in frame — verified against
+// the actual mobile viewport width, not just the coordinates on paper.
+const HOME_VIEW = { center: [102.6090, 17.9650], zoom: 14.0 };
 const GOOGLE_CLIENT_ID = '768624583305-553qrbhib2mqbbi10ifsr18b8uqu4uvk.apps.googleusercontent.com';
 
 const state = {
@@ -71,7 +81,14 @@ function setMobileScreen(screen) {
 // popstate handler for the hardware/browser back button (viaPopstate skips
 // the history.replaceState below since the browser already moved us back)
 function leaveVenue(screen, viaPopstate) {
+  // captured before screenBeforeVenue is cleared below: true when this is a
+  // genuine "back to where I opened this venue from" (the back arrow, or
+  // hardware back), false when it's a deliberate jump to a different tab
+  // while a venue happens to be open — only the latter counts as a "fresh"
+  // Map arrival for maybeRecenterMap()
+  const isReturnToSameScreen = screen === state.screenBeforeVenue;
   stopTracking();
+  state.selectedId = null; if (state.map) updateSelection();
   if (state.map) clearRoute();
   if (!viaPopstate && state.venuePushed) history.replaceState(null, '', location.pathname);
   state.venuePushed = false;
@@ -83,12 +100,29 @@ function leaveVenue(screen, viaPopstate) {
     // bottom nav never comes back
     setSheetView({ type: 'map', venueId: null });
     setMobileScreen('map');
-    if (state.map) requestAnimationFrame(() => state.map.resize());
+    if (state.map) {
+      requestAnimationFrame(() => {
+        state.map.resize();
+        if (!isReturnToSameScreen) maybeRecenterMap();
+      });
+    }
   } else if (screen === 'you') {
     openFlameSheet();
   } else {
     renderHomeSheet();
   }
+}
+
+// mobile Map tab: recentres on HOME_VIEW (the riverside venue cluster),
+// but only when there's nothing the user is mid-task with to knock off
+// screen — a selected venue or a drawn route both mean "leave the camera
+// alone" per the redesign brief. Callers are responsible for only invoking
+// this on a genuinely fresh arrival (see the nav-tap handler and
+// leaveVenue() above) — this function itself only checks the "is there
+// something to disturb" half of that.
+function maybeRecenterMap() {
+  if (!state.map || state.selectedId || state.currentRouteGeometry) return;
+  state.map.easeTo({ center: HOME_VIEW.center, zoom: HOME_VIEW.zoom });
 }
 
 /* ---------- geolocation ---------- */
@@ -252,8 +286,14 @@ async function boot() {
         const target = btn.dataset.nav;
         if (state.sheetView.type === 'venue') { leaveVenue(target); return; }
         if (target === 'map') {
+          const arrivingFresh = state.screen !== 'map';
           setMobileScreen('map');
-          if (state.map) requestAnimationFrame(() => state.map.resize());
+          if (state.map) {
+            requestAnimationFrame(() => {
+              state.map.resize();
+              if (arrivingFresh) maybeRecenterMap();
+            });
+          }
         } else if (target === 'you') {
           stopTracking(); if (state.map) clearRoute();
           openFlameSheet();

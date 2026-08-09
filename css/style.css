@@ -1163,9 +1163,10 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 .qa-row { display: none; }
 
 @media (max-width: 767px) {
-  /* Home screen only (Pass 2's stated scope) — You/venue detail keep their
+  /* Home and You — venue detail/other pushed-over views keep their
      existing #sheet padding untouched */
-  #app[data-screen="home"]:not(.sheet-detail) #sheet {
+  #app[data-screen="home"]:not(.sheet-detail) #sheet,
+  #app[data-screen="you"]:not(.sheet-detail) #sheet {
     padding-left: 16px; padding-right: 16px;
   }
 
@@ -1207,4 +1208,11 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     /* same flame-tint wash as .fl-day.lit, for the same "lit up" read */
     background: rgba(255,90,60,.16); color: var(--flame);
   }
+
+  /* ---- You screen: same 16px card-radius token as Home's cards ----
+     (You has no .sec-h-style sectioned/header content to give a 28px
+     "section spacing" token anywhere to attach — its blocks are a single
+     flowing profile layout, not a list of headed sections, so there's
+     nothing to change there) */
+  .fl-badge, .fl-item, .fl-manage-item { border-radius: 16px; }
 }
