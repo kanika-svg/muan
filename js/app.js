@@ -33,6 +33,7 @@ const state = {
   screen: 'home',           // mobile only: 'home' | 'map' | 'you' — see setMobileScreen()
   screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
+  quickFilter: null,        // mobile Home only: null | 'open' | 'near' — orthogonal to state.filter (the type chips); 'tonight' reuses state.filter='event' instead, see bindQuickActions()
 };
 
 const isMobile = () => window.innerWidth < 768;
@@ -2109,6 +2110,22 @@ function icoFlameNav(size) {
     <path d="M12 21c-4 0-7-3-7-7 0-2.8 1.6-5 3-7.2C8.3 8.2 9 10 10 10.5 9.5 7 11 4 12 2c1 2 2.5 5 2 8.5 1-.5 1.7-2.3 2-3.7C17.4 8.8 19 11 19 13.8c0 4.3-3 7.2-7 7.2Z"/></svg>`;
 }
 
+/* mobile Home quick-action chips (Pass 2) — "Near me" and "Tonight" reuse
+   icoLocate/icoMoon above, same style; these two are the only new ones */
+function icoOpenNow(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>`;
+}
+function icoSurprise(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="4.5" y="4.5" width="15" height="15" rx="3.5"/>
+    <circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+    <circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/></svg>`;
+}
+
 function renderMarkers() {
   state.markers.forEach(m => m.marker.remove());
   state.markers = [];
@@ -2297,7 +2314,10 @@ function sectionCard(v, sub, photoOverride, sub2) {
 }
 
 // full-width photo-led card (Tonight, On fire): 16:9 photo, bold name,
-// one status/distance sub-line beneath, whole card tappable
+// one status/distance sub-line beneath, whole card tappable. Name uses a
+// class (not an inline style) specifically so the mobile Home redesign can
+// retype it (16px/600) via CSS without touching this markup or desktop,
+// which keeps reading the same class at its original 15px/700.
 function bigCard(v, sub, photoOverride) {
   const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
   const media = photo
@@ -2306,10 +2326,71 @@ function bigCard(v, sub, photoOverride) {
   return `<div class="card card-big" data-open-venue="${v.id}">
     ${media}
     <div class="card-body">
-      <div style="font-size:15px;font-weight:700;">${esc(v.short_name || v.name)}</div>
+      <div class="cb-name">${esc(v.short_name || v.name)}</div>
       <div class="t-sub">${sub}</div>
     </div>
   </div>`;
+}
+
+// mobile Home only (Pass 2): a "row" card — thumb left, name + status/
+// distance line right — same shape the type list (Bars/Cafes/All) already
+// used, now shared by Busy spots/Coming up/Opening soon/Open late too on
+// mobile, where they replace the .hcards side-scroll carousel (desktop
+// keeps that carousel untouched — see the isMobile() branches in
+// renderHomeSheet()). The status/distance line always renders — "every
+// card gets" it, per the redesign brief — extraLine (event date/title,
+// for Coming up) renders as an additional line above it, never in place of it.
+function rowCard(v, extraLine) {
+  const st = openStatus(v);
+  const color = v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet';
+  const thumb = (v.photos && v.photos.length)
+    ? `<img class="thumb" src="${esc(cloudinaryResize(v.photos[0], 300))}" alt="" loading="lazy">`
+    : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`;
+  return `<div class="card" data-open-venue="${v.id}">
+    ${thumb}
+    <div class="card-body">
+      <div class="row">
+        <span class="t-name">${esc(v.short_name || v.name)}</span>
+        <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
+      </div>
+      ${extraLine ? `<div class="t-sub">${extraLine}</div>` : ''}
+      <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
+    </div>
+  </div>`;
+}
+
+// mobile Home "Open now"/"Near me" quick actions (Pass 2) — orthogonal to
+// state.filter (the All/Bars/Cafes/Events chips): applied on top of
+// whichever type filter is already active, not instead of it. "Tonight"
+// isn't handled here — it just reuses state.filter='event', see
+// bindQuickActions(). Never touches event arrays (tonight/upcoming) —
+// events sort by time, not distance, regardless of "Near me".
+function quickFilterVenues(list) {
+  let out = list;
+  if (state.quickFilter === 'open') out = out.filter(v => openStatus(v).open);
+  if (state.quickFilter === 'near' && state.userPos) {
+    out = [...out].sort((a, b) => haversine(state.userPos, a) - haversine(state.userPos, b));
+  }
+  return out;
+}
+
+// "Surprise me": a random OPEN venue, weighted toward nearby when location
+// is known (nearest 8 rather than a flat citywide random, so "near" means
+// something) — requests location first if it isn't already known, same as
+// warmLocation()'s permission-respecting pattern (never triggers the
+// browser prompt from a background tap, only from this explicit one)
+async function quickSurpriseMe() {
+  if (!state.userPos) await requestLocation();
+  const candidates = state.venues.filter(v =>
+    v.pin_status !== 'pending' && v.lat != null && v.lng != null && openStatus(v).open);
+  if (!candidates.length) return;
+  let pool = candidates;
+  if (state.userPos) {
+    pool = [...candidates]
+      .sort((a, b) => haversine(state.userPos, a) - haversine(state.userPos, b))
+      .slice(0, Math.min(8, candidates.length));
+  }
+  openVenue(pool[Math.floor(Math.random() * pool.length)].id);
 }
 
 /* ---------- Cloudinary URLs: request the size a slot actually renders at */
@@ -2518,6 +2599,45 @@ function goHome() {
   renderHomeSheet();
 }
 
+// mobile Home only (Pass 2, see style.css's .qa-row) — always rendered into
+// both of renderHomeSheet()'s branches; CSS hides the row on desktop rather
+// than branching here, so there's one markup path instead of two
+function quickActionsHtml() {
+  const chip = (kind, icon, label, active) =>
+    `<button class="qa-chip ${active ? 'active' : ''}" data-quick="${kind}">
+      <span class="qa-ico">${icon}</span><span class="qa-label">${label}</span>
+    </button>`;
+  return `<div class="qa-row">
+    ${chip('open', icoOpenNow(18), 'Open now', state.quickFilter === 'open')}
+    ${chip('near', icoLocate(18), 'Near me', state.quickFilter === 'near')}
+    ${chip('tonight', icoMoon(18), 'Tonight', state.filter === 'event')}
+    ${chip('surprise', icoSurprise(18), 'Surprise me', false)}
+  </div>`;
+}
+
+// Open now/Near me/Tonight are mutually exclusive toggles (tapping the
+// active one turns it off); Surprise me is a one-shot pick with no
+// persisted active state, so it isn't part of that group
+async function handleQuickAction(kind) {
+  if (kind === 'surprise') { quickSurpriseMe(); return; }
+  if (kind === 'tonight') {
+    state.filter = state.filter === 'event' ? 'all' : 'event';
+    state.quickFilter = null;
+    syncChipState();
+    renderHomeSheet();
+    return;
+  }
+  // 'open'/'near' have nothing to filter/sort in the events-only view —
+  // drop back to 'all' so activating them is visibly meaningful right away
+  if (state.filter === 'event') { state.filter = 'all'; syncChipState(); }
+  state.quickFilter = state.quickFilter === kind ? null : kind;
+  renderHomeSheet();
+  if (kind === 'near' && state.quickFilter === 'near' && !state.userPos) {
+    const pos = await requestLocation();
+    if (pos && state.quickFilter === 'near') renderHomeSheet();  // re-sort now a position exists
+  }
+}
+
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
   setSheetView({ type: 'home', venueId: null });
@@ -2561,7 +2681,8 @@ function renderHomeSheet() {
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
-      <div class="s-sub lao">${sub}</div>`;
+      <div class="s-sub lao">${sub}</div>
+      ${quickActionsHtml()}`;
     html += secH(color, label);
 
     const cafeTab = state.cafeTab || 'recommended';
@@ -2586,10 +2707,12 @@ function renderHomeSheet() {
         html += cafeGallery.map(v => collageCardHtml(v)).join('');
       }
     } else {
-      const typeVenues = state.venues.filter(v => v.type === f)
-        .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name));
+      const typeVenues = quickFilterVenues(state.venues.filter(v => v.type === f)
+        .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name)));
       if (!typeVenues.length) {
         html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
+      } else if (isMobile()) {
+        html += typeVenues.map(v => rowCard(v)).join('');
       } else {
         for (const v of typeVenues) {
           const st = openStatus(v);
@@ -2618,8 +2741,14 @@ function renderHomeSheet() {
 
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
-    <div class="s-sub lao">${sub}</div>`;
+    <div class="s-sub lao">${sub}</div>
+    ${quickActionsHtml()}`;
   let rendered = false;
+  const mobile = isMobile();
+  // horizontal-scroll carousel (desktop, unchanged) vs. a vertical list of
+  // row cards (mobile Pass 2) — every non-hero section below picks between
+  // these the same way
+  const sectionWrap = cardsHtml => mobile ? cardsHtml : `<div class="hcards">${cardsHtml}</div>`;
 
   if (showEvents && tonight.length) {
     rendered = true;
@@ -2635,7 +2764,7 @@ function renderHomeSheet() {
           <div class="card card-big">
             ${media}
             <div class="card-body">
-              <div style="font-size:15px;font-weight:700;">${esc(ev.title)}</div>
+              <div class="cb-name">${esc(ev.title)}</div>
               <div class="t-sub">${evLine}${ev.short ? ' · ' + esc(ev.short) : ''}${ev.verified ? '' : ' · unconfirmed'}</div>
             </div>
           </div>`;
@@ -2645,11 +2774,14 @@ function renderHomeSheet() {
       const media = tonightPhoto
         ? `<img class="big-thumb" src="${esc(tonightPhoto)}" alt="" loading="lazy">`
         : `<div class="big-thumb thumb-ph" style="color:var(--violet);">${esc((v.short_name || v.name).charAt(0))}</div>`;
+      // status+distance is already folded into this sub-line via venueLine()
+      // (falls back to the area name with no location) — every card here
+      // already had it before Pass 2, nothing to add
       html += `
         <div class="card card-big" data-open-venue="${v.id}">
           ${media}
           <div class="card-body">
-            <div style="font-size:15px;font-weight:700;">${esc(ev.title)} — ${esc(v.short_name || v.name)}</div>
+            <div class="cb-name">${esc(ev.title)} — ${esc(v.short_name || v.name)}</div>
             <div class="t-sub">${evLine} · ${venueLine(v, esc(v.area || ''))}${ev.verified ? '' : ' · unconfirmed'}</div>
           </div>
         </div>`;
@@ -2662,49 +2794,56 @@ function renderHomeSheet() {
       `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing verified yet — new list every Thursday.</div>`;
   }
 
-  if (showVenueSections && pickVenues.length) {
+  const pickVenuesQ = quickFilterVenues(pickVenues);
+  if (showVenueSections && pickVenuesQ.length) {
     rendered = true;
     html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en), miniFlame()) +
-      pickVenues.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('') +
+      pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('') +
       `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
-  if (showVenueSections && busyVenues.length) {
+  const busyVenuesQ = quickFilterVenues(busyVenues);
+  if (showVenueSections && busyVenuesQ.length) {
     rendered = true;
     html += secH('flame', 'Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
-      `<div class="hcards">` +
-      busyVenues.map(v => sectionCard(v, venueLine(v, esc(v.area || '')))).join('') + `</div>
-      <div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
+      sectionWrap(busyVenuesQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, esc(v.area || '')))).join('')) +
+      `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
   }
 
   if (showEvents && upcoming.length) {
     rendered = true;
-    html += secH('violet', 'Coming up · ອີເວັນຕໍ່ໄປ') + `<div class="hcards">` +
-      upcoming.map(ev => {
-        const v = venueById(ev.venue_id);
-        if (!v) {
-          return `<div class="hcard">
+    html += secH('violet', 'Coming up · ອີເວັນຕໍ່ໄປ') + sectionWrap(upcoming.map(ev => {
+      const v = venueById(ev.venue_id);
+      const evSub = `${fmtDate(ev.date)} · ${esc(ev.title)}`;
+      if (!v) {
+        return mobile
+          ? `<div class="card"><div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>
+              <div class="card-body"><span class="t-name">${esc(ev.title)}</span>
+              <div class="t-sub">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div></div></div>`
+          : `<div class="hcard">
             ${ev.photo ? `<img class="thumb" src="${esc(cloudinaryResize(ev.photo, 200))}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
             <div>
               <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
               <div class="hc-sub" style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
             </div>
           </div>`;
-        }
-        return sectionCard(v, `${fmtDate(ev.date)} · ${esc(ev.title)}`, ev.photo, venueLine(v, ''));
-      }).join('') + `</div>`;
+      }
+      return mobile ? rowCard(v, evSub) : sectionCard(v, evSub, ev.photo, venueLine(v, ''));
+    }).join(''));
   }
 
-  if (showVenueSections && openingSoon.length) {
+  const openingSoonQ = quickFilterVenues(openingSoon);
+  if (showVenueSections && openingSoonQ.length) {
     rendered = true;
-    html += secH('violet', 'Opening soon · ກຳລັງຈະເປີດ') + `<div class="hcards">` +
-      openingSoon.map(v => sectionCard(v, venueLine(v, esc(v.area || '')))).join('') + `</div>`;
+    html += secH('violet', 'Opening soon · ກຳລັງຈະເປີດ') +
+      sectionWrap(openingSoonQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, esc(v.area || '')))).join(''));
   }
 
-  if (showVenueSections && late.length) {
+  const lateQ = quickFilterVenues(late);
+  if (showVenueSections && lateQ.length) {
     rendered = true;
-    html += secH('teal', 'Open late · ເປີດເດິກ') + `<div class="hcards">` +
-      late.map(v => sectionCard(v, venueLine(v, openStatus(v).label))).join('') + `</div>`;
+    html += secH('teal', 'Open late · ເປີດເດິກ') +
+      sectionWrap(lateQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, openStatus(v).label))).join(''));
   }
 
 
@@ -3516,6 +3655,8 @@ function setSheet(html) {
       state.cafeTab = el.dataset.cafeTab;
       renderHomeSheet();
     }));
+  inner.querySelectorAll('[data-quick]').forEach(el =>
+    el.addEventListener('click', () => handleQuickAction(el.dataset.quick)));
   inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => {
       // on mobile, the venue detail's back arrow / close button returns to
