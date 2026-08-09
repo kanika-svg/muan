@@ -30,7 +30,65 @@ const state = {
   tracking: null,
   trackWatchId: null,
   cafeTab: 'recommended', // 'recommended' | 'all' — sub-tab inside the Cafes filter
+  screen: 'home',           // mobile only: 'home' | 'map' | 'you' — see setMobileScreen()
+  screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
+  venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
 };
+
+const isMobile = () => window.innerWidth < 768;
+
+// wraps every state.sheetView assignment so the mobile "pushed-over detail
+// view" chrome (hides the bottom nav, lets #sheet cover the full screen —
+// see the mobile screen-shell CSS in style.css) always stays in sync with
+// what #sheetInner actually holds, no matter which of the many render
+// functions (venue, avatar, owner forms, admin) put it there
+const BASE_SHEET_VIEWS = ['home', 'flame', 'map'];  // 'map' has no #sheetInner content — see leaveVenue()
+function setSheetView(view) {
+  state.sheetView = view;
+  document.getElementById('app')?.classList.toggle('sheet-detail', !BASE_SHEET_VIEWS.includes(view.type));
+}
+
+// mobile only: keeps state.screen (the bottom nav's active tab) and its
+// chrome in sync. Called from renderHomeSheet()/openFlameSheet() themselves
+// rather than only from the nav taps, so every path that ends up showing
+// their content — a filter chip, the map's background tap, the venue back
+// button, the post-checkin celebration — marks the right tab active without
+// each call site needing to remember to. The Map tab has no content render
+// of its own, so its nav handler calls this directly instead.
+function setMobileScreen(screen) {
+  state.screen = screen;
+  const app = document.getElementById('app');
+  if (app) app.dataset.screen = screen;
+  document.querySelectorAll('#bottomNav .nav-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.nav === screen));
+  placeChips();
+}
+
+// mobile only: leaves the currently-open venue (or any pushed-over detail
+// view) and returns to the given screen — shared by the venue back-arrow/
+// close buttons, tapping a bottom-nav tab while a venue is open, and the
+// popstate handler for the hardware/browser back button (viaPopstate skips
+// the history.replaceState below since the browser already moved us back)
+function leaveVenue(screen, viaPopstate) {
+  stopTracking();
+  if (state.map) clearRoute();
+  if (!viaPopstate && state.venuePushed) history.replaceState(null, '', location.pathname);
+  state.venuePushed = false;
+  state.screenBeforeVenue = null;
+  if (screen === 'map') {
+    // 'map' has no #sheetInner content of its own to render (unlike home/
+    // flame below, whose render functions call setSheetView() themselves) —
+    // clear the venue view directly or .sheet-detail stays stuck and the
+    // bottom nav never comes back
+    setSheetView({ type: 'map', venueId: null });
+    setMobileScreen('map');
+    if (state.map) requestAnimationFrame(() => state.map.resize());
+  } else if (screen === 'you') {
+    openFlameSheet();
+  } else {
+    renderHomeSheet();
+  }
+}
 
 /* ---------- geolocation ---------- */
 // TEMP diagnostic — remove once the retry flow is confirmed working.
@@ -136,10 +194,14 @@ function placeChips() {
   const chipBar = document.getElementById('chipBar');
   const topbar = document.getElementById('topbar');
   const sheet = document.getElementById('sheet');
-  if (window.innerWidth < 768) {
-    if (!sheet.contains(chipBar)) sheet.insertBefore(chipBar, document.getElementById('sheetInner'));
-  } else if (!topbar.contains(chipBar)) {
-    topbar.appendChild(chipBar);
+  // mobile Map screen shows the topbar (not #sheet) full-screen — see the
+  // mobile screen-shell CSS — so chips dock there, same as desktop, rather
+  // than into a hidden #sheet where nobody could reach them
+  const chipsOnTopbar = !isMobile() || state.screen === 'map';
+  if (chipsOnTopbar) {
+    if (!topbar.contains(chipBar)) topbar.appendChild(chipBar);
+  } else if (!sheet.contains(chipBar)) {
+    sheet.insertBefore(chipBar, document.getElementById('sheetInner'));
   }
 }
 
@@ -174,6 +236,40 @@ async function boot() {
     bindStaleWarning();
     if (vData.stale) showStaleWarning();
     initSheetDrag();
+
+    // mobile bottom nav — tapping a tab while a venue is open closes it via
+    // the same leaveVenue() path as its own back arrow; otherwise Home/You
+    // re-render their content (which also marks themselves active — see
+    // setMobileScreen()) while Map, which has no content of its own to
+    // render, just switches the screen and resizes the map (see MAPLIBRE
+    // HAZARD note above initMap())
+    document.querySelectorAll('#bottomNav .nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.nav;
+        if (state.sheetView.type === 'venue') { leaveVenue(target); return; }
+        if (target === 'map') {
+          setMobileScreen('map');
+          if (state.map) requestAnimationFrame(() => state.map.resize());
+        } else if (target === 'you') {
+          stopTracking(); if (state.map) clearRoute();
+          openFlameSheet();
+        } else {
+          stopTracking(); if (state.map) clearRoute();
+          renderHomeSheet();
+        }
+      });
+    });
+
+    // mobile hardware/browser back button: closes an open venue (popping
+    // the history entry openVenue() pushed for it) instead of leaving the
+    // app. Tab switches (Home/Map/You) never push a history entry, so
+    // pressing back from a tab is unchanged from before this pass — it
+    // still exits, since there was never anything to pop.
+    window.addEventListener('popstate', () => {
+      if (isMobile() && state.sheetView.type === 'venue' && state.venuePushed) {
+        leaveVenue(state.screenBeforeVenue || 'home', true);
+      }
+    });
 
     const st = document.getElementById('sheetToggle');
     st.addEventListener('click', () => {
@@ -398,7 +494,7 @@ function refreshAvatarBtn() {
 }
 function openAvatarSheet() {
   toggleSheet(false);
-  state.sheetView = { type: 'avatar', venueId: null };
+  setSheetView({ type: 'avatar', venueId: null });
   const cur = localStorage.getItem('muan-avatar');
   setSheet(`<div id="avatarSheet" data-venue-detail hidden></div>
     <div class="s-title" style="text-align:center;">Choose your avatar</div>
@@ -521,7 +617,8 @@ function miniFlame() {
 
 async function openFlameSheet() {
   toggleSheet(false);
-  state.sheetView = { type: 'flame', venueId: null };
+  setSheetView({ type: 'flame', venueId: null });
+  setMobileScreen('you');
   setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Loading your flame…</div>');
   let me = null;
   try { me = await (await fetch('/api/me')).json(); } catch(e) {}
@@ -907,7 +1004,7 @@ function edLabelHtml(key, forId) {
 // it just created, since photos and further edits happen there.
 function openVenueSubmitForm() {
   toggleSheet(false);
-  state.sheetView = { type: 'venue-submit', venueId: null };
+  setSheetView({ type: 'venue-submit', venueId: null });
 
   const hoursRowsHtml = ED_DAY_ORDER.map(day => `
     <div class="ed-hrow" data-day="${day}">
@@ -1148,7 +1245,7 @@ function wireVenueSubmitForm() {
 
 function openVenueEditor(venue, opts = {}) {
   toggleSheet(false);
-  state.sheetView = { type: 'venue-edit', venueId: venue.id };
+  setSheetView({ type: 'venue-edit', venueId: venue.id });
 
   const hours = venue.hours || {};
   const contact = venue.contact || {};
@@ -1521,7 +1618,7 @@ function wireVenueEditor(venue, opts = {}) {
 // client-side gate.
 function openAdminPendingSheet(pendingVenues) {
   toggleSheet(false);
-  state.sheetView = { type: 'admin-pending', venueId: null };
+  setSheetView({ type: 'admin-pending', venueId: null });
 
   const cardsHtml = pendingVenues.length
     ? pendingVenues.map(adminPendingCardHtml).join('')
@@ -1801,6 +1898,15 @@ function bindTheme() {
 }
 
 /* ---------- map ---------- */
+// MAPLIBRE HAZARD (mobile three-screen shell): #map is created once, here,
+// and its container is NEVER display:none'd or resized while off-screen —
+// on Home/You/any pushed-over detail view, #sheet simply sits above it in
+// z-order at the same full #app size #map already has on every screen, so
+// #map's own dimensions never change and there's nothing to go blank. The
+// state.map.resize() call on the Map nav tap (see boot()) is a defensive
+// measure for real viewport drift while covered (mobile browser chrome
+// collapsing, safe-area changes) rather than a fix for a hide/show resize —
+// there is no hide/show of #map itself in this design.
 function initMap() {
   state.map = new maplibregl.Map({
     container: 'map',
@@ -2386,7 +2492,8 @@ function goHome() {
 
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
-  state.sheetView = { type: 'home', venueId: null };
+  setSheetView({ type: 'home', venueId: null });
+  setMobileScreen('home');
   // does NOT clear the route — a route should only clear when the venue
   // sheet is explicitly closed (see the data-home handler below), a
   // different venue opens, or Directions is toggled off, never just because
@@ -2614,6 +2721,12 @@ function updateCheckinButton(v) {
 function openVenue(id) {
   const v = venueById(id);
   if (!v) return;
+  // mobile back-button support (see leaveVenue()/the popstate listener):
+  // only a genuinely fresh open — not a re-render of the venue already
+  // showing, e.g. the sticky reopen from goHome() — records where "back"
+  // should return to and pushes a history entry for it
+  const isFreshOpen = state.sheetView.type !== 'venue';
+  if (isFreshOpen) state.screenBeforeVenue = state.screen;
   toggleSheet(false);
   if (!state.userPos) warmLocation();  // so Directions usually has a fix already — see warmLocation()
   // a route only dies when a DIFFERENT venue opens — reopening the routed
@@ -2621,7 +2734,7 @@ function openVenue(id) {
   if (state.routeVenueId && state.routeVenueId !== id) clearRoute();
   const hasStickyRoute = state.routeVenueId === id && !!state.currentRouteGeometry;
   state.selectedId = id; updateSelection();
-  state.sheetView = { type: 'venue', venueId: id };
+  setSheetView({ type: 'venue', venueId: id });
   const st = openStatus(v);
   const evs = venueEvents(id);
   // owner-submitted venue awaiting Kar's pin (migrations/009_pin_status.sql)
@@ -2769,7 +2882,19 @@ function openVenue(id) {
   // still-rendering old content's scrollTop assignment gets overwritten
   const sheet = document.getElementById('sheet');
   if (sheet) sheet.scrollTop = 0;
-  history.replaceState(null, '', '?v=' + v.id);
+  // mobile back-button support: a fresh open pushes a history entry so the
+  // hardware/browser back button can pop it and close the venue (see the
+  // popstate listener in boot()) — except on a deep link (?v=id) load, where
+  // that URL is already the current entry and pushing would just add a
+  // second, identical one. A re-render of an already-open venue (sticky
+  // reopen, content refresh) reuses the existing entry either way.
+  const venueUrl = '?v=' + v.id;
+  if (isFreshOpen && isMobile() && location.search !== venueUrl) {
+    history.pushState({ psdVenue: id }, '', venueUrl);
+    state.venuePushed = true;
+  } else {
+    history.replaceState(null, '', venueUrl);
+  }
   document.querySelectorAll('.gal-hero, .gal-thumb').forEach(img => watchImgLoad(img, v));
   document.querySelectorAll('.gal-thumb').forEach(t => t.addEventListener('click', () => {
     const hero = document.getElementById('galHero');
@@ -3358,6 +3483,15 @@ function setSheet(html) {
     }));
   inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => {
+      // on mobile, the venue detail's back arrow / close button returns to
+      // whichever screen it was opened over (Home, Map or You) rather than
+      // always Home — see leaveVenue(). Every other data-home button (the
+      // sign-in prompt's and flame sheet's "Done") always meant "go home",
+      // same as before.
+      if (isMobile() && state.sheetView.type === 'venue') {
+        leaveVenue(state.screenBeforeVenue || 'home');
+        return;
+      }
       stopTracking();
       if (state.map) clearRoute();     // explicit "leave this sheet" action — the route dies with it
       renderHomeSheet();

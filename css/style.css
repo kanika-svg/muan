@@ -926,6 +926,53 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   #sheet.dragging { overflow: hidden; }  /* internal list can't move */
 }
 
+/* ============ mobile: three-screen shell (Home / Map / You) ============
+   #app's data-screen attribute (set by setMobileScreen() in app.js) picks
+   which screen is showing; .sheet-detail (set by setSheetView()) marks a
+   pushed-over detail view (venue, avatar, owner forms, admin) regardless of
+   which screen it was opened from. #map itself is NEVER hidden or resized
+   here — it stays mounted at #app's full size on every screen; on Home/You/
+   detail it's simply covered by #sheet sitting above it in z-order (see
+   app.js's report on this for why that sidesteps the MapLibre blank-canvas
+   hazard entirely rather than needing to fight it). The old collapse/drag
+   transform above still runs but is overridden below by specificity, not
+   deleted — desktop still uses it. */
+#bottomNav { display: none; }
+
+@media (max-width: 767px) {
+  #app[data-screen="home"] #sheet,
+  #app[data-screen="you"] #sheet,
+  #app.sheet-detail #sheet {
+    display: block; position: fixed; inset: 0; transform: none;
+    max-height: none; border-radius: 0;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+  }
+  /* leave room for the bottom nav only when it's actually showing beneath */
+  #app[data-screen="home"]:not(.sheet-detail) #sheet,
+  #app[data-screen="you"]:not(.sheet-detail) #sheet {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px + 56px);
+  }
+  #app[data-screen="map"]:not(.sheet-detail) #sheet { display: none; }
+
+  #topbar { display: none; }
+  #app[data-screen="map"]:not(.sheet-detail) #topbar { display: block; }
+
+  #bottomNav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--ink2); border-top: 1px solid var(--ink4);
+  }
+  #app.sheet-detail #bottomNav { display: none; }
+  #bottomNav .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; background: none; border: none; font-family: var(--font);
+    font-size: 10.5px; font-weight: 700; color: var(--mute); cursor: pointer;
+  }
+  #bottomNav .nav-item.active { color: var(--flame); }
+  #bottomNav .nav-ico { font-size: 19px; line-height: 1; }
+}
+
 /* double-line section dividers */
 .sec-h {
   border-top: 1px solid var(--ink3);
