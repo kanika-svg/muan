@@ -2401,7 +2401,7 @@ function sectionCard(v, sub, photoOverride, sub2) {
 function bigCard(v, sub, photoOverride) {
   const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
   const media = photo
-    ? `<img class="big-thumb" src="${esc(photo)}" alt="" loading="lazy">`
+    ? `<img class="big-thumb" src="${esc(cloudinaryUrl(photo, 900))}" alt="" loading="lazy">`
     : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, v.type, true)}" alt="" loading="lazy">`;
   return `<div class="card card-big" data-open-venue="${v.id}">
     ${media}
@@ -2484,10 +2484,41 @@ async function quickSurpriseMe() {
 // row, or anything not hosted on Cloudinary), it's returned unchanged — a
 // bad row degrades instead of breaking.
 const CLOUDINARY_CLOUD_NAME = 'dzxg1vyi8';
+// what a converted row actually looks like (see the migration note on
+// SCHEMA_NOTES in scripts/export-venues.js) — anything else reaching here
+// is either an unconverted full URL (handled above) or a data bug.
+const CLOUDINARY_STORED_RE = /^v\d+\/.+$/;
 function cloudinaryUrl(stored, width) {
   if (typeof stored !== 'string') return stored;
   if (/^https?:\/\//i.test(stored)) return stored;
+  if (!CLOUDINARY_STORED_RE.test(stored)) {
+    console.warn('cloudinaryUrl: stored value is neither a full URL nor "v<digits>/<publicId>":', stored);
+  }
   return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/w_${width},q_auto,f_auto,dpr_auto/${stored}`;
+}
+
+// dev-only guard for the bug class cloudinaryUrl() itself can't see: a call
+// site that skips it entirely and drops a raw stored value straight into an
+// <img src>, which the browser then resolves against our own origin instead
+// of Cloudinary (exactly what happened to the On Fire / Tonight hero cards
+// this was added for). data: is allowed — every no-photo placeholder tile
+// (see venueTileUri()) is a data URI, not a bug. Reuses ?debug=1 rather than
+// a separate flag (see DEBUG_GEO above).
+if (DEBUG_GEO) {
+  new MutationObserver(muts => {
+    for (const m of muts) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        const imgs = node.matches('img') ? [node] : [...node.querySelectorAll('img')];
+        for (const img of imgs) {
+          const src = img.getAttribute('src') || '';
+          if (!/^(https?:|data:|\/)/.test(src)) {
+            console.error('bad <img> src — looks like it skipped cloudinaryUrl():', src, img);
+          }
+        }
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
 }
 
 /* ---------- no-photo placeholder tile ---------- */
@@ -2883,7 +2914,7 @@ function renderHomeSheet() {
       const evLine = `${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}`;
       if (!v) {
         const media = ev.photo
-          ? `<img class="big-thumb" src="${esc(ev.photo)}" alt="" loading="lazy">`
+          ? `<img class="big-thumb" src="${esc(cloudinaryUrl(ev.photo, 900))}" alt="" loading="lazy">`
           : `<img class="big-thumb" src="${venueTileUri(ev.title, 'venue', true)}" alt="" loading="lazy">`;
         html += `
           <div class="card card-big">
@@ -2897,7 +2928,7 @@ function renderHomeSheet() {
       }
       const tonightPhoto = ev.photo || ((v.photos && v.photos.length) ? v.photos[0] : null);
       const media = tonightPhoto
-        ? `<img class="big-thumb" src="${esc(tonightPhoto)}" alt="" loading="lazy">`
+        ? `<img class="big-thumb" src="${esc(cloudinaryUrl(tonightPhoto, 900))}" alt="" loading="lazy">`
         : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, 'venue', true)}" alt="" loading="lazy">`;
       // status+distance is already folded into this sub-line via venueLine()
       // (falls back to the area name with no location) — every card here
