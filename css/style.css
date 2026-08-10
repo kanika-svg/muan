@@ -382,6 +382,10 @@ body {
   box-shadow: 0 4px 16px rgba(0,0,0,.35); cursor: pointer;
 }
 #routeBar[hidden] { display: none; }
+/* the mobile route bar's label can now carry a venue name too (see
+   showRouteBar() in app.js) — keep the pill's shape instead of stretching
+   or wrapping */
+#routeBarLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 #routeBarClose {
   flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; border: none;
   background: var(--ink3); color: var(--mute); font-size: 11px; cursor: pointer;

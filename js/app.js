@@ -3285,6 +3285,26 @@ async function toggleRoute(v) {
     // map to fit it is disorienting — the distance/time above is enough
     if (data.distance_m > 40000) {
       lbl.textContent = 'Too far to map';
+    } else if (isMobile()) {
+      // the venue detail covers the whole screen here with no map visible
+      // behind it (#map itself is never hidden — see the mobile screen-
+      // shell comment in style.css — it's just covered in z-order) —
+      // drawing the route now would draw it under an opaque sheet nobody
+      // can see, which is the exact bug this branch exists to fix.
+      // leaveVenue() must run BEFORE showRoute(), synchronously, in this
+      // order and on this tick: leaveVenue() unconditionally clears any
+      // current route as part of closing the venue (wiping the very route
+      // we're about to draw if the order were reversed), and it also
+      // queues its own requestAnimationFrame that re-centres the camera to
+      // HOME_VIEW unless state.currentRouteGeometry is already set by the
+      // time that frame runs — deferring showRoute() to a later frame
+      // would lose that race and cause a visible flick to HOME_VIEW right
+      // before the route's own fitBounds.
+      const venueName = v.short_name || v.name;
+      leaveVenue('map');
+      state.routeLabel = label;
+      showRoute(data.geometry, v.id);
+      showRouteBar(label, venueName);
     } else {
       state.routeLabel = label;
       showRoute(data.geometry, v.id);
@@ -3379,10 +3399,13 @@ function showRoute(geometry, venueId) {
 
 // small persistent bar shown whenever a route is drawn — lives outside the
 // sheet entirely (static markup in index.html) so it survives the venue
-// sheet closing, the home sheet re-rendering, or the sheet collapsing
-function showRouteBar(label) {
+// sheet closing, the home sheet re-rendering, or the sheet collapsing.
+// venueName is only passed on mobile (see toggleRoute()) — the venue detail
+// is closed there, so nothing else on screen says where the route goes;
+// desktop's docked sheet already shows that, so its bar stays label-only.
+function showRouteBar(label, venueName) {
   const bar = document.getElementById('routeBar');
-  document.getElementById('routeBarLabel').textContent = label;
+  document.getElementById('routeBarLabel').textContent = venueName ? `${label} · ${venueName}` : label;
   bar.hidden = false;
 }
 
@@ -3395,6 +3418,11 @@ function bindRouteBar() {
   const bar = document.getElementById('routeBar');
   bar.addEventListener('click', (e) => {
     if (e.target.closest('#routeBarClose')) { clearRoute(); return; }
+    // mobile: the venue detail is closed while a route shows (see
+    // toggleRoute()), so there's nowhere else to re-open it from — tapping
+    // the bar reopens it. Desktop's sheet is already open alongside the
+    // map, so it keeps the old re-frame-on-tap behaviour instead.
+    if (isMobile() && state.routeVenueId) { openVenue(state.routeVenueId); return; }
     if (state.currentRouteGeometry) frameRoute(state.currentRouteGeometry);
   });
 }
