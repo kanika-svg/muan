@@ -18,6 +18,19 @@
   /* one step lighter/darker than whatever's behind a card — resolves
      against each theme's own --ink3 below, so it only needs setting once */
   --surface: var(--ink3);
+  /* raised-surface depth (cards, chips, badges — see the "raised surfaces"
+     section below for the full selector list). Gradient stops are the
+     existing ink2/ink4 tokens rather than new hex values: they're already
+     exactly "one step either side" of --ink3 in this app's 4-step ink
+     scale, which is what a subtle top-lit edge needs — inventing separate
+     hex here would just duplicate that scale slightly out of sync with it. */
+  --card-fill: linear-gradient(180deg, var(--ink4) 0%, var(--ink2) 100%);
+  --card-edge: inset 0 1px 0 rgba(255,255,255,.09);
+  --card-lift: 0 2px 10px rgba(0,0,0,.35);
+  /* frosted-glass surfaces (bottom nav, route bar) — matches this theme's
+     own --ink so the blur reads as "this surface, translucent" rather than
+     an unrelated tint. See the "frosted glass" section below. */
+  --frost: rgba(19,16,25,.72);
 }
 
 /* day theme — warm milky/cream */
@@ -36,6 +49,13 @@
   --pin-bar:   #D93A1F;
   --pin-cafe:  #0F7A60;
   --pin-venue: #5B3DB0;
+  /* a bright top edge (dark theme's --card-edge) is invisible on cream, so
+     this inverts: a soft shadow beneath instead, and a slightly deeper
+     bottom edge rather than a bright top one */
+  --card-fill: linear-gradient(180deg, #FFFDF8 0%, #F7F1E4 100%);
+  --card-edge: inset 0 -1px 0 rgba(90,75,45,.07);
+  --card-lift: 0 1px 3px rgba(90,75,45,.10), 0 4px 12px rgba(90,75,45,.06);
+  --frost: rgba(255,252,245,.72);
 }
 :root { --halo: rgba(0,0,0,.9); }
 
@@ -230,7 +250,8 @@ body {
 .tag.closed { color: var(--dim); }
 
 .card {
-  background: transparent; border: 1px solid var(--ink4);
+  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  border: 1px solid var(--ink4);
   border-radius: 14px; padding: 11px 12px; margin-top: 10px; cursor: pointer;
 }
 .card .row { display: flex; justify-content: space-between; align-items: center; }
@@ -281,7 +302,12 @@ body {
 /* desktop: sheet becomes a floating panel */
 @media (min-width: 768px) {
   .chip:hover, .pill:hover { border-color: var(--dim); }
-  .card:hover, .hcard:hover { background: var(--ink4); transform: translateY(-2px); border-color: var(--dim); }
+  /* .card now carries background-image (--card-fill) — a shorthand
+     `background` here would silently reset it to none on hover, flattening
+     the raised look right when it should read more raised. .hcard has no
+     gradient (not in the raised-surface set), so it keeps the flat tint. */
+  .hcard:hover { background: var(--ink4); transform: translateY(-2px); border-color: var(--dim); }
+  .card:hover { transform: translateY(-2px); border-color: var(--dim); }
   .hcards { flex-wrap: wrap; overflow-x: visible; margin-right: 0; padding-right: 0; }
   #sheet { padding-left: 18px; padding-right: 18px; }
 }
@@ -314,12 +340,12 @@ body {
 .act-row { display: flex; gap: 8px; margin: 14px 0 18px; }
 .act {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
-  background: var(--ink3); border: none; border-radius: 14px;
+  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  border: none; border-radius: 14px;
   padding: 11px 6px; color: var(--mute); font-size: 11.5px;
   font-family: var(--font); text-decoration: none; cursor: pointer;
   transition: transform .16s cubic-bezier(.34,1.56,.64,1), background .2s;
 }
-.act:active { transform: scale(.95); }
 .act-ico { font-size: 17px; line-height: 1; }
 .act#checkinBtn.ready { background: var(--flame); color: var(--ink); }
 .act:disabled { opacity: .5; cursor: default; }
@@ -372,14 +398,23 @@ body {
 /* persistent route indicator — independent of the sheet so the route has
    somewhere to live whether the venue sheet, the home sheet, or a collapsed
    sheet is showing underneath it (see clearRoute()/showRoute() in app.js) */
+/* frosted glass: earns itself here specifically because the map (something
+   genuinely interesting) sits behind it — see the bottom nav below for the
+   only other spot. The @supports fallback matters: older Android WebViews
+   lack backdrop-filter entirely and would render --frost's translucency as
+   a barely-there smear over the map instead of a legible pill. */
 #routeBar {
   position: absolute; top: calc(env(safe-area-inset-top, 0px) + 60px);
   left: 50%; transform: translateX(-50%); z-index: 8;
   display: flex; align-items: center; gap: 8px;
-  background: var(--ink2); border: 1px solid var(--ink4);
+  background: var(--frost); border: 1px solid var(--ink4);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-radius: 999px; padding: 7px 7px 7px 16px; max-width: calc(100vw - 32px);
   font-family: var(--font); font-size: 12.5px; font-weight: 700; color: var(--bone);
-  box-shadow: 0 4px 16px rgba(0,0,0,.35); cursor: pointer;
+  box-shadow: var(--card-edge); cursor: pointer;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #routeBar { background: var(--ink2); }
 }
 #routeBar[hidden] { display: none; }
 /* the mobile route bar's label can now carry a venue name too (see
@@ -440,7 +475,29 @@ body {
               background .2s, box-shadow .2s, border-color .2s;
 }
 .pill:active, .chip:active { transform: scale(.94); }
-.hcard:active, .card:active { transform: scale(.97); }
+.hcard:active { transform: scale(.97); }
+
+/* ============ raised-surface press: card appears to sink in, not shrink —
+   .card used to share .hcard's scale(.97) above; split out once .card
+   gained real depth (--card-fill/--card-edge/--card-lift, see :root),
+   since scaling down a surface with a top edge and a drop shadow to invert
+   reads wrong once it has that depth. The transition lives on :active
+   itself (not on each base rule) so only the press-IN is pinned to 80ms;
+   releasing back to rest still eases out at whatever speed that surface's
+   own rule already used (.card's spring cubic-bezier, etc.) rather than
+   overwriting every one of these selectors' pre-existing transitions. */
+.card:active, .collage-card:active, .qa-chip:active,
+.fl-badge:active, .fl-item:active, .fl-manage-item:active, .act:active {
+  transition: box-shadow .08s ease, transform .08s ease;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
+  transform: translateY(1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card:active, .collage-card:active, .qa-chip:active,
+  .fl-badge:active, .fl-item:active, .fl-manage-item:active, .act:active {
+    transform: none;
+  }
+}
 
 /* ============ sheet content entrance ============ */
 .sheet-anim .sec-h, .sheet-anim .card, .sheet-anim .hcards, .sheet-anim .sec-empty {
@@ -698,13 +755,19 @@ body {
 .fl-stat b { display: block; font-size: 20px; color: var(--bone); }
 .fl-stat span { font-size: 11px; color: var(--mute); }
 .fl-badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; }
-.fl-badge { background:var(--ink3); border-radius:12px; padding:8px 12px; text-align:center; }
+.fl-badge {
+  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  border-radius:12px; padding:8px 12px; text-align:center;
+}
 .fl-badge-ico { display:block; font-size:18px; }
 .fl-badge-name { font-size:10.5px; color:var(--mute); }
 .fl-badge.locked { opacity: .45; }
 .fl-badge-prog { font-size: 10px; color: var(--dim); display: block; }
 .fl-items-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
-.fl-item { background:var(--ink3); border-radius:12px; padding:8px 12px; text-align:center; }
+.fl-item {
+  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  border-radius:12px; padding:8px 12px; text-align:center;
+}
 .fl-item-name { display:block; font-size:11px; font-weight:700; color:var(--bone); }
 .fl-item.locked { opacity:.5; }
 .fl-item-req { display:block; font-size:9.5px; color:var(--dim); margin-top:2px; }
@@ -722,7 +785,8 @@ body {
 }
 .fl-manage-item {
   display: flex; justify-content: space-between; align-items: center;
-  width: 100%; background: var(--ink3); border: none; border-radius: 12px;
+  width: 100%; background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  border: none; border-radius: 12px;
   padding: 12px 14px; margin-top: 6px; color: var(--bone); font-size: 13.5px;
   font-weight: 700; font-family: var(--font); cursor: pointer;
 }
@@ -828,6 +892,7 @@ body {
    neither's styles bleed into the other. */
 .collage-card {
   position: relative; height: 300px; margin-top: 10px;
+  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
   border-radius: 14px; overflow: hidden; cursor: pointer;
 }
 
@@ -965,6 +1030,21 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     height: calc(56px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--ink2); border-top: 1px solid var(--ink4);
+  }
+  /* frosted only where the nav actually floats over the map (data-screen
+     "map") — that's the one case with something behind it worth blurring.
+     On Home/You it sits over the sheet's own flat background instead, so
+     it keeps the plain fill above rather than paying backdrop-filter's GPU
+     cost for nothing (see the no-backdrop-filter-elsewhere rule this file
+     follows — same reasoning, just scoped per-screen instead of per-element
+     since #bottomNav is one element shared across all three screens). */
+  #app[data-screen="map"] #bottomNav {
+    background: var(--frost);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--card-edge);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    #app[data-screen="map"] #bottomNav { background: var(--ink2); }
   }
   #app.sheet-detail #bottomNav { display: none; }
   #bottomNav .nav-item {
@@ -1196,7 +1276,8 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   .qa-chip {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 5px; height: 64px; border: none; border-radius: 12px; cursor: pointer;
-    background: var(--surface); color: var(--mute); font-family: var(--font);
+    background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+    color: var(--mute); font-family: var(--font);
   }
   .qa-chip .qa-label { font-size: 11px; font-weight: 700; line-height: 1.1; text-align: center; }
   .qa-chip.active {
