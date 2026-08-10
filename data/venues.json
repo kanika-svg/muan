@@ -570,14 +570,22 @@
       "photos": [
         "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/kokkok_megamart1_in5kif.jpg"
       ],
-      "hours": null,
+      "hours": {
+        "mon": "09:30-22:00",
+        "tue": "09:30-22:00",
+        "wed": "09:30-22:00",
+        "thu": "09:30-22:00",
+        "fri": "09:30-22:00",
+        "sat": "09:30-22:00",
+        "sun": "09:30-22:00"
+      },
       "links": {
         "facebook": "https://www.facebook.com/KokKokMegaMall",
         "website": "https://kokkokmegamall.com/",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9760734,102.6247692"
       },
       "verified": true,
-      "source": "Facebook page KokKokMegaMall + kokkokmegamall.com; opening confirmed 2026-08-08",
+      "source": "Facebook page KokKokMegaMall + kokkokmegamall.com; opening confirmed 2026-08-08; hours from their Facebook page, updated by the venue 2026-08-08",
       "pin_status": "placed",
       "contact": {
         "phone": "+8562059887777",
