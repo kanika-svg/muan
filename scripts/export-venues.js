@@ -24,7 +24,12 @@ const SCHEMA_NOTES =
   "Google hours can lag reality — spot-check in person when convenient. " +
   "hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours " +
   "object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am " +
-  "= '26:00', 03:00 am = '27:00'.";
+  "= '26:00', 03:00 am = '27:00'. " +
+  "photos (and events.json's photo field): '<version>/<publicId>', e.g. " +
+  "'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. " +
+  "See cloudinaryUrl() in js/app.js, the only place that turns this into a " +
+  "delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, " +
+  "not in the stored value).";
 
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a

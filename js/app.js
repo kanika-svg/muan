@@ -950,7 +950,7 @@ function edSigRowHtml(idx, item) {
 function edPhotoRowHtml(url, idx, total) {
   return `
     <div class="ed-photo" data-photo-url="${esc(url)}">
-      <img src="${esc(cloudinaryResize(url, 200))}" alt="">
+      <img src="${esc(cloudinaryUrl(url, 200))}" alt="">
       <div class="ed-photo-actions">
         <button type="button" class="ed-photo-up" ${idx === 0 ? 'disabled' : ''} aria-label="Move earlier">↑</button>
         <button type="button" class="ed-photo-down" ${idx === total - 1 ? 'disabled' : ''} aria-label="Move later">↓</button>
@@ -1859,14 +1859,15 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
   };
   refreshAddBtn();
 
-  // attaches an already-uploaded Cloudinary URL to the venue; split out so
-  // a failed PATCH (upload succeeded, save didn't) can be retried without
+  // attaches an already-uploaded Cloudinary asset to the venue, stored as
+  // "<version>/<publicId>" (see cloudinaryUrl()); split out so a failed
+  // PATCH (upload succeeded, save didn't) can be retried without
   // re-uploading the file
-  async function attachPhoto(url) {
+  async function attachPhoto(stored) {
     const res = await fetch(`/api/venues/${encodeURIComponent(venue.id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photos: photosState.concat(url) }),
+      body: JSON.stringify({ photos: photosState.concat(stored) }),
     });
     const data = await res.json().catch(() => null);
     if (!data || !data.ok) {
@@ -1879,15 +1880,15 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
     onSaved();
   }
 
-  function showRetry(message, url) {
+  function showRetry(message, stored) {
     uploadErr.innerHTML = `${esc(message)} — <button type="button" class="ed-photo-retry" id="edPhotoRetryBtn">Retry</button>`;
     uploadErr.querySelector('#edPhotoRetryBtn').addEventListener('click', async () => {
       uploadErr.textContent = 'Saving…';
       try {
-        await attachPhoto(url);
+        await attachPhoto(stored);
         uploadErr.textContent = '';
       } catch (e) {
-        showRetry(e.message || 'could not save the photo', url);
+        showRetry(e.message || 'could not save the photo', stored);
       }
     });
   }
@@ -1911,7 +1912,7 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
     progressBar.style.width = '0%';
     progressLabel.textContent = 'Uploading… 0%';
 
-    let uploadedUrl = null;
+    let uploadedRef = null;
     try {
       const sigRes = await fetch('/api/upload-signature', {
         method: 'POST',
@@ -1952,14 +1953,14 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
         xhr.send(form);
       });
 
-      uploadedUrl = `https://res.cloudinary.com/${sig.cloud_name}/image/upload/w_1200/v${uploadResult.version}/${uploadResult.public_id}.${uploadResult.format}`;
+      uploadedRef = `v${uploadResult.version}/${uploadResult.public_id}`;
       progressLabel.textContent = 'Saving…';
-      await attachPhoto(uploadedUrl);
+      await attachPhoto(uploadedRef);
     } catch (e) {
-      if (uploadedUrl) {
+      if (uploadedRef) {
         // the file is already sitting in Cloudinary at this point — no need
         // to re-upload, just retry attaching it to the venue
-        showRetry(e.message || 'could not save the photo', uploadedUrl);
+        showRetry(e.message || 'could not save the photo', uploadedRef);
       } else {
         uploadErr.textContent = e.message || 'upload failed — try again';
       }
@@ -2380,7 +2381,7 @@ function opensLate(v) {
 function sectionCard(v, sub, photoOverride, sub2) {
   const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
   const thumb = photo
-    ? `<img class="thumb" src="${esc(cloudinaryResize(photo, 200))}" alt="" loading="lazy">`
+    ? `<img class="thumb" src="${esc(cloudinaryUrl(photo, 200))}" alt="" loading="lazy">`
     : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
   return `<div class="hcard" data-open-venue="${v.id}">
     ${thumb}
@@ -2422,7 +2423,7 @@ function bigCard(v, sub, photoOverride) {
 function rowCard(v, extraLine) {
   const st = openStatus(v);
   const thumb = (v.photos && v.photos.length)
-    ? `<img class="thumb" src="${esc(cloudinaryResize(v.photos[0], 300))}" alt="" loading="lazy">`
+    ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 300))}" alt="" loading="lazy">`
     : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
   return `<div class="card" data-open-venue="${v.id}">
     ${thumb}
@@ -2471,15 +2472,22 @@ async function quickSurpriseMe() {
   openVenue(pool[Math.floor(Math.random() * pool.length)].id);
 }
 
-/* ---------- Cloudinary URLs: request the size a slot actually renders at */
-// every stored photo URL requests w_1200 regardless of where it's used —
-// rewrites that one transform segment to the width the calling slot needs
-// (plus dpr_auto for retina) rather than storing multiple URLs per photo.
-// No-ops on anything that isn't in the expected .../upload/w_1200,.../shape,
-// so a differently-hosted or already-rewritten URL just passes through.
-function cloudinaryResize(url, width) {
-  if (typeof url !== 'string') return url;
-  return url.replace(/w_1200(?=,|\/)/, `w_${width},dpr_auto`);
+/* ---------- Cloudinary URLs: build the delivery URL a slot actually renders at */
+// venues.photos / events.photo store "<version>/<publicId>" (see
+// scripts/export-venues.js, functions/api/venues/[id].js), not full URLs —
+// this is the one place that turns that into something an <img> can load,
+// so cloud name and transform live here once instead of being repeated (or
+// baked into stored rows, which is what made switching providers/transforms
+// mean rewriting every row in the first place). Always applies
+// q_auto,f_auto,dpr_auto plus the requested width; never reads a transform
+// out of the stored value. If `stored` is already a full URL (unconverted
+// row, or anything not hosted on Cloudinary), it's returned unchanged — a
+// bad row degrades instead of breaking.
+const CLOUDINARY_CLOUD_NAME = 'dzxg1vyi8';
+function cloudinaryUrl(stored, width) {
+  if (typeof stored !== 'string') return stored;
+  if (/^https?:\/\//i.test(stored)) return stored;
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/w_${width},q_auto,f_auto,dpr_auto/${stored}`;
 }
 
 /* ---------- no-photo placeholder tile ---------- */
@@ -2587,7 +2595,7 @@ function watchCollageCard(cardEl, v) {
 }
 
 // swaps a card's tiles from their placeholder monogram src to their real
-// (already width-rewritten, see cloudinaryResize()) photo URL, then arms
+// (already width-rewritten, see cloudinaryUrl()) photo URL, then arms
 // the load/error/timeout fallback for those real requests — called once per
 // card, when observeCollageCards() decides it's actually time to load it
 function loadCollageCardPhotos(cardEl, v) {
@@ -2670,13 +2678,13 @@ function collagePhotosHtml(v, altName) {
   const extra = photos.length - 3;
   let html = `<div class="collage-photos">`;
   html += `<div class="collage-tile collage-tile-big${n === 1 ? ' solo' : ''}">
-    <img src="${phBig}" data-src="${esc(cloudinaryResize(photos[0], 600))}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
+    <img src="${phBig}" data-src="${esc(cloudinaryUrl(photos[0], 600))}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
   if (n >= 2) {
     const more = n >= 3 && extra > 0 ? extra : null;
     html += `<div class="collage-row">
-      <div class="collage-tile"><img src="${phSmall}" data-src="${esc(cloudinaryResize(photos[1], 300))}" alt="" loading="lazy" draggable="false"></div>
+      <div class="collage-tile"><img src="${phSmall}" data-src="${esc(cloudinaryUrl(photos[1], 300))}" alt="" loading="lazy" draggable="false"></div>
       ${n >= 3 ? `<div class="collage-tile">
-        <img src="${phSmall}" data-src="${esc(cloudinaryResize(photos[2], 300))}" alt="" loading="lazy" draggable="false">
+        <img src="${phSmall}" data-src="${esc(cloudinaryUrl(photos[2], 300))}" alt="" loading="lazy" draggable="false">
         ${more ? `<span class="collage-more">+${more}</span>` : ''}
       </div>` : ''}
     </div>`;
@@ -2835,7 +2843,7 @@ function renderHomeSheet() {
           const st = openStatus(v);
           html += `
             <div class="card" data-open-venue="${v.id}">
-              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryResize(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`}
+              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`}
               <div class="card-body">
                 <div class="row">
                   <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
@@ -2938,7 +2946,7 @@ function renderHomeSheet() {
               <div class="card-body"><span class="t-name">${esc(ev.title)}</span>
               <div class="t-sub">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div></div></div>`
           : `<div class="hcard">
-            ${ev.photo ? `<img class="thumb" src="${esc(cloudinaryResize(ev.photo, 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy">`}
+            ${ev.photo ? `<img class="thumb" src="${esc(cloudinaryUrl(ev.photo, 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy">`}
             <div>
               <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
               <div class="hc-sub" style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
@@ -3032,10 +3040,10 @@ function openVenue(id) {
   } else {
     galleryHtml = `
       <div class="gal">
-        <img class="gal-hero" id="galHero" src="${esc(cloudinaryResize(photos[0], 900))}" alt="${esc(v.name)}" loading="lazy">
+        <img class="gal-hero" id="galHero" src="${esc(cloudinaryUrl(photos[0], 900))}" alt="${esc(v.name)}" loading="lazy">
         ${photos.length > 1 ? `<div class="gal-thumbs">` +
           photos.map((p, i) =>
-            `<img class="gal-thumb ${i===0?'sel':''}" src="${esc(cloudinaryResize(p, 200))}" data-gi="${i}" alt="" loading="lazy">`
+            `<img class="gal-thumb ${i===0?'sel':''}" src="${esc(cloudinaryUrl(p, 200))}" data-gi="${i}" alt="" loading="lazy">`
           ).join('') + `</div>` : ''}
       </div>`;
   }
@@ -3184,7 +3192,7 @@ function openVenue(id) {
     const hero = document.getElementById('galHero');
     hero.classList.add('fading');
     setTimeout(() => {
-      hero.src = cloudinaryResize(photos[+t.dataset.gi], 900);
+      hero.src = cloudinaryUrl(photos[+t.dataset.gi], 900);
       hero.onload = () => hero.classList.remove('fading');
       watchImgLoad(hero, v);   // re-arm for the newly-swapped-in photo
     }, 140);

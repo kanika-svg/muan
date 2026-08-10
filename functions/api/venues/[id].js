@@ -9,8 +9,8 @@ import {
 // dashboard: entry point + edit form + this save endpoint. New photos never
 // arrive in this request body as raw uploads — the client uploads directly
 // to Cloudinary (see functions/api/upload-signature.js) and only PATCHes the
-// resulting URL in, which validatePhotos() below checks actually belongs to
-// this venue's own upload folder.
+// resulting "<version>/<publicId>" in, which validatePhotos() below checks
+// actually belongs to this venue's own upload folder.
 //
 // The field whitelist here is the only thing that matters for safety: the
 // client's request body is never trusted past this list, no matter what a
@@ -56,22 +56,23 @@ function validateLinksAndMaps(body, currentLinks, errors) {
   return { links, mapsChanged };
 }
 
-// a photo URL counts as "owned" if it lives in this venue's own Cloudinary
-// folder (see functions/api/upload-signature.js, which signs uploads scoped
-// to exactly this folder) — a client can't forge one of these without a
-// valid signature from that endpoint, since the folder is baked into the
-// signed params there
-function isOwnedCloudinaryUrl(url, cloudName, venueId) {
-  if (typeof url !== 'string' || !cloudName) return false;
-  const prefix = `https://res.cloudinary.com/${cloudName}/image/upload/w_1200/`;
-  if (!url.startsWith(prefix)) return false;
+// a stored photo value — "<version>/<publicId>", see cloudinaryUrl() in
+// js/app.js, not a full URL — counts as "owned" if its publicId lives in
+// this venue's own Cloudinary folder (see functions/api/upload-signature.js,
+// which signs uploads scoped to exactly this folder) — a client can't forge
+// one of these without a valid signature from that endpoint, since the
+// folder is baked into the signed params there. cloudName isn't part of the
+// stored value anymore, but an empty one still means Cloudinary isn't
+// configured, so every photo fails closed rather than open.
+function isOwnedPublicId(stored, cloudName, venueId) {
+  if (typeof stored !== 'string' || !cloudName) return false;
   const escapedId = venueId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`^v\\d+/paisaidee/venues/${escapedId}/[A-Za-z0-9_-]+\\.[a-z0-9]+$`);
-  return re.test(url.slice(prefix.length));
+  const re = new RegExp(`^v\\d+/paisaidee/venues/${escapedId}/[A-Za-z0-9_-]+$`);
+  return re.test(stored);
 }
 
-// reorder/remove any existing photo freely; a *new* URL (not already in the
-// venue's photos) is only accepted if it points into this venue's own
+// reorder/remove any existing photo freely; a *new* value (not already in
+// the venue's photos) is only accepted if it points into this venue's own
 // Cloudinary upload folder, which only a signed upload from
 // upload-signature.js could have produced. This is a value-level check, not
 // just a field-presence whitelist: the field name being writable doesn't
@@ -89,7 +90,7 @@ function validatePhotos(photos, currentPhotos, venueId, cloudName, errors) {
   for (const p of photos) {
     if (typeof p !== 'string') { errors.photos = 'invalid photos'; return undefined; }
     if (currentSet.has(p)) continue;
-    if (!isOwnedCloudinaryUrl(p, cloudName, venueId)) {
+    if (!isOwnedPublicId(p, cloudName, venueId)) {
       errors.photos = 'that photo was not uploaded for this venue';
       return undefined;
     }

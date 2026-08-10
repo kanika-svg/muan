@@ -1,5 +1,5 @@
 {
-  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am = '26:00', 03:00 am = '27:00'.",
+  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am = '26:00', 03:00 am = '27:00'. photos (and events.json's photo field): '<version>/<publicId>', e.g. 'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. See cloudinaryUrl() in js/app.js, the only place that turns this into a delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, not in the stored value).",
   "venues": [
     {
       "id": "kong-view",
@@ -13,9 +13,9 @@
       "short": "Riverside-view restaurant and bar with live music",
       "description": "Big open-air restaurant and bar on Souphanouvong Road with a view across the Mekong to Thailand. Known for live bands in the evening, Beerlao on tap and grilled food. Fills up with groups after sunset.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188313/kong_view1_jynpt2.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188313/kongview3_rfjwq9.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785188313/kongview_poster_zsxype.jpg"
+        "v1785188313/kong_view1_jynpt2",
+        "v1785188313/kongview3_rfjwq9",
+        "v1785188313/kongview_poster_zsxype"
       ],
       "hours": {
         "mon": "16:30-23:30",
@@ -75,9 +75,9 @@
       "short": "Lao coffee house on the riverfront",
       "description": "Riverside branch of the Lao coffee roaster, opposite the night market. Lao-grown beans, pastries and breakfast. Good daytime meeting spot before the riverfront wakes up.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191009/cafesinouk1_inu37p.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191009/cafesinouk4_d91cjb.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191324/cafesinouk5_ybuvn2.jpg"
+        "v1785191009/cafesinouk1_inu37p",
+        "v1785191009/cafesinouk4_d91cjb",
+        "v1785191324/cafesinouk5_ybuvn2"
       ],
       "hours": {
         "mon": "07:00-22:00",
@@ -108,7 +108,7 @@
       "short": "Mall and exhibition halls, hosts concerts and events",
       "description": "Vientiane's main hall for concerts, fairs and big events. Check the event listing for dates — the building itself is a mall during the day.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/iteccmall1_smreva.jpg"
+        "v1784844318/iteccmall1_smreva"
       ],
       "hours": null,
       "links": {
@@ -152,7 +152,7 @@
       "short": "The late-night spot of the moment",
       "description": "Restaurant-bar next door to Go Dunk that picked up the late-night crowd while its neighbour rebuilds. Live bands nightly — The Late play the early set daily, Felicia X VIP take the weekend — with acoustic, hiphop and DJ sets through the night. Table booking: 020 5236 6087.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844331/status1_bxa76f.jpg"
+        "v1784844331/status1_bxa76f"
       ],
       "hours": {
         "mon": "16:00-26:00",
@@ -187,7 +187,7 @@
       "short": "90s music bar with live folk sets and DJ",
       "description": "Music bar built around 90s hits, live folk sets and a DJ. Draws a young crowd — going early gets you a seat. Best with a group.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/rustic1_xinqvh.jpg"
+        "v1784844317/rustic1_xinqvh"
       ],
       "hours": {
         "mon": "19:00-24:00",
@@ -218,7 +218,7 @@
       "short": "Cocktail and DJ lounge, 90s and 2000s pop",
       "description": "Upstairs cocktail lounge with DJ sets leaning 90s and 2000s pop. Dressier and pricier than the average Vientiane bar — bottle service for tables — with a big-city club feel. Closed Tuesdays, open late on weekends.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/baronpf_nolj3c.jpg"
+        "v1784844316/baronpf_nolj3c"
       ],
       "hours": {
         "mon": "20:00-26:00",
@@ -249,9 +249,9 @@
       "short": "Live band and DJ bar",
       "description": "Live music bar with bands and a DJ, decorated interior, food worth trying. Friendly to both locals and visitors.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/mahasan.bar_x77hwf.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/mahasan1_na3nk0.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844318/mahasanpf_rzgfg8.jpg"
+        "v1784844318/mahasan.bar_x77hwf",
+        "v1784844317/mahasan1_na3nk0",
+        "v1784844318/mahasanpf_rzgfg8"
       ],
       "hours": null,
       "links": {
@@ -274,9 +274,9 @@
       "short": "Affordable specialty coffee, often a queue",
       "description": "Small, popular coffee shop opposite the temple on Khun Bu Lom Road. Affordable, good beans, cozy wooden upstairs that fills fast — expect a queue at peak hours.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/treecoff1_thll08.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844317/treecoff2_c5heyj.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/treecoff3_pwp3iq.jpg"
+        "v1784844317/treecoff1_thll08",
+        "v1784844317/treecoff2_c5heyj",
+        "v1784844316/treecoff3_pwp3iq"
       ],
       "hours": {
         "mon": "06:30-22:00",
@@ -336,9 +336,9 @@
       "short": "Brunch café and bakery near the night market",
       "description": "Long-running café and bakery on Chao Anou — pita pockets, salads, baked goods and strong coffee, with a small shop inside. A daytime staple near the night market. Closed Sundays.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191008/Commomg1_vdwjao.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191008/cg3_bty0m8.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785191008/cg2_kst3ip.jpg"
+        "v1785191008/Commomg1_vdwjao",
+        "v1785191008/cg3_bty0m8",
+        "v1785191008/cg2_kst3ip"
       ],
       "hours": {
         "mon": "07:00-20:00",
@@ -427,7 +427,7 @@
       "short": "Riverside tents — clothes, souvenirs, crafts",
       "description": "The nightly riverside market at Chao Anouvong Park — red-tent stalls with clothes, souvenirs and crafts. Busiest Friday and Saturday evenings, when street performers often join. A standing anchor of the riverfront night. The food stalls are a separate market across the road — don't come to these tents expecting dinner.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/night_market_hrrub8.jpg"
+        "v1785192698/night_market_hrrub8"
       ],
       "hours": {
         "mon": "18:00-22:00",
@@ -537,7 +537,7 @@
       "short": "Mall — events, food court, cinema crowd",
       "description": "The big air-conditioned mall on Khouvieng — shops, food court, kids' zone, and a regular stage for contests and brand events.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1784844316/parkson1_nsxhnl.jpg"
+        "v1784844316/parkson1_nsxhnl"
       ],
       "hours": {
         "mon": "09:30-21:00",
@@ -568,7 +568,7 @@
       "short": "Laos' first lifestyle mall — 70+ brands by Patuxay",
       "description": "Laos' first lifestyle mega mall, opened 8 August 2026. Built by Kolao Group with Grandview Property, about 500m from Patuxay at the junction opposite ICBC. 70+ international brands, heavy on Thai and Korean names, across four zones: dining, retail, an entertainment floor with kids' attractions, photo spots and gaming, and a services floor with banking, beauty and electronics.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785192698/kokkok_megamart1_in5kif.jpg"
+        "v1785192698/kokkok_megamart1_in5kif"
       ],
       "hours": {
         "mon": "09:30-22:00",
@@ -782,9 +782,9 @@
       "short": "Competition-winning coffee, open from 7am",
       "description": "Specialty coffee house on Hengboun run by a competition barista — Champion of the Savannakhet Aeropress 2025 and third in the Vientiane Moka Pot Battle. Almond croissants, sandwiches and Lao-Thai plates alongside the coffee, and rooms upstairs if you never leave.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785181937/sathiti1_llseqr.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785181937/sathiti2_a0xpc5.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785181937/sathiti3_ffa25d.jpg"
+        "v1785181937/sathiti1_llseqr",
+        "v1785181937/sathiti2_a0xpc5",
+        "v1785181937/sathiti3_ffa25d"
       ],
       "hours": {
         "mon": "07:00-18:00",
@@ -819,13 +819,13 @@
       "short": "Flower shop, café and workshop rooms — closed Mondays",
       "description": "Anthophile means a person who loves flowers, and the place is built around that — a café in the middle of a courtyard with rooms for pottery, baking classes and floral arranging around it. Fresh flowers for sale and you can put your own bouquet together. Still in soft opening, and it shows: the food gets the praise, the coffee is finding its feet. Worth the trip east if you want an afternoon rather than a quick coffee.",
       "photos": [
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785599071/anfront_ycq5p6.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785599072/an8_tcny8t.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785599071/an5_ugp5ko.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785599071/an3_gbwdia.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785599071/an4_p5y1xm.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785599072/an7_llzobv.jpg",
-        "https://res.cloudinary.com/dzxg1vyi8/image/upload/w_1200,q_auto,f_auto/v1785599076/an1_yaxtnd.jpg"
+        "v1785599071/anfront_ycq5p6",
+        "v1785599072/an8_tcny8t",
+        "v1785599071/an5_ugp5ko",
+        "v1785599071/an3_gbwdia",
+        "v1785599071/an4_p5y1xm",
+        "v1785599072/an7_llzobv",
+        "v1785599076/an1_yaxtnd"
       ],
       "hours": {
         "mon": null,
