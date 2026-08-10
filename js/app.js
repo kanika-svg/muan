@@ -1281,7 +1281,7 @@ function wireVenueSubmitForm() {
     clearErrors();
     saveNote.hidden = true;
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Submitting…';
+    saveBtn.innerHTML = `${loadingRing(16)}Submitting…`;
     const body = readState();
     try {
       const res = await fetch('/api/venues', {
@@ -1432,7 +1432,7 @@ function openVenueEditor(venue, opts = {}) {
       <button type="button" class="ed-photo-add" id="edPhotoAddBtn">+ Add photo</button>
       <div class="ed-photo-progress" id="edPhotoProgress" hidden>
         <div class="ed-photo-progress-track"><div class="ed-photo-progress-bar" id="edPhotoProgressBar"></div></div>
-        <div class="ed-photo-progress-label" id="edPhotoProgressLabel">Uploading… 0%</div>
+        <div class="ed-photo-progress-label" id="edPhotoProgressLabel">Uploading… ${uploadPctHtml(0)}</div>
       </div>
       <div class="ed-err" data-err-for="upload"></div>
     </div>
@@ -1630,7 +1630,7 @@ function wireVenueEditor(venue, opts = {}) {
     clearErrors();
     saveNote.hidden = true;
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving…';
+    saveBtn.innerHTML = `${loadingRing(16)}Saving…`;
     const body = readState();
     try {
       const res = await fetch(`/api/venues/${encodeURIComponent(venue.id)}`, {
@@ -1910,7 +1910,7 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
     addBtn.disabled = true;
     progressWrap.hidden = false;
     progressBar.style.width = '0%';
-    progressLabel.textContent = 'Uploading… 0%';
+    progressLabel.innerHTML = `Uploading… ${uploadPctHtml(0)}`;
 
     let uploadedRef = null;
     try {
@@ -1941,7 +1941,7 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
           if (!e.lengthComputable) return;
           const pct = Math.round((e.loaded / e.total) * 100);
           progressBar.style.width = pct + '%';
-          progressLabel.textContent = `Uploading… ${pct}%`;
+          progressLabel.innerHTML = `Uploading… ${uploadPctHtml(pct)}`;
         });
         xhr.onload = () => {
           let data;
@@ -2575,6 +2575,29 @@ function venueTileUri(name, type, wide) {
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 }
 
+/* ---------- shared loading indicator: flame-coloured expanding ring ---------- */
+// the sweep (lring-sweep, on the arc) reads as progress, the widening
+// (lring-spin rotating the whole ring while the arc's dashoffset breathes)
+// as liveliness — see .lring rules in css/style.css. Inherits colour, so it
+// needs a wrapper/ancestor with color set (var(--flame) unless the
+// surrounding background is already flame-coloured, e.g. .btn-go, where it
+// should inherit that button's existing --ink icon colour instead).
+function loadingRing(size = 28) {
+  return `<svg class="lring" width="${size}" height="${size}" viewBox="0 0 44 44" aria-hidden="true">
+    <circle class="lring-track" cx="22" cy="22" r="18" fill="none"
+            stroke="currentColor" stroke-width="3" opacity=".16"/>
+    <circle class="lring-arc" cx="22" cy="22" r="18" fill="none"
+            stroke="currentColor" stroke-width="3" stroke-linecap="round"
+            stroke-dasharray="113" stroke-dashoffset="85"/>
+  </svg>`;
+}
+
+// the photo-upload progress label (see wireVenuePhotoUpload()) wraps its
+// live percentage in a loadingRing() rather than showing it as bare text
+function uploadPctHtml(pct) {
+  return `<span class="upload-pct">${loadingRing(22)}<span class="upload-pct-num">${pct}%</span></span>`;
+}
+
 // wires the fallback for one <img>: onerror swaps in the monogram
 // immediately; a 6s watchdog covers requests that never fire load OR error
 // (a stalled connection, a host that hangs) since a blank box is worse than
@@ -2588,6 +2611,7 @@ function watchImgLoad(img, v, onSettled) {
   const finish = (ok) => {
     if (img.dataset.settled === '1') return;
     img.dataset.settled = '1';
+    img.closest('.collage-tile')?.classList.remove('is-loading');
     if (!ok) {
       console.warn('[muan] image failed to load:', img.src);
       img.dataset.monogram = '1';
@@ -2633,6 +2657,9 @@ function loadCollageCardPhotos(cardEl, v) {
   cardEl.querySelectorAll('img[data-src]').forEach(img => {
     img.src = img.dataset.src;
     delete img.dataset.src;
+    // shows the ring centred on the still-visible monogram until this
+    // tile's real request settles (watchImgLoad()'s finish() clears it)
+    img.closest('.collage-tile')?.classList.add('is-loading');
   });
   watchCollageCard(cardEl, v);
 }
@@ -2707,15 +2734,17 @@ function collagePhotosHtml(v, altName) {
   const phSmall = venueTileUri(v.short_name || v.name, v.type, false);
   const n = Math.min(photos.length, 3);
   const extra = photos.length - 3;
+  const ring = `<span class="tile-loading">${loadingRing(24)}</span>`;
   let html = `<div class="collage-photos">`;
   html += `<div class="collage-tile collage-tile-big${n === 1 ? ' solo' : ''}">
-    <img src="${phBig}" data-src="${esc(cloudinaryUrl(photos[0], 600))}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
+    <img src="${phBig}" data-src="${esc(cloudinaryUrl(photos[0], 600))}" alt="${esc(altName)}" loading="lazy" draggable="false">${ring}</div>`;
   if (n >= 2) {
     const more = n >= 3 && extra > 0 ? extra : null;
     html += `<div class="collage-row">
-      <div class="collage-tile"><img src="${phSmall}" data-src="${esc(cloudinaryUrl(photos[1], 300))}" alt="" loading="lazy" draggable="false"></div>
+      <div class="collage-tile"><img src="${phSmall}" data-src="${esc(cloudinaryUrl(photos[1], 300))}" alt="" loading="lazy" draggable="false">${ring}</div>
       ${n >= 3 ? `<div class="collage-tile">
         <img src="${phSmall}" data-src="${esc(cloudinaryUrl(photos[2], 300))}" alt="" loading="lazy" draggable="false">
+        ${ring}
         ${more ? `<span class="collage-more">+${more}</span>` : ''}
       </div>` : ''}
     </div>`;
@@ -3294,7 +3323,7 @@ async function toggleRoute(v) {
     updateCheckinButton(v);
   }
 
-  lbl.textContent = 'Finding route…';
+  lbl.innerHTML = `${loadingRing(14)}Finding route…`;
   dirBtn.disabled = true;
   // instant feedback: straight-line distance now, routed distance/time once
   // the fetch below lands — the user gets something useful in well under a

@@ -155,6 +155,24 @@ body {
 @keyframes pinbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) { .marker.pin-event svg { animation: none; } }
 
+/* ---------- shared loading indicator (see loadingRing() in js/app.js) ----------
+   a circle whose stroke sweeps (lring-arc) while the ring itself breathes
+   wider (lring-spin) — sweep reads as progress, widening as liveliness.
+   Inherits colour from its wrapper; most call sites wrap it in something
+   with color: var(--flame). */
+.lring { animation: lring-spin 1.1s linear infinite; transform-origin: 50% 50%; }
+.lring-arc { animation: lring-sweep 1.4s ease-in-out infinite; }
+@keyframes lring-spin { to { transform: rotate(360deg); } }
+@keyframes lring-sweep {
+  0%   { stroke-dashoffset: 100; }
+  50%  { stroke-dashoffset: 40; }
+  100% { stroke-dashoffset: 100; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lring, .lring-arc { animation: none; }
+  .lring-arc { stroke-dashoffset: 60; }
+}
+
 /* ============ Top bar ============ */
 #topbar {
   position: absolute; top: 0; left: 0; right: 0; z-index: 5;
@@ -350,6 +368,11 @@ body {
 .act#checkinBtn.ready { background: var(--flame); color: var(--ink); }
 .act:disabled { opacity: .5; cursor: default; }
 .act-narrow { flex: 0 0 62px; }
+/* inline-flex so a loadingRing() (see #dirLbl's "Finding route…" state in
+   toggleRoute()) sits next to the label text instead of stacking under it —
+   harmless for the plain-text label state every other .act-lbl stays in */
+.act-lbl { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.act-lbl .lring { color: var(--flame); }
 
 /* tighter fact rows */
 .v-fact { display: flex; gap: 10px; padding: 9px 0; align-items: flex-start; }
@@ -916,6 +939,14 @@ body {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: rgba(19,16,25,.55); color: #F5F1E8; font-size: 20px; font-weight: 700;
 }
+/* centred on the monogram while loadCollageCardPhotos() swaps a tile from
+   its monogram src to the real photo — see the .is-loading toggle in
+   watchImgLoad()/loadCollageCardPhotos() in js/app.js */
+.tile-loading {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  color: var(--flame); pointer-events: none;
+}
+.collage-tile.is-loading .tile-loading { display: flex; }
 
 /* text sits directly on the collage over a bottom scrim — always light-on-
    dark regardless of app theme, since it sits on unpredictable photo
@@ -1195,6 +1226,13 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   height: 100%; background: var(--flame); border-radius: 3px; transition: width .15s;
 }
 .ed-photo-progress-label { text-align: center; font-size: 11px; color: var(--mute); margin-top: 5px; }
+.ed-photo-progress-label .upload-pct {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; vertical-align: middle; margin-left: 4px; color: var(--flame);
+}
+.ed-photo-progress-label .upload-pct-num {
+  position: absolute; font-size: 7.5px; font-weight: 700; color: var(--bone); line-height: 1;
+}
 .ed-photo-retry {
   background: none; border: none; color: var(--flame); font-weight: 700;
   font-size: 11.5px; cursor: pointer; padding: 0; text-decoration: underline;
