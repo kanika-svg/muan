@@ -654,6 +654,41 @@ body {
 .btn-checkin:disabled { cursor: default; }
 
 /* celebration overlay */
+/* full-size photo viewer — see openLightbox() in app.js. z-index above
+   .celebrate (50) since it's the more "modal" of the two if they ever
+   somehow overlap, and it's always something the user explicitly asked
+   for by tapping a photo. */
+.lightbox {
+  position: fixed; inset: 0; z-index: 60; display: flex;
+  align-items: center; justify-content: center;
+  background: rgba(10,8,14,.95);
+  opacity: 0; transition: opacity .18s ease;
+}
+.lightbox.show { opacity: 1; }
+.lightbox-img {
+  max-width: 92vw; max-height: 86vh; width: auto; height: auto;
+  object-fit: contain; border-radius: 4px;
+  -webkit-user-drag: none; user-select: none;
+}
+.lightbox-close, .lightbox-prev, .lightbox-next {
+  position: absolute; border: none; border-radius: 50%;
+  background: rgba(255,255,255,.12); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+/* single-photo venues hide prev/next via the [hidden] attribute (see
+   lightboxRender() in app.js) — same UA-stylesheet-vs-author-display
+   conflict as .ed-photo-confirm above, same fix */
+.lightbox-prev[hidden], .lightbox-next[hidden] { display: none; }
+.lightbox-close { top: 14px; right: 14px; width: 40px; height: 40px; font-size: 18px; }
+.lightbox-prev, .lightbox-next { top: 50%; transform: translateY(-50%); width: 44px; height: 44px; font-size: 24px; }
+.lightbox-prev { left: 12px; }
+.lightbox-next { right: 12px; }
+.lightbox-count {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,.7); font-size: 12px; font-weight: 700; font-family: var(--font);
+}
+@media (prefers-reduced-motion: reduce) { .lightbox { transition: none; } }
+
 .celebrate {
   position: fixed; inset: 0; z-index: 50; display: flex;
   align-items: center; justify-content: center; padding: 24px;
@@ -898,10 +933,8 @@ body {
 .gal { margin: 12px 0 4px; }
 .gal-hero {
   width: 100%; aspect-ratio: 16/10; object-fit: cover;
-  border-radius: 16px; display: block;
-  opacity: 1; transition: opacity .18s ease;
+  border-radius: 16px; display: block; cursor: pointer;
 }
-.gal-hero.fading { opacity: 0; }
 .gal-thumbs {
   display: flex; gap: 7px; margin-top: 8px;
   overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
@@ -1204,10 +1237,20 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   20%, 65% { box-shadow: 0 0 0 3px var(--flame); }
 }
 .ed-photos-empty { font-size: 12.5px; color: var(--dim); padding: 8px 0; }
-.ed-photo { flex: 0 0 84px; }
+.ed-photo { position: relative; flex: 0 0 84px; cursor: grab; }
+.ed-photo.dragging { opacity: .4; }
+.ed-photo.drag-over { outline: 2px dashed var(--flame); outline-offset: 2px; border-radius: 10px; }
 .ed-photo img {
   width: 84px; height: 84px; object-fit: cover; border-radius: 10px;
-  display: block; background: var(--ink3);
+  display: block; background: var(--ink3); cursor: pointer;
+}
+/* the first slot is the hero everywhere else in the app — flame outline on
+   the thumbnail plus the explicit caption below make that impossible to
+   miss while editing (see edPhotoRowHtml() in app.js) */
+.ed-photo-main img { outline: 2px solid var(--flame); outline-offset: 1px; }
+.ed-photo-main-label {
+  font-size: 8.5px; line-height: 1.25; color: var(--flame); font-weight: 700;
+  margin-top: 3px;
 }
 .ed-photo-actions { display: flex; gap: 3px; margin-top: 5px; }
 .ed-photo-actions button {
@@ -1216,6 +1259,27 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 }
 .ed-photo-actions button:disabled { opacity: .3; cursor: default; }
 .ed-photo-remove { color: var(--flame) !important; }
+
+/* inline "are you sure" — covers the whole thumbnail+actions card rather
+   than a native confirm() popup, so it stays in the app's own visual
+   language (see the two-step remove flow in edRenderPhotos() in app.js) */
+.ed-photo-confirm {
+  position: absolute; inset: 0; border-radius: 10px;
+  background: rgba(19,16,25,.94); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px; padding: 6px;
+  text-align: center;
+}
+/* the [hidden] attribute's UA-stylesheet display:none loses to the
+   unconditional display:flex above without this — every confirm panel
+   rendered visible from the start until this was added */
+.ed-photo-confirm[hidden] { display: none; }
+.ed-photo-confirm span { font-size: 9.5px; color: var(--bone); line-height: 1.25; }
+.ed-photo-confirm button {
+  width: 100%; height: 18px; border: none; border-radius: 5px;
+  font-size: 9.5px; font-weight: 700; cursor: pointer; font-family: var(--font);
+}
+.ed-photo-confirm-yes { background: var(--flame); color: var(--ink); }
+.ed-photo-confirm-no { background: var(--ink4); color: var(--mute); }
 
 /* photo upload: one add button + a progress strip that only appears while
    an upload is in flight (see wireVenuePhotoUpload() in app.js) */

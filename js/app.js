@@ -242,6 +242,15 @@ function placeChips() {
 
 async function boot() {
   try {
+    // captured before anything else touches the URL — renderHomeSheet()
+    // (called below, well before the deep-link check further down) always
+    // clears the query string back to location.pathname when it renders
+    // Home, which is correct for its other callers (closing a venue,
+    // tapping a nav tab) but wipes a ?v=<id> deep link before boot ever
+    // gets to read it. Reading location.search any later than this line
+    // returns empty, which is exactly what broke every share link.
+    const deepLinkId = new URLSearchParams(location.search).get('v');
+
     placeChips();
     window.addEventListener('resize', placeChips);
     const [vRes, eRes, picks] = await Promise.all([
@@ -354,8 +363,7 @@ async function boot() {
       }
     });
 
-    const params = new URLSearchParams(location.search);
-    const vid = params.get('v');
+    const vid = deepLinkId;
     if (vid && venueById(vid)) {
       openVenue(vid);
       const dv = venueById(vid);
@@ -967,13 +975,21 @@ function edSigRowHtml(idx, item) {
 }
 
 function edPhotoRowHtml(url, idx, total) {
+  const isMain = idx === 0;
   return `
-    <div class="ed-photo" data-photo-url="${esc(url)}">
+    <div class="ed-photo${isMain ? ' ed-photo-main' : ''}" data-photo-url="${esc(url)}" draggable="true">
       <img src="${esc(cloudinaryUrl(url, 200))}" alt="">
+      ${isMain ? '<div class="ed-photo-main-label">Main photo — shown on cards and the map</div>' : ''}
       <div class="ed-photo-actions">
         <button type="button" class="ed-photo-up" ${idx === 0 ? 'disabled' : ''} aria-label="Move earlier">↑</button>
         <button type="button" class="ed-photo-down" ${idx === total - 1 ? 'disabled' : ''} aria-label="Move later">↓</button>
+        ${!isMain ? '<button type="button" class="ed-photo-main-btn" aria-label="Make main photo" title="Make main">★</button>' : ''}
         <button type="button" class="ed-photo-remove" aria-label="Remove">✕</button>
+      </div>
+      <div class="ed-photo-confirm" hidden>
+        <span>Remove this photo?</span>
+        <button type="button" class="ed-photo-confirm-yes">Remove</button>
+        <button type="button" class="ed-photo-confirm-no">Cancel</button>
       </div>
     </div>`;
 }
@@ -982,6 +998,13 @@ function edRenderPhotos(container, photos, onChange) {
   container.innerHTML = photos.length
     ? photos.map((p, i) => edPhotoRowHtml(p, i, photos.length)).join('')
     : '<div class="ed-photos-empty">No photos yet</div>';
+
+  // desktop drag-to-reorder, kept alongside the up/down arrows rather than
+  // replacing them: arrows are the baseline (keyboard-accessible, and the
+  // only one that works on mobile — native HTML5 drag doesn't), this is an
+  // extra affordance for anyone who reaches for it with a mouse
+  let dragFrom = null;
+
   container.querySelectorAll('.ed-photo').forEach((row, i) => {
     row.querySelector('.ed-photo-up')?.addEventListener('click', () => {
       if (i === 0) return;
@@ -995,8 +1018,49 @@ function edRenderPhotos(container, photos, onChange) {
       edRenderPhotos(container, photos, onChange);
       onChange();
     });
-    row.querySelector('.ed-photo-remove')?.addEventListener('click', () => {
+    // the action people actually want — one tap instead of dragging (or
+    // walking a photo to the front one ↑ at a time)
+    row.querySelector('.ed-photo-main-btn')?.addEventListener('click', () => {
+      const [moved] = photos.splice(i, 1);
+      photos.unshift(moved);
+      edRenderPhotos(container, photos, onChange);
+      onChange();
+    });
+
+    // remove is a two-step confirm, not one tap — this used to delete
+    // whatever an owner just uploaded on a single misclick
+    const confirmBox = row.querySelector('.ed-photo-confirm');
+    row.querySelector('.ed-photo-remove')?.addEventListener('click', () => { confirmBox.hidden = false; });
+    row.querySelector('.ed-photo-confirm-no')?.addEventListener('click', () => { confirmBox.hidden = true; });
+    row.querySelector('.ed-photo-confirm-yes')?.addEventListener('click', () => {
       photos.splice(i, 1);
+      edRenderPhotos(container, photos, onChange);
+      onChange();
+    });
+
+    // tap the photo itself (not a button) to view it full size
+    row.querySelector('img')?.addEventListener('click', () => openLightbox(photos, i));
+
+    row.addEventListener('dragstart', (e) => {
+      dragFrom = i;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => {
+      dragFrom = null;
+      container.querySelectorAll('.ed-photo').forEach(r => r.classList.remove('dragging', 'drag-over'));
+    });
+    row.addEventListener('dragover', (e) => {
+      if (dragFrom === null || dragFrom === i) return;
+      e.preventDefault();
+      row.classList.add('drag-over');
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', (e) => {
+      if (dragFrom === null || dragFrom === i) return;
+      e.preventDefault();
+      const [moved] = photos.splice(dragFrom, 1);
+      photos.splice(i, 0, moved);
       edRenderPhotos(container, photos, onChange);
       onChange();
     });
@@ -1447,7 +1511,7 @@ function openVenueEditor(venue, opts = {}) {
         <button type="button" class="ed-photo-nudge-close" id="edPhotoNudgeClose" aria-label="Dismiss">×</button>
       </div>
       <div class="ed-photos" id="edPhotos"></div>
-      <input type="file" id="edPhotoFile" accept="image/*" hidden>
+      <input type="file" id="edPhotoFile" accept="image/*" multiple hidden>
       <button type="button" class="ed-photo-add" id="edPhotoAddBtn">+ Add photo</button>
       <div class="ed-photo-progress" id="edPhotoProgress" hidden>
         <div class="ed-photo-progress-track"><div class="ed-photo-progress-bar" id="edPhotoProgressBar"></div></div>
@@ -1918,75 +1982,117 @@ function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
     fileInput.click();
   });
 
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    uploadErr.textContent = '';
+  // uploads one file straight to Cloudinary (signed, scoped to this venue's
+  // folder — see upload-signature.js) and resolves to the
+  // "<version>/<publicId>" ref; the batch loop below decides what a
+  // rejection means for the rest of a multi-file selection. progressPrefix
+  // ("Uploading 2 of 4… " or just "Uploading… " for a single file) stays in
+  // front of the percentage ring for the whole upload.
+  async function uploadOneFile(file, progressPrefix) {
+    const sigRes = await fetch('/api/upload-signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ venue_id: venue.id }),
+    });
+    const sig = await sigRes.json().catch(() => null);
+    if (!sig || !sig.ok) throw new Error(sig?.error || 'could not start upload');
 
-    if (!file.type.startsWith('image/')) { uploadErr.textContent = 'images only'; return; }
-    if (file.size > MAX_PHOTO_BYTES) { uploadErr.textContent = 'max 8MB per photo'; return; }
+    // sig.params is exactly the key/value set /api/upload-signature signed
+    // (see its comment on why this can't be reconstructed client-side —
+    // that drift is what caused the "Invalid Signature" bug) — sent
+    // verbatim, plus the three params that are deliberately never signed
+    const form = new FormData();
+    form.append('file', file);
+    form.append('api_key', sig.api_key);
+    form.append('signature', sig.signature);
+    for (const [key, value] of Object.entries(sig.params)) {
+      form.append(key, value);
+    }
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`);
+      xhr.upload.addEventListener('progress', (e) => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        progressBar.style.width = pct + '%';
+        progressLabel.innerHTML = `${progressPrefix}${uploadPctHtml(pct)}`;
+      });
+      xhr.onload = () => {
+        let data;
+        try { data = JSON.parse(xhr.responseText); } catch (e) { reject(new Error('upload failed')); return; }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(data?.error?.message || 'upload failed'));
+      };
+      xhr.onerror = () => reject(new Error('connection error during upload'));
+      xhr.send(form);
+    });
+
+    return `v${uploadResult.version}/${uploadResult.public_id}`;
+  }
+
+  fileInput.addEventListener('change', async () => {
+    uploadErr.textContent = '';
+    const picked = [...fileInput.files];
+    if (!picked.length) return;
+
+    // still capped at MAX_PHOTOS per venue — take the first N the selection
+    // fits and say so plainly rather than silently dropping the rest
+    const room = MAX_PHOTOS - photosState.length;
+    const files = picked.slice(0, room);
+    const skipped = picked.length - files.length;
 
     addBtn.disabled = true;
     progressWrap.hidden = false;
-    progressBar.style.width = '0%';
-    progressLabel.innerHTML = `Uploading… ${uploadPctHtml(0)}`;
 
-    let uploadedRef = null;
-    try {
-      const sigRes = await fetch('/api/upload-signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venue_id: venue.id }),
-      });
-      const sig = await sigRes.json().catch(() => null);
-      if (!sig || !sig.ok) throw new Error(sig?.error || 'could not start upload');
+    // sequential, not Promise.all — several large phone photos at once on a
+    // Lao mobile connection will stall if they all fight for bandwidth
+    let uploadedCount = 0;
+    const failed = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const prefix = files.length > 1 ? `Uploading ${i + 1} of ${files.length}… ` : 'Uploading… ';
+      progressBar.style.width = '0%';
+      progressLabel.innerHTML = `${prefix}${uploadPctHtml(0)}`;
 
-      // sig.params is exactly the key/value set /api/upload-signature signed
-      // (see its comment on why this can't be reconstructed client-side —
-      // that drift is what caused the "Invalid Signature" bug) — sent
-      // verbatim, plus the three params that are deliberately never signed
-      const form = new FormData();
-      form.append('file', file);
-      form.append('api_key', sig.api_key);
-      form.append('signature', sig.signature);
-      for (const [key, value] of Object.entries(sig.params)) {
-        form.append(key, value);
+      if (!file.type.startsWith('image/')) { failed.push(`${file.name} (images only)`); continue; }
+      if (file.size > MAX_PHOTO_BYTES) { failed.push(`${file.name} (over 8MB)`); continue; }
+
+      let uploadedRef;
+      try {
+        uploadedRef = await uploadOneFile(file, prefix);
+      } catch (e) {
+        failed.push(`${file.name} (${e.message || 'upload failed'})`);
+        continue;
       }
 
-      const uploadResult = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`);
-        xhr.upload.addEventListener('progress', (e) => {
-          if (!e.lengthComputable) return;
-          const pct = Math.round((e.loaded / e.total) * 100);
-          progressBar.style.width = pct + '%';
-          progressLabel.innerHTML = `Uploading… ${uploadPctHtml(pct)}`;
-        });
-        xhr.onload = () => {
-          let data;
-          try { data = JSON.parse(xhr.responseText); } catch (e) { reject(new Error('upload failed')); return; }
-          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-          else reject(new Error(data?.error?.message || 'upload failed'));
-        };
-        xhr.onerror = () => reject(new Error('connection error during upload'));
-        xhr.send(form);
-      });
-
-      uploadedRef = `v${uploadResult.version}/${uploadResult.public_id}`;
       progressLabel.textContent = 'Saving…';
-      await attachPhoto(uploadedRef);
-    } catch (e) {
-      if (uploadedRef) {
-        // the file is already sitting in Cloudinary at this point — no need
-        // to re-upload, just retry attaching it to the venue
-        showRetry(e.message || 'could not save the photo', uploadedRef);
-      } else {
-        uploadErr.textContent = e.message || 'upload failed — try again';
+      try {
+        await attachPhoto(uploadedRef);
+        uploadedCount++;
+      } catch (e) {
+        // the file is already sitting in Cloudinary at this point. For a
+        // single file this is exactly the old retry flow — no need to
+        // re-upload, just retry the attach. For a batch, folding it into
+        // the failure report (rather than popping a retry button per file)
+        // keeps the rest of the batch moving.
+        if (files.length === 1) {
+          progressWrap.hidden = true;
+          refreshAddBtn();
+          showRetry(e.message || 'could not save the photo', uploadedRef);
+          return;
+        }
+        failed.push(`${file.name} (${e.message || 'could not save'})`);
       }
-    } finally {
-      progressWrap.hidden = true;
-      refreshAddBtn();
     }
+
+    progressWrap.hidden = true;
+    refreshAddBtn();
+
+    const notes = [];
+    if (skipped > 0) notes.push(`Only room for ${room} more — uploaded the first ${room}, skipped ${skipped}.`);
+    if (failed.length) notes.push(`${uploadedCount} uploaded, ${failed.length} failed: ${failed.join(', ')}.`);
+    uploadErr.textContent = notes.join(' ');
   });
 }
 
@@ -2648,6 +2754,83 @@ function uploadPctHtml(pct) {
   return `<span class="upload-pct">${loadingRing(22)}<span class="upload-pct-num">${pct}%</span></span>`;
 }
 
+/* ---------- photo lightbox ---------- */
+// full-screen viewer shared by the venue sheet gallery and the owner edit
+// form's photo thumbnails — a fresh, simple implementation (not the removed
+// gallery overlay): natural aspect on a dark backdrop, swipe or arrow
+// between photos, tap outside or × to close, Escape on desktop. Requests
+// w_1600 (see cloudinaryUrl()) since this is the one place a photo needs to
+// read at full size, not the thumbnail width every other call site uses.
+let lightbox = null; // { photos, index, ov } while open, else null
+
+function lightboxRender() {
+  const { photos, index, ov } = lightbox;
+  const img = ov.querySelector('.lightbox-img');
+  img.src = cloudinaryUrl(photos[index], 1600);
+  img.alt = `Photo ${index + 1} of ${photos.length}`;
+  ov.querySelector('.lightbox-count').textContent = photos.length > 1 ? `${index + 1} / ${photos.length}` : '';
+  ov.querySelector('.lightbox-prev').hidden = photos.length <= 1;
+  ov.querySelector('.lightbox-next').hidden = photos.length <= 1;
+}
+
+function lightboxStep(delta) {
+  if (!lightbox) return;
+  lightbox.index = (lightbox.index + delta + lightbox.photos.length) % lightbox.photos.length;
+  lightboxRender();
+}
+
+function lightboxKeydown(e) {
+  if (!lightbox) return;
+  if (e.key === 'Escape') closeLightbox();
+  else if (e.key === 'ArrowLeft') lightboxStep(-1);
+  else if (e.key === 'ArrowRight') lightboxStep(1);
+}
+
+function closeLightbox() {
+  if (!lightbox) return;
+  const { ov } = lightbox;
+  document.removeEventListener('keydown', lightboxKeydown);
+  ov.classList.remove('show');
+  setTimeout(() => ov.remove(), 200);
+  lightbox = null;
+}
+
+// photos: array of stored "<version>/<publicId>" values; index: which one
+// to open on. Safe to call with an empty/missing array (no-ops) so a
+// click handler doesn't need its own guard.
+function openLightbox(photos, index) {
+  if (!photos || !photos.length) return;
+  closeLightbox(); // guard against a stray double-open
+  const ov = document.createElement('div');
+  ov.className = 'lightbox';
+  ov.innerHTML = `
+    <button type="button" class="lightbox-close" aria-label="Close">✕</button>
+    <button type="button" class="lightbox-prev" aria-label="Previous photo">‹</button>
+    <img class="lightbox-img" alt="">
+    <button type="button" class="lightbox-next" aria-label="Next photo">›</button>
+    <div class="lightbox-count"></div>`;
+  document.body.appendChild(ov);
+  lightbox = { photos, index, ov };
+  lightboxRender();
+  requestAnimationFrame(() => ov.classList.add('show'));
+
+  // tap outside the image (the backdrop itself) closes, same as ×
+  ov.addEventListener('click', (e) => { if (e.target === ov) closeLightbox(); });
+  ov.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
+  ov.querySelector('.lightbox-prev').addEventListener('click', () => lightboxStep(-1));
+  ov.querySelector('.lightbox-next').addEventListener('click', () => lightboxStep(1));
+  document.addEventListener('keydown', lightboxKeydown);
+
+  let touchStartX = null;
+  ov.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  ov.addEventListener('touchend', (e) => {
+    if (touchStartX == null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) lightboxStep(dx > 0 ? -1 : 1);
+    touchStartX = null;
+  }, { passive: true });
+}
+
 // wires the fallback for one <img>: onerror swaps in the monogram
 // immediately; a 6s watchdog covers requests that never fire load OR error
 // (a stalled connection, a host that hangs) since a blank box is worse than
@@ -3274,17 +3457,13 @@ function openVenue(id) {
     history.replaceState(null, '', venueUrl);
   }
   document.querySelectorAll('.gal-hero, .gal-thumb').forEach(img => watchImgLoad(img, v));
-  document.querySelectorAll('.gal-thumb').forEach(t => t.addEventListener('click', () => {
-    const hero = document.getElementById('galHero');
-    hero.classList.add('fading');
-    setTimeout(() => {
-      hero.src = cloudinaryUrl(photos[+t.dataset.gi], 900);
-      hero.onload = () => hero.classList.remove('fading');
-      watchImgLoad(hero, v);   // re-arm for the newly-swapped-in photo
-    }, 140);
-    document.querySelectorAll('.gal-thumb').forEach(x => x.classList.remove('sel'));
-    t.classList.add('sel');
-  }));
+  // tapping any photo — hero or thumbnail — opens the full-size lightbox at
+  // that photo, rather than swapping the hero image in place
+  if (photos.length) {
+    document.getElementById('galHero')?.addEventListener('click', () => openLightbox(photos, 0));
+    document.querySelectorAll('.gal-thumb').forEach(t =>
+      t.addEventListener('click', () => openLightbox(photos, +t.dataset.gi)));
+  }
   document.getElementById('shareBtn')?.addEventListener('click', async () => {
     const url = location.origin + '/?v=' + v.id;
     const title = (v.short_name || v.name) + ' — Paisaidee';
