@@ -2342,7 +2342,7 @@ function sectionCard(v, sub, photoOverride, sub2) {
   const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
   const thumb = photo
     ? `<img class="thumb" src="${esc(cloudinaryResize(photo, 200))}" alt="" loading="lazy">`
-    : `<div class="thumb thumb-ph" style="color:var(--${v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet'});">${esc((v.short_name || v.name).charAt(0))}</div>`;
+    : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
   return `<div class="hcard" data-open-venue="${v.id}">
     ${thumb}
     <div>
@@ -2362,7 +2362,7 @@ function bigCard(v, sub, photoOverride) {
   const photo = photoOverride || ((v.photos && v.photos.length) ? v.photos[0] : null);
   const media = photo
     ? `<img class="big-thumb" src="${esc(photo)}" alt="" loading="lazy">`
-    : `<div class="big-thumb thumb-ph" style="color:var(--${v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet'});">${esc((v.short_name || v.name).charAt(0))}</div>`;
+    : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, v.type, true)}" alt="" loading="lazy">`;
   return `<div class="card card-big" data-open-venue="${v.id}">
     ${media}
     <div class="card-body">
@@ -2382,10 +2382,9 @@ function bigCard(v, sub, photoOverride) {
 // for Coming up) renders as an additional line above it, never in place of it.
 function rowCard(v, extraLine) {
   const st = openStatus(v);
-  const color = v.type === 'cafe' ? 'teal' : v.type === 'bar' ? 'flame' : 'violet';
   const thumb = (v.photos && v.photos.length)
     ? `<img class="thumb" src="${esc(cloudinaryResize(v.photos[0], 300))}" alt="" loading="lazy">`
-    : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`;
+    : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
   return `<div class="card" data-open-venue="${v.id}">
     ${thumb}
     <div class="card-body">
@@ -2444,23 +2443,57 @@ function cloudinaryResize(url, width) {
   return url.replace(/w_1200(?=,|\/)/, `w_${width},dpr_auto`);
 }
 
-/* ---------- photo load failures: fall back to the monogram tile ---------- */
-// letter-tile matching .thumb-ph's look (colour-by-type letter on a themed
-// background) — reused as the onerror/timeout fallback for any venue <img>
-// so a photo that fails to load reads the same as "no photos at all"
-// instead of a blank grey box
-function venueMonogramSvgUri(v) {
-  const letter = (v.short_name || v.name).charAt(0).toUpperCase();
-  const fgVar = v.type === 'cafe' ? '--teal' : v.type === 'bar' ? '--flame' : '--violet';
+/* ---------- no-photo placeholder tile ---------- */
+// shared by every no-photo spot in the app — list/collage/hcard thumbs, the
+// venue sheet hero, event cards with no venue — plus reused as the
+// onerror/timeout fallback for any venue <img> (see watchImgLoad) so a photo
+// that fails to load reads the same as "no photos at all" instead of a
+// blank grey box. Renders a type glyph (bar/cafe/venue) on a barely-tinted
+// diagonal gradient with the initial small in the bottom-left, so it reads
+// as a deliberate placeholder rather than missing data.
+//
+// Two aspect buckets (square vs. 16:9-ish "wide") rather than one shape
+// stretched everywhere: object-fit:cover on a single square image would
+// crop a bottom-anchored letter clean out of the widest slots (collage's
+// big tile can hit ~2.4:1 depending on card width) — each bucket's letter
+// position is kept inside the vertical band that survives cover-cropping
+// at the aspect ratios these tiles actually render at.
+const TILE_GLYPHS = {
+  bar: '<polygon points="4,4 20,4 12,14"/><rect x="11" y="14" width="2" height="6"/><rect x="7" y="20" width="10" height="2" rx="1"/>',
+  cafe: '<path d="M5 9h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5Z"/><path d="M16 11h2a2 2 0 0 1 0 4h-2" fill="none" stroke="currentColor" stroke-width="1.6"/><ellipse cx="11" cy="21.5" rx="8" ry="1.4"/>',
+  venue: '<rect x="5" y="7" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 7 12 3 19 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+};
+
+function mixHex(fromHex, toHex, amount) {
+  const a = fromHex.replace('#', ''), b = toHex.replace('#', '');
+  const chan = i => Math.round(parseInt(a.slice(i, i + 2), 16) + (parseInt(b.slice(i, i + 2), 16) - parseInt(a.slice(i, i + 2), 16)) * amount)
+    .toString(16).padStart(2, '0');
+  return `#${chan(0)}${chan(2)}${chan(4)}`;
+}
+
+function venueTileUri(name, type, wide) {
+  const letter = (name || '?').charAt(0).toUpperCase();
+  const glyphKey = type === 'cafe' ? 'cafe' : type === 'bar' ? 'bar' : 'venue';
+  const fgVar = type === 'cafe' ? '--teal' : type === 'bar' ? '--flame' : '--violet';
   const cs = getComputedStyle(document.documentElement);
   const fg = cs.getPropertyValue(fgVar).trim() || '#8A8494';
-  // .thumb-ph's light theme swaps in a hardcoded background rather than a
-  // shared token (see style.css) — keep this hex in sync with that rule
-  const bg = state.theme === 'light' ? '#DFD4BC' : (cs.getPropertyValue('--ink3').trim() || '#241E31');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">` +
-    `<rect width="240" height="240" fill="${bg}"/>` +
-    `<text x="120" y="128" text-anchor="middle" font-family="Space Grotesk, sans-serif" ` +
-    `font-weight="700" font-size="104" fill="${fg}">${esc(letter)}</text></svg>`;
+  // light theme gets a hardcoded tan rather than the (near-white) --ink3
+  // token — matches the rest of the app's light-theme surface treatment
+  const bg1 = state.theme === 'light' ? '#DFD4BC' : (cs.getPropertyValue('--ink3').trim() || '#241E31');
+  const bg2 = mixHex(bg1, fg, 0.12);
+  const w = wide ? 160 : 100, h = wide ? 90 : 100;
+  const size = Math.min(w, h) * 0.34;
+  const gx = (w - size) / 2, gy = (h - size) / 2;
+  const fontSize = wide ? h * 0.2 : h * 0.22;
+  const lx = w * (wide ? 0.06 : 0.08), ly = h * (wide ? 0.8 : 0.86);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="${bg1}"/><stop offset="1" stop-color="${bg2}"/></linearGradient></defs>` +
+    `<rect width="${w}" height="${h}" fill="url(#g)"/>` +
+    `<g transform="translate(${gx} ${gy})" fill="${fg}" fill-opacity="0.18" stroke-opacity="0.18" color="${fg}">` +
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24">${TILE_GLYPHS[glyphKey]}</svg></g>` +
+    `<text x="${lx}" y="${ly}" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="${fontSize}" fill="${fg}">${esc(letter)}</text>` +
+    `</svg>`;
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 }
 
@@ -2481,7 +2514,8 @@ function watchImgLoad(img, v, onSettled) {
       console.warn('[muan] image failed to load:', img.src);
       img.dataset.monogram = '1';
       img.onerror = null;
-      img.src = venueMonogramSvgUri(v);
+      const wide = img.classList.contains('big-thumb') || img.classList.contains('gal-hero');
+      img.src = venueTileUri(v.short_name || v.name, v.type, wide);
     }
     onSettled?.(ok);
   };
@@ -2587,19 +2621,23 @@ function collageDescLine(v) {
 // tiles across every card requesting a photo the moment the tab opens.
 function collagePhotosHtml(v, altName) {
   const photos = v.photos || [];
-  if (!photos.length) return `<div class="collage-photos collage-photos-empty">📷</div>`;
-  const placeholder = venueMonogramSvgUri(v);
+  const phBig = venueTileUri(v.short_name || v.name, v.type, true);
+  if (!photos.length) {
+    return `<div class="collage-photos"><div class="collage-tile collage-tile-big solo">
+      <img src="${phBig}" alt="${esc(altName)}"></div></div>`;
+  }
+  const phSmall = venueTileUri(v.short_name || v.name, v.type, false);
   const n = Math.min(photos.length, 3);
   const extra = photos.length - 3;
   let html = `<div class="collage-photos">`;
   html += `<div class="collage-tile collage-tile-big${n === 1 ? ' solo' : ''}">
-    <img src="${placeholder}" data-src="${esc(cloudinaryResize(photos[0], 600))}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
+    <img src="${phBig}" data-src="${esc(cloudinaryResize(photos[0], 600))}" alt="${esc(altName)}" loading="lazy" draggable="false"></div>`;
   if (n >= 2) {
     const more = n >= 3 && extra > 0 ? extra : null;
     html += `<div class="collage-row">
-      <div class="collage-tile"><img src="${placeholder}" data-src="${esc(cloudinaryResize(photos[1], 300))}" alt="" loading="lazy" draggable="false"></div>
+      <div class="collage-tile"><img src="${phSmall}" data-src="${esc(cloudinaryResize(photos[1], 300))}" alt="" loading="lazy" draggable="false"></div>
       ${n >= 3 ? `<div class="collage-tile">
-        <img src="${placeholder}" data-src="${esc(cloudinaryResize(photos[2], 300))}" alt="" loading="lazy" draggable="false">
+        <img src="${phSmall}" data-src="${esc(cloudinaryResize(photos[2], 300))}" alt="" loading="lazy" draggable="false">
         ${more ? `<span class="collage-more">+${more}</span>` : ''}
       </div>` : ''}
     </div>`;
@@ -2758,7 +2796,7 @@ function renderHomeSheet() {
           const st = openStatus(v);
           html += `
             <div class="card" data-open-venue="${v.id}">
-              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryResize(v.photos[0], 200))}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--${color});">${esc((v.short_name || v.name).charAt(0))}</div>`}
+              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryResize(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`}
               <div class="card-body">
                 <div class="row">
                   <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
@@ -2799,7 +2837,7 @@ function renderHomeSheet() {
       if (!v) {
         const media = ev.photo
           ? `<img class="big-thumb" src="${esc(ev.photo)}" alt="" loading="lazy">`
-          : `<div class="big-thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`;
+          : `<img class="big-thumb" src="${venueTileUri(ev.title, 'venue', true)}" alt="" loading="lazy">`;
         html += `
           <div class="card card-big">
             ${media}
@@ -2813,7 +2851,7 @@ function renderHomeSheet() {
       const tonightPhoto = ev.photo || ((v.photos && v.photos.length) ? v.photos[0] : null);
       const media = tonightPhoto
         ? `<img class="big-thumb" src="${esc(tonightPhoto)}" alt="" loading="lazy">`
-        : `<div class="big-thumb thumb-ph" style="color:var(--violet);">${esc((v.short_name || v.name).charAt(0))}</div>`;
+        : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, 'venue', true)}" alt="" loading="lazy">`;
       // status+distance is already folded into this sub-line via venueLine()
       // (falls back to the area name with no location) — every card here
       // already had it before Pass 2, nothing to add
@@ -2857,11 +2895,11 @@ function renderHomeSheet() {
       const evSub = `${fmtDate(ev.date)} · ${esc(ev.title)}`;
       if (!v) {
         return mobile
-          ? `<div class="card"><div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>
+          ? `<div class="card"><img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy">
               <div class="card-body"><span class="t-name">${esc(ev.title)}</span>
               <div class="t-sub">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div></div></div>`
           : `<div class="hcard">
-            ${ev.photo ? `<img class="thumb" src="${esc(cloudinaryResize(ev.photo, 200))}" alt="" loading="lazy">` : `<div class="thumb thumb-ph" style="color:var(--mute);">${esc(ev.title.charAt(0))}</div>`}
+            ${ev.photo ? `<img class="thumb" src="${esc(cloudinaryResize(ev.photo, 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy">`}
             <div>
               <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
               <div class="hc-sub" style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
@@ -2951,7 +2989,7 @@ function openVenue(id) {
   const photos = v.photos || [];
   let galleryHtml;
   if (!photos.length) {
-    galleryHtml = `<div class="ph-empty"><span>📷</span> photos coming soon · <span class="lao">ຮູບກຳລັງມາ</span></div>`;
+    galleryHtml = `<div class="gal"><img class="gal-hero" src="${venueTileUri(v.short_name || v.name, v.type, true)}" alt="${esc(v.name)}"></div>`;
   } else {
     galleryHtml = `
       <div class="gal">
