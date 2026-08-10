@@ -267,6 +267,13 @@ body {
 .tag.open   { color: var(--teal); }
 .tag.closed { color: var(--dim); }
 
+/* item 1 ("Sorting becomes the default"): closed venues stay visible
+   everywhere, just dimmed — never hidden, since someone browsing at 4pm
+   for tonight still wants to see a bar that opens at 8. The existing
+   "opens 5 pm" sub-line (venueLine()/openStatus() in app.js) already says
+   why; this is just the visual cue on top of it. */
+.card.closed, .hcard.closed, .collage-card.closed { opacity: .65; }
+
 .card {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
   border: 1px solid var(--ink4);
@@ -509,14 +516,14 @@ body {
    releasing back to rest still eases out at whatever speed that surface's
    own rule already used (.card's spring cubic-bezier, etc.) rather than
    overwriting every one of these selectors' pre-existing transitions. */
-.card:active, .collage-card:active, .qa-chip:active,
+.card:active, .collage-card:active, .surprise-btn:active,
 .fl-badge:active, .fl-item:active, .fl-manage-item:active, .act:active {
   transition: box-shadow .08s ease, transform .08s ease;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
   transform: translateY(1px);
 }
 @media (prefers-reduced-motion: reduce) {
-  .card:active, .collage-card:active, .qa-chip:active,
+  .card:active, .collage-card:active, .surprise-btn:active,
   .fl-badge:active, .fl-item:active, .fl-manage-item:active, .act:active {
     transform: none;
   }
@@ -555,12 +562,12 @@ body {
   margin-top: 22px; padding-top: 18px;
   border-top: 1px solid var(--ink3);
 }
-/* .qa-row (quick-action chips, Pass 2) sits between .s-sub and the first
+/* .surprise-btn (the Surprise me button) sits between .s-sub and the first
    .sec-h in the DOM on every screen width — it's only hidden via display:none
    on desktop, and a hidden element still breaks a "+" adjacent-sibling
    match, so both selectors are needed here or desktop would grow a
    suddenly-unwanted divider above its first section */
-.s-sub + .sec-h, .qa-row + .sec-h { border-top: none; padding-top: 0; margin-top: 20px; }
+.s-sub + .sec-h, .surprise-btn + .sec-h { border-top: none; padding-top: 0; margin-top: 20px; }
 .sec-h .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; align-self: center; }
 .sec-h .mini-flame { align-self: center; margin: -4px 0; }
 .sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--dim); margin-left: auto; }
@@ -1259,7 +1266,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 /* ============================================================
    Mobile Home screen visual layer (Pass 2 of the mobile redesign)
    Mobile only — every rule below is scoped inside the max-width:767px
-   query, or (for .cb-name/.qa-row's base declarations) deliberately styled
+   query, or (for .cb-name/.surprise-btn's base declarations) deliberately styled
    to match the pre-Pass-2 desktop look so their mobile override is the only
    thing that changes anything.
    ============================================================ */
@@ -1270,10 +1277,12 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
    inline style exactly, so desktop is pixel-identical to before. */
 .cb-name { font-size: 15px; font-weight: 700; }
 
-/* quick-action chips (Open now / Near me / Tonight / Surprise me) — markup
-   always renders (see quickActionsHtml() in app.js) so there's one code
+/* Surprise me — the only quick action left (Open now/Near me/Tonight were
+   removed: sorting + location are default behaviour now, not opt-in
+   buttons, and Tonight duplicated the Tonight section/Events chip — see
+   surpriseMeHtml() in app.js). Markup always renders so there's one code
    path; hidden here by default and shown only inside the mobile query below */
-.qa-row { display: none; }
+.surprise-btn { display: none; }
 
 @media (max-width: 767px) {
   /* Home and You — venue detail/other pushed-over views keep their
@@ -1288,7 +1297,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     margin-top: 28px; padding-top: 18px;
     font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none;
   }
-  .s-sub + .sec-h, .qa-row + .sec-h { margin-top: 28px; }
+  .s-sub + .sec-h, .surprise-btn + .sec-h { margin-top: 28px; }
   .sec-h .dot { width: 5px; height: 5px; opacity: .55; }
 
   /* ---- cards: raised surface, 16px radius, 12px rhythm ---- */
@@ -1306,20 +1315,14 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   .cb-name { font-size: 16px; font-weight: 600; }
   .card-big .t-sub { font-size: 13px; color: var(--mute); }
 
-  /* ---- quick-action chips ---- */
-  .qa-row {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
-    margin: 14px 0 2px;
-  }
-  .qa-chip {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 5px; height: 64px; border: none; border-radius: 12px; cursor: pointer;
-    background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
-    color: var(--mute); font-family: var(--font);
-  }
-  .qa-chip .qa-label { font-size: 11px; font-weight: 700; line-height: 1.1; text-align: center; }
-  .qa-chip.active {
-    /* same flame-tint wash as .fl-day.lit, for the same "lit up" read */
+  /* ---- surprise me: the one quick action left, full-width now that it's
+     not sharing a row with three others ---- */
+  .surprise-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 52px; margin: 14px 0 2px; border: none; border-radius: 14px;
+    cursor: pointer; font-family: var(--font); font-weight: 700; font-size: 14px;
+    /* same flame-tint wash .qa-chip.active used to signal "on" — here it's
+       just the button's resting look, since there's no active state anymore */
     background: rgba(255,90,60,.16); color: var(--flame);
   }
 

@@ -43,7 +43,7 @@ const state = {
   screen: 'home',           // mobile only: 'home' | 'map' | 'you' — see setMobileScreen()
   screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
-  quickFilter: null,        // mobile Home only: null | 'open' | 'near' — orthogonal to state.filter (the type chips); 'tonight' reuses state.filter='event' instead, see bindQuickActions()
+  geoAutoAttempted: false,  // boot()'s one silent location request — never retried automatically once this is true, see item 4 in the CLAUDE.md task this was written for
 };
 
 const isMobile = () => window.innerWidth < 768;
@@ -267,6 +267,25 @@ async function boot() {
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
     initMap();
     renderHomeSheet();
+
+    // item 4: sorting now depends on state.userPos by default, so ask once,
+    // quietly, on first load instead of waiting for a button tap (this IS
+    // the browser's native permission prompt if the user hasn't decided
+    // yet — "quiet"/"not aggressive" means no custom nag dialog of our own
+    // first, no retry loop, not that the OS prompt itself is skipped).
+    // Never blocks the initial render — requestLocation() can take up to
+    // its own 4s timeout, so the curated/no-location view paints first and
+    // this only re-renders Home if a position actually comes back and the
+    // user is still looking at it. geoAutoAttempted guarantees exactly one
+    // attempt per session: denied/unavailable/timeout all fall back to the
+    // curated order with nothing said about it, and nothing here asks again.
+    if (!state.geoAutoAttempted) {
+      state.geoAutoAttempted = true;
+      requestLocation().then(pos => {
+        if (pos && state.sheetView.type === 'home') renderHomeSheet();
+      });
+    }
+
     bindChips();
     bindLocate();
     bindRouteBar();
@@ -2190,13 +2209,6 @@ function icoFlameNav(size) {
     <path d="M12 21c-4 0-7-3-7-7 0-2.8 1.6-5 3-7.2C8.3 8.2 9 10 10 10.5 9.5 7 11 4 12 2c1 2 2.5 5 2 8.5 1-.5 1.7-2.3 2-3.7C17.4 8.8 19 11 19 13.8c0 4.3-3 7.2-7 7.2Z"/></svg>`;
 }
 
-/* mobile Home quick-action chips (Pass 2) — "Near me" and "Tonight" reuse
-   icoLocate/icoMoon above, same style; these two are the only new ones */
-function icoOpenNow(size) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>`;
-}
 function icoSurprise(size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2358,6 +2370,53 @@ function venueLine(v, fallback) {
   return `${fmtDist(haversine(state.userPos, v))} · ${openStatus(v).label}`;
 }
 
+// distance from the user, or null if either is unknown — never a bogus
+// number for a pending venue's missing lat/lng (same guard as venueLine())
+function distanceTo(v) {
+  if (!state.userPos || v.lat == null || v.lng == null) return null;
+  return haversine(state.userPos, v);
+}
+
+// default sort for every regular venue section and type list (see item 1,
+// "Sorting becomes the default"): open venues first, nearest first when
+// state.userPos is known; closed venues sink to the bottom but keep
+// whatever relative order the list already had (their own distance is
+// never used to reorder them — a closed bar 200m away doesn't outrank a
+// closed cafe 2km away, they're both just "closed, see you later"). A
+// single stable sort (Array#sort has been spec-guaranteed stable since
+// ES2019) does both at once: comparing only within the open group is what
+// makes the closed group fall through untouched, in its original order.
+function sortForDisplay(list) {
+  return [...list].sort((a, b) => {
+    const aOpen = openStatus(a).open, bOpen = openStatus(b).open;
+    if (aOpen !== bOpen) return aOpen ? -1 : 1;
+    if (!aOpen) return 0; // closed (or both open with unknown distance below)
+    const da = distanceTo(a), db = distanceTo(b);
+    return (da != null && db != null) ? da - db : 0;
+  });
+}
+
+// On Fire / Busy Spots are Kar's editorial picks (state.picks.*), not a
+// mechanical listing — item 1 is explicit that their curated order among
+// the *open* venues must survive untouched (the featured #1 pick doesn't
+// get bumped because something else is 200m closer). The only thing
+// distance is allowed to do here is order the closed group, which would
+// otherwise just be "whatever position Kar happened to list them in" —
+// sinking to the bottom in *distance* order reads better than a frozen
+// editorial order for a group that's explicitly not the featured picks
+// right now. Same stable-sort trick as sortForDisplay(), mirrored: the
+// open group's comparisons all return 0 (leaving Kar's order untouched),
+// only the closed group is distance-compared.
+function sortEditorial(list) {
+  return [...list].sort((a, b) => {
+    const aOpen = openStatus(a).open, bOpen = openStatus(b).open;
+    if (aOpen !== bOpen) return aOpen ? -1 : 1;
+    if (aOpen) return 0; // open: keep Kar's order exactly
+    const da = distanceTo(a), db = distanceTo(b);
+    return (da != null && db != null) ? da - db : 0;
+  });
+}
+
 function parseHours(str) {
   if (!str) return null;
   const [a, b] = str.split('-');
@@ -2383,7 +2442,9 @@ function sectionCard(v, sub, photoOverride, sub2) {
   const thumb = photo
     ? `<img class="thumb" src="${esc(cloudinaryUrl(photo, 200))}" alt="" loading="lazy">`
     : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
-  return `<div class="hcard" data-open-venue="${v.id}">
+  // closed venues stay visible, just dimmed (item 1: never hide, someone
+  // looking at 4pm for tonight still wants to see a bar that opens at 8)
+  return `<div class="hcard${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
     ${thumb}
     <div>
       <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
@@ -2403,7 +2464,9 @@ function bigCard(v, sub, photoOverride) {
   const media = photo
     ? `<img class="big-thumb" src="${esc(cloudinaryUrl(photo, 900))}" alt="" loading="lazy">`
     : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, v.type, true)}" alt="" loading="lazy">`;
-  return `<div class="card card-big" data-open-venue="${v.id}">
+  // closed venues stay visible, just dimmed (item 1: never hide, someone
+  // looking at 4pm for tonight still wants to see a bar that opens at 8)
+  return `<div class="card card-big${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
     ${media}
     <div class="card-body">
       <div class="cb-name">${esc(v.short_name || v.name)}</div>
@@ -2425,7 +2488,9 @@ function rowCard(v, extraLine) {
   const thumb = (v.photos && v.photos.length)
     ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 300))}" alt="" loading="lazy">`
     : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
-  return `<div class="card" data-open-venue="${v.id}">
+  // closed venues stay visible, just dimmed (item 1: never hide, someone
+  // looking at 4pm for tonight still wants to see a bar that opens at 8)
+  return `<div class="card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
     ${thumb}
     <div class="card-body">
       <div class="row">
@@ -2436,21 +2501,6 @@ function rowCard(v, extraLine) {
       <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
     </div>
   </div>`;
-}
-
-// mobile Home "Open now"/"Near me" quick actions (Pass 2) — orthogonal to
-// state.filter (the All/Bars/Cafes/Events chips): applied on top of
-// whichever type filter is already active, not instead of it. "Tonight"
-// isn't handled here — it just reuses state.filter='event', see
-// bindQuickActions(). Never touches event arrays (tonight/upcoming) —
-// events sort by time, not distance, regardless of "Near me".
-function quickFilterVenues(list) {
-  let out = list;
-  if (state.quickFilter === 'open') out = out.filter(v => openStatus(v).open);
-  if (state.quickFilter === 'near' && state.userPos) {
-    out = [...out].sort((a, b) => haversine(state.userPos, a) - haversine(state.userPos, b));
-  }
-  return out;
 }
 
 // "Surprise me": a random OPEN venue, weighted toward nearby when location
@@ -2763,8 +2813,10 @@ function collageCardHtml(v) {
   if (v.contact?.phone) facts.push('📞');
   if (v.parking?.note) facts.push('🅿');
   if (photos.length) facts.push(`${photos.length} photo${photos.length === 1 ? '' : 's'}`);
+  // closed venues stay visible, just dimmed (item 1: never hide, someone
+  // looking at 4pm for tonight still wants to see a bar that opens at 8)
   return `
-    <div class="collage-card" data-open-venue="${v.id}">
+    <div class="collage-card${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
       ${collagePhotosHtml(v, v.name)}
       <div class="collage-scrim"></div>
       <div class="collage-info">
@@ -2784,43 +2836,17 @@ function goHome() {
   renderHomeSheet();
 }
 
-// mobile Home only (Pass 2, see style.css's .qa-row) — always rendered into
-// both of renderHomeSheet()'s branches; CSS hides the row on desktop rather
-// than branching here, so there's one markup path instead of two
-function quickActionsHtml() {
-  const chip = (kind, icon, label, active) =>
-    `<button class="qa-chip ${active ? 'active' : ''}" data-quick="${kind}">
-      <span class="qa-ico">${icon}</span><span class="qa-label">${label}</span>
-    </button>`;
-  return `<div class="qa-row">
-    ${chip('open', icoOpenNow(18), 'Open now', state.quickFilter === 'open')}
-    ${chip('near', icoLocate(18), 'Near me', state.quickFilter === 'near')}
-    ${chip('tonight', icoMoon(18), 'Tonight', state.filter === 'event')}
-    ${chip('surprise', icoSurprise(18), 'Surprise me', false)}
-  </div>`;
-}
-
-// Open now/Near me/Tonight are mutually exclusive toggles (tapping the
-// active one turns it off); Surprise me is a one-shot pick with no
-// persisted active state, so it isn't part of that group
-async function handleQuickAction(kind) {
-  if (kind === 'surprise') { quickSurpriseMe(); return; }
-  if (kind === 'tonight') {
-    state.filter = state.filter === 'event' ? 'all' : 'event';
-    state.quickFilter = null;
-    syncChipState();
-    renderHomeSheet();
-    return;
-  }
-  // 'open'/'near' have nothing to filter/sort in the events-only view —
-  // drop back to 'all' so activating them is visibly meaningful right away
-  if (state.filter === 'event') { state.filter = 'all'; syncChipState(); }
-  state.quickFilter = state.quickFilter === kind ? null : kind;
-  renderHomeSheet();
-  if (kind === 'near' && state.quickFilter === 'near' && !state.userPos) {
-    const pos = await requestLocation();
-    if (pos && state.quickFilter === 'near') renderHomeSheet();  // re-sort now a position exists
-  }
+// mobile Home only (see style.css's .surprise-btn) — always rendered into
+// both of renderHomeSheet()'s branches; CSS hides it on desktop rather
+// than branching here, so there's one markup path instead of two. The one
+// quick action left after Open now/Near me/Tonight were removed: sorting
+// and location are default behaviour now (see sortForDisplay()/boot()),
+// not opt-in buttons, and Tonight duplicated the Tonight section and the
+// Events chip.
+function surpriseMeHtml() {
+  return `<button class="surprise-btn" data-surprise-me>
+    ${icoSurprise(20)}<span>Surprise me · ໄປໃສກໍໄດ້</span>
+  </button>`;
 }
 
 function renderHomeSheet() {
@@ -2867,7 +2893,7 @@ function renderHomeSheet() {
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>
-      ${quickActionsHtml()}`;
+      ${surpriseMeHtml()}`;
     html += secH(color, label);
 
     const cafeTab = state.cafeTab || 'recommended';
@@ -2882,17 +2908,17 @@ function renderHomeSheet() {
     if (f === 'cafe' && cafeTab === 'recommended') {
       // cafés with enough photos for a collage card to be worth showing —
       // pending venues excluded, same as On fire/Busy spots above
-      const cafeGallery = state.venues
+      const cafeGallery = sortForDisplay(state.venues
         .filter(v => v.type === 'cafe' && v.pin_status !== 'pending' && (v.photos?.length || 0) >= 2)
         .sort((a, b) => (b.photos.length - a.photos.length) ||
-          (a.short_name || a.name).localeCompare(b.short_name || b.name));
+          (a.short_name || a.name).localeCompare(b.short_name || b.name)));
       if (!cafeGallery.length) {
         html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
       } else {
         html += cafeGallery.map(v => collageCardHtml(v)).join('');
       }
     } else {
-      const typeVenues = quickFilterVenues(state.venues.filter(v => v.type === f)
+      const typeVenues = sortForDisplay(state.venues.filter(v => v.type === f)
         .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name)));
       if (!typeVenues.length) {
         html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
@@ -2902,7 +2928,7 @@ function renderHomeSheet() {
         for (const v of typeVenues) {
           const st = openStatus(v);
           html += `
-            <div class="card" data-open-venue="${v.id}">
+            <div class="card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
               ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`}
               <div class="card-body">
                 <div class="row">
@@ -2927,7 +2953,7 @@ function renderHomeSheet() {
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">${sub}</div>
-    ${quickActionsHtml()}`;
+    ${surpriseMeHtml()}`;
   let rendered = false;
   const mobile = isMobile();
   // horizontal-scroll carousel (desktop, unchanged) vs. a vertical list of
@@ -2979,7 +3005,7 @@ function renderHomeSheet() {
       `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing verified yet — new list every Thursday.</div>`;
   }
 
-  const pickVenuesQ = quickFilterVenues(pickVenues);
+  const pickVenuesQ = sortEditorial(pickVenues);
   if (showVenueSections && pickVenuesQ.length) {
     rendered = true;
     html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en), miniFlame()) +
@@ -2987,7 +3013,7 @@ function renderHomeSheet() {
       `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
-  const busyVenuesQ = quickFilterVenues(busyVenues);
+  const busyVenuesQ = sortEditorial(busyVenues);
   if (showVenueSections && busyVenuesQ.length) {
     rendered = true;
     html += secH('flame', 'Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
@@ -3017,14 +3043,14 @@ function renderHomeSheet() {
     }).join(''));
   }
 
-  const openingSoonQ = quickFilterVenues(openingSoon);
+  const openingSoonQ = sortForDisplay(openingSoon);
   if (showVenueSections && openingSoonQ.length) {
     rendered = true;
     html += secH('violet', 'Opening soon · ກຳລັງຈະເປີດ') +
       sectionWrap(openingSoonQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, esc(v.area || '')))).join(''));
   }
 
-  const lateQ = quickFilterVenues(late);
+  const lateQ = sortForDisplay(late);
   if (showVenueSections && lateQ.length) {
     rendered = true;
     html += secH('teal', 'Open late · ເປີດເດິກ') +
@@ -3868,8 +3894,8 @@ function setSheet(html) {
       state.cafeTab = el.dataset.cafeTab;
       renderHomeSheet();
     }));
-  inner.querySelectorAll('[data-quick]').forEach(el =>
-    el.addEventListener('click', () => handleQuickAction(el.dataset.quick)));
+  inner.querySelectorAll('[data-surprise-me]').forEach(el =>
+    el.addEventListener('click', quickSurpriseMe));
   inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => {
       // on mobile, the venue detail's back arrow / close button returns to
