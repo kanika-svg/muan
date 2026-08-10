@@ -1037,6 +1037,33 @@ function edLabelHtml(key, forId) {
     </label>`;
 }
 
+// the first real submission (Sunin) had her Facebook link pasted into
+// Website too — nudge, don't block: names what's wrong and offers a
+// one-click move, but only when it's safe (the Facebook field is still
+// empty), so a move can never silently overwrite a link already there.
+// Shared by both owner forms (prefix 'sub'/'ed') via matching element ids.
+function wireFacebookWebsiteGuard(root, prefix) {
+  const site = root.querySelector(`#${prefix}Website`);
+  const fb = root.querySelector(`#${prefix}Facebook`);
+  const warn = root.querySelector(`#${prefix}WebsiteWarn`);
+  const moveBtn = root.querySelector(`#${prefix}WebsiteMove`);
+  if (!site || !fb || !warn) return;
+  const isFacebookUrl = v => /facebook\.com|fb\.me/i.test(v);
+  const check = () => {
+    warn.hidden = !isFacebookUrl(site.value);
+    if (moveBtn) moveBtn.hidden = !!fb.value.trim();
+  };
+  site.addEventListener('input', check);
+  fb.addEventListener('input', check);
+  moveBtn?.addEventListener('click', () => {
+    fb.value = site.value.trim();
+    site.value = '';
+    site.dispatchEvent(new Event('input'));
+    fb.dispatchEvent(new Event('input'));
+  });
+  check();
+}
+
 /* ---------- "List your venue" — owner submission ---------- */
 // same field set as openVenueEditor() below (reuses edSigRowHtml, the hour-
 // row markup, edDeriveLaoPhone/edBuildHourRange), minus Photos — there's no
@@ -1153,6 +1180,10 @@ function openVenueSubmitForm() {
     <div class="ed-field">
       ${edLabelHtml('website', 'subWebsite')}
       <input type="url" class="ed-input" id="subWebsite" placeholder="https://...">
+      <div class="ed-fb-warn" id="subWebsiteWarn" hidden>
+        <span>That looks like a Facebook link — Facebook goes in the field above.</span>
+        <button type="button" class="ed-fb-warn-move" id="subWebsiteMove">Move it</button>
+      </div>
     </div>
     <div class="ed-field">
       ${edLabelHtml('maps_url', 'subMapsUrl')}
@@ -1177,6 +1208,8 @@ function wireVenueSubmitForm() {
   const root = document.getElementById('sheetInner');
   const saveBtn = document.getElementById('subSaveBtn');
   const saveNote = document.getElementById('subSaveNote');
+
+  wireFacebookWebsiteGuard(root, 'sub');
 
   root.querySelectorAll('.ed-type-btn').forEach(btn => btn.addEventListener('click', () => {
     root.querySelectorAll('.ed-type-btn').forEach(b => b.classList.remove('on'));
@@ -1431,6 +1464,10 @@ function openVenueEditor(venue, opts = {}) {
     <div class="ed-field">
       ${edLabelHtml('website', 'edWebsite')}
       <input type="url" class="ed-input" id="edWebsite" value="${esc(links.website || '')}" placeholder="https://...">
+      <div class="ed-fb-warn" id="edWebsiteWarn" hidden>
+        <span>That looks like a Facebook link — Facebook goes in the field above.</span>
+        <button type="button" class="ed-fb-warn-move" id="edWebsiteMove">Move it</button>
+      </div>
     </div>
     <div class="ed-field">
       ${edLabelHtml('maps_url', 'edMapsUrl')}
@@ -1455,6 +1492,8 @@ function wireVenueEditor(venue, opts = {}) {
   const saveBtn = document.getElementById('edSaveBtn');
   const saveNote = document.getElementById('edSaveNote');
   let photosState = (venue.photos || []).slice();
+
+  wireFacebookWebsiteGuard(root, 'ed');
 
   const readState = () => {
     const type = root.querySelector('.ed-type-btn.on')?.dataset.type || venue.type;
