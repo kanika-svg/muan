@@ -2465,11 +2465,41 @@ function openStatus(v) {
   }
   const t = parseHours(v.hours[today]);
   if (!t) return { open: false, label: 'closed today' };
-  if (mins < t.open) return { open: false, label: `opens ${fmtTime(t.open)}` };
+  if (mins < t.open) {
+    // openingSoon: within the hour — see statusPillHtml()'s flame tier
+    return { open: false, openingSoon: t.open - mins <= 60, label: `opens ${fmtTime(t.open)}` };
+  }
   if (mins < Math.min(t.close, 1440) || t.close > 1440) {
     return { open: true, label: `open until ${fmtTime(t.close % 1440)}` };
   }
   return { open: false, label: 'closed' };
+}
+
+// small "Open"/"Opens 5 pm"/"Closed" pill for a card's photo corner — a
+// single place turning openStatus()'s open/openingSoon/closed tri-state
+// into the pill's tone + text so every card renderer agrees, rather than
+// leaving the state to be implied by the .closed dimming alone.
+// v.hours === null means the hours are genuinely unknown — no pill rather
+// than guessing or printing "unknown" (see CLAUDE.md: never invent hours).
+// `full` asks for the longer "Open until 9 pm" form on cards with room for
+// it (photo wide enough); closed/opening-soon stay this short regardless,
+// and the wording always comes straight from openStatus() — see the venue
+// sheet's own hours line, which reads the same st.label.
+function statusPillHtml(v, full) {
+  if (!v.hours) return '';
+  const st = openStatus(v);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  if (st.open) return `<span class="status-pill open">${esc(full ? cap(st.label) : 'Open')}</span>`;
+  if (st.openingSoon) return `<span class="status-pill soon">${esc(cap(st.label))}</span>`;
+  return `<span class="status-pill closed">Closed</span>`;
+}
+
+// wraps a card's photo <img> so statusPillHtml() can sit absolutely
+// positioned over its top-left corner without the fade applied to .closed
+// cards' text ever touching the photo itself (see .status-pill/.photo-wrap
+// in style.css)
+function photoWrap(imgHtml, v, full) {
+  return `<div class="photo-wrap">${imgHtml}${statusPillHtml(v, full)}</div>`;
 }
 
 // "820 m · open until 2 am" / "2.1 km · opens 5 pm" once we know where the
@@ -2558,8 +2588,8 @@ function sectionCard(v, sub, photoOverride, sub2) {
   // closed venues stay visible, just dimmed (item 1: never hide, someone
   // looking at 4pm for tonight still wants to see a bar that opens at 8)
   return `<div class="hcard${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
-    ${thumb}
-    <div>
+    ${photoWrap(thumb, v, true)}
+    <div class="hc-body">
       <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
       <div class="hc-sub" style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
       ${sub2 ? `<div class="hc-sub" style="font-size:10.5px;color:var(--dim);">${esc(sub2)}</div>` : ''}
@@ -2580,7 +2610,7 @@ function bigCard(v, sub, photoOverride) {
   // closed venues stay visible, just dimmed (item 1: never hide, someone
   // looking at 4pm for tonight still wants to see a bar that opens at 8)
   return `<div class="card card-big${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
-    ${media}
+    ${photoWrap(media, v, true)}
     <div class="card-body">
       <div class="cb-name">${esc(v.short_name || v.name)}</div>
       <div class="t-sub">${sub}</div>
@@ -2604,12 +2634,9 @@ function rowCard(v, extraLine) {
   // closed venues stay visible, just dimmed (item 1: never hide, someone
   // looking at 4pm for tonight still wants to see a bar that opens at 8)
   return `<div class="card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
-    ${thumb}
+    ${photoWrap(thumb, v, false)}
     <div class="card-body">
-      <div class="row">
-        <span class="t-name">${esc(v.short_name || v.name)}</span>
-        <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
-      </div>
+      <span class="t-name">${esc(v.short_name || v.name)}</span>
       ${extraLine ? `<div class="t-sub">${extraLine}</div>` : ''}
       <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
     </div>
@@ -3008,6 +3035,7 @@ function collageCardHtml(v) {
   return `
     <div class="collage-card${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
       ${collagePhotosHtml(v, v.name)}
+      ${statusPillHtml(v, true)}
       <div class="collage-scrim"></div>
       <div class="collage-info">
         <div class="collage-name">${esc(v.short_name || v.name)}</div>
@@ -3118,14 +3146,12 @@ function renderHomeSheet() {
       } else {
         for (const v of typeVenues) {
           const st = openStatus(v);
+          const thumb = (v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
           html += `
             <div class="card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
-              ${(v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`}
+              ${photoWrap(thumb, v, false)}
               <div class="card-body">
-                <div class="row">
-                  <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
-                  <span class="tag ${st.open ? 'open' : 'closed'}">${st.open ? '● OPEN' : ''}</span>
-                </div>
+                <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
                 <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
               </div>
             </div>`;
@@ -3179,10 +3205,13 @@ function renderHomeSheet() {
         : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, 'venue', true)}" alt="" loading="lazy">`;
       // status+distance is already folded into this sub-line via venueLine()
       // (falls back to the area name with no location) — every card here
-      // already had it before Pass 2, nothing to add
+      // already had it before Pass 2, nothing to add. This card previously
+      // had no .closed dimming or status pill at all — item 3 asked for
+      // the same open/closed treatment everywhere a venue appears, and a
+      // Tonight event is still tied to a real venue with its own hours.
       html += `
-        <div class="card card-big" data-open-venue="${v.id}">
-          ${media}
+        <div class="card card-big${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
+          ${photoWrap(media, v, true)}
           <div class="card-body">
             <div class="cb-name">${esc(ev.title)} — ${esc(v.short_name || v.name)}</div>
             <div class="t-sub">${evLine} · ${venueLine(v, esc(v.area || ''))}${ev.verified ? '' : ' · unconfirmed'}</div>
@@ -3386,7 +3415,7 @@ function openVenue(id) {
     <div class="v-fact">
       <div class="info-ic">🕐</div>
       <div class="info-main">
-        <span style="color:var(--${st.open ? 'teal' : 'dim'});font-weight:700;">${st.label}</span>
+        <span style="color:var(--${st.open ? 'teal' : st.openingSoon ? 'flame' : 'dim'});font-weight:700;">${st.label}</span>
         · <span class="hours-toggle" id="hoursToggle">all hours</span>
         <div class="hours-week" id="hoursWeek">${week}</div>
       </div>

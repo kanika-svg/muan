@@ -264,15 +264,34 @@ body {
 .tag.flame  { color: var(--flame); }
 .tag.violet { color: var(--violet); }
 .tag.teal   { color: var(--teal); }
-.tag.open   { color: var(--teal); }
-.tag.closed { color: var(--dim); }
+
+/* status pill: sits top-left over a card's photo (see statusPillHtml()/
+   photoWrap() in app.js) — open/closed is now an explicit label instead of
+   only being implied by the .closed fade below. The scrim is the pill's
+   own background rather than a full-photo gradient, and its colors are
+   fixed hex rather than theme tokens, both so it reads over any photo
+   regardless of the app's light/dark theme. Closed is deliberately a
+   neutral grey, not red — closed is a fact, not an error. */
+.photo-wrap { position: relative; overflow: hidden; }
+.photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.status-pill {
+  position: absolute; top: 6px; left: 6px; z-index: 1;
+  font-size: 11px; font-weight: 700; line-height: 1.3;
+  padding: 3px 7px; border-radius: 6px;
+  background: rgba(19, 14, 26, .58);
+}
+.status-pill.open   { color: #33E0B4; }
+.status-pill.soon   { color: #FF7A5C; }
+.status-pill.closed { color: #D8D2E0; }
 
 /* item 1 ("Sorting becomes the default"): closed venues stay visible
    everywhere, just dimmed — never hidden, since someone browsing at 4pm
-   for tonight still wants to see a bar that opens at 8. The existing
-   "opens 5 pm" sub-line (venueLine()/openStatus() in app.js) already says
-   why; this is just the visual cue on top of it. */
-.card.closed, .hcard.closed, .collage-card.closed { opacity: .65; }
+   for tonight still wants to see a bar that opens at 8. The status pill
+   above now carries that meaning explicitly; this fade is only a
+   secondary hint, so it's soft (.82) and applied to each card's text
+   block only — the photo (and the pill on it) stay at full opacity so
+   the image itself never reads as broken. */
+.card.closed .card-body, .hcard.closed .hc-body, .collage-card.closed .collage-info { opacity: .82; }
 
 .card {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
@@ -618,11 +637,11 @@ body {
 
 /* card thumbnails + text truncation */
 .hcard { display: flex; flex-direction: column; gap: 7px; max-width: 190px; }
-.hcard .thumb, .card .thumb {
-  width: 100%; height: 78px; border-radius: 10px; object-fit: cover; display: block;
+.hcard .photo-wrap, .card .photo-wrap {
+  width: 100%; height: 78px; border-radius: 10px;
 }
 .card { display: flex; gap: 11px; align-items: center; }
-.card .thumb { width: 58px; height: 58px; flex-shrink: 0; }
+.card .photo-wrap { width: 58px; height: 58px; flex-shrink: 0; }
 .card .card-body { flex: 1; min-width: 0; }
 .t-sub, .hcard .hc-sub {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -631,8 +650,8 @@ body {
 /* full-width photo-led card (Tonight, On fire) — a .card modifier so it
    inherits .card's hover/active/transition treatment for free */
 .card.card-big { display: block; padding: 0; overflow: hidden; }
-.card-big .big-thumb {
-  width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;
+.card-big .photo-wrap {
+  width: 100%; aspect-ratio: 16/9;
 }
 .card-big .card-body { padding: 10px 12px 12px; }
 
@@ -1381,7 +1400,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   /* row cards (type list, Busy spots/Coming up/Opening soon/Open late via
      rowCard() in app.js) — thumbnail grows from 58px to 96px tall; name
      uses .t-name's existing 15.5px/700 base as-is, no override needed */
-  .card:not(.card-big) .thumb { width: 96px; height: 96px; }
+  .card:not(.card-big) .photo-wrap { width: 96px; height: 96px; }
 
   /* full-width hero cards (Tonight, On fire) */
   .cb-name { font-size: 16px; font-weight: 600; }
