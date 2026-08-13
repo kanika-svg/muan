@@ -1024,10 +1024,18 @@ body {
   }
   #sheet.dragging { transition: none; }
 
-  /* chipBar is moved into #sheet on mobile (see placeChips() in app.js) so
-     the filters sit at thumb height and stay visible while collapsed */
+  /* chipBar is moved into #sheet on mobile (see placeChips()/setSheet() in
+     app.js) — on Home it's nested inside #sheetInner's own content, below
+     the greeting and Surprise me button, so it scrolls away with the list
+     like any other section; position: sticky re-pins it to the top of
+     #sheet's scrollport once it would scroll out of view. Other mobile
+     screens (venue detail, You) have no #chipSlot and fall back to sitting
+     as a sheet-sibling ahead of #sheetInner — this same selector covers
+     both placements since it matches on ancestry, not exact parent. */
   #sheet .chip-bar {
-    margin: 0 -14px 8px; padding: 0 14px 4px;
+    position: sticky; top: 0; z-index: 2;
+    background: var(--ink2);
+    margin: 0 -14px 8px; padding: 8px 14px 4px;
     overflow-x: auto; scrollbar-width: none;
   }
   #sheet .chip-bar::-webkit-scrollbar { display: none; }

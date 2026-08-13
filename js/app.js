@@ -221,12 +221,19 @@ async function warmLocation() {
 }
 
 /* ---------- boot ---------- */
-// chipBar is one persistent DOM node moved between #topbar (desktop) and
-// #sheet (mobile) rather than duplicated, so there's a single source of
-// truth for which chip is active. It sits as a sibling of #sheetInner, which
-// setSheet() never touches, so it survives every content re-render untouched.
+// chipBar is one persistent DOM node moved between #topbar (desktop),
+// #sheet (mobile screens with no #chipSlot in their content), and a
+// #chipSlot placeholder inside #sheetInner's own content (mobile Home —
+// see setSheet()) rather than duplicated, so there's a single source of
+// truth for which chip is active. Captured once via a module-level const
+// rather than repeated getElementById() calls: #sheetInner's content gets
+// wiped wholesale on every render (see setSheet()), which would detach
+// chipBar from the document if it was nested inside at the time — after
+// that, getElementById('chipBar') returns null since the node is no longer
+// attached anywhere, but this reference still points at the live node and
+// can reattach it regardless of where it currently sits.
+const chipBarEl = document.getElementById('chipBar');
 function placeChips() {
-  const chipBar = document.getElementById('chipBar');
   const topbar = document.getElementById('topbar');
   const sheet = document.getElementById('sheet');
   // mobile Map screen shows the topbar (not #sheet) full-screen — see the
@@ -234,9 +241,9 @@ function placeChips() {
   // than into a hidden #sheet where nobody could reach them
   const chipsOnTopbar = !isMobile() || state.screen === 'map';
   if (chipsOnTopbar) {
-    if (!topbar.contains(chipBar)) topbar.appendChild(chipBar);
-  } else if (!sheet.contains(chipBar)) {
-    sheet.insertBefore(chipBar, document.getElementById('sheetInner'));
+    if (!topbar.contains(chipBarEl)) topbar.appendChild(chipBarEl);
+  } else if (!sheet.contains(chipBarEl)) {
+    sheet.insertBefore(chipBarEl, document.getElementById('sheetInner'));
   }
 }
 
@@ -3076,7 +3083,8 @@ function renderHomeSheet() {
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>
-      ${surpriseMeHtml()}`;
+      ${surpriseMeHtml()}
+      <div id="chipSlot"></div>`;
     html += secH(color, label);
 
     const cafeTab = state.cafeTab || 'recommended';
@@ -3136,7 +3144,8 @@ function renderHomeSheet() {
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">${sub}</div>
-    ${surpriseMeHtml()}`;
+    ${surpriseMeHtml()}
+    <div id="chipSlot"></div>`;
   let rendered = false;
   const mobile = isMobile();
   // horizontal-scroll carousel (desktop, unchanged) vs. a vertical list of
@@ -4053,10 +4062,14 @@ function toggleSheet(force) {
 function setSheet(html) {
   const sheet = document.getElementById('sheet');
   sheet.classList.toggle('expanded', html.includes('data-venue-detail'));
-  // #sheetHandle and chipBar are persistent siblings of #sheetInner (see
-  // index.html / placeChips()) — only #sheetInner's content is replaced, so
-  // a horizontal filter-swipe can animate it without fighting the sheet's
-  // own vertical scroll/collapse transform.
+  // #sheetHandle is a persistent sibling of #sheetInner (see index.html) —
+  // only #sheetInner's content is replaced, so a horizontal filter-swipe
+  // can animate it without fighting the sheet's own vertical scroll/
+  // collapse transform. chipBar used to be a permanent sibling too; on
+  // mobile Home it's now placed inside #sheetInner's own content (below
+  // the greeting, above the first section — see renderHomeSheet()'s
+  // #chipSlot marker) so it scrolls with the list, so it has to be
+  // re-homed into the freshly-rendered markup below instead.
   const inner = document.getElementById('sheetInner');
   inner.innerHTML = html;
   // undo any in-progress swipe animation left over from changeFilterAnimated()
@@ -4065,6 +4078,12 @@ function setSheet(html) {
   inner.style.opacity = '';
   inner.classList.remove('anim');
   void inner.offsetWidth;
+  // mobile Home/bar/cafe renders carry a #chipSlot placeholder; drop chipBar
+  // in there. Every other render (venue detail, You, desktop) has no slot,
+  // so falls back to placeChips()'s topbar/sheet-sibling placement.
+  const chipSlot = isMobile() ? inner.querySelector('#chipSlot') : null;
+  if (chipSlot) chipSlot.replaceWith(chipBarEl);
+  else placeChips();
   inner.classList.add('anim');
   inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
@@ -4112,6 +4131,11 @@ function bindChips() {
       renderMarkers();
       const sheet = document.getElementById('sheet');
       if (sheet.classList.contains('collapsed')) toggleSheet(false);
+      // keep the tapped chip in view within the scrollable chip row itself —
+      // same { inline, block: 'nearest' } shape used after a swipe-driven
+      // filter change (see changeFilterAnimated()) so a chip near either
+      // edge doesn't get left half-hidden
+      ch.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     });
   });
 }
