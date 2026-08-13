@@ -590,6 +590,13 @@ body {
 .sec-h .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; align-self: center; }
 .sec-h .mini-flame { align-self: center; margin: -4px 0; }
 .sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--dim); margin-left: auto; }
+/* On fire / Busy spots headers pair a Lao-script label with an editorial
+   note (see secH() in app.js) — .sec-h is flex/nowrap, so under ~400px the
+   label alone can be wide enough to force the note (or the label itself)
+   onto a second line, growing the header. Drop the note rather than wrap it. */
+@media (max-width: 400px) {
+  .sec-h .sec-note { display: none; }
+}
 
 .mini-flame { transform-origin: 50% 100%; flex-shrink: 0; }
 .mf-outer, .mf-core { transform-origin: 50% 100%; transform-box: fill-box; }
@@ -651,7 +658,7 @@ body {
    inherits .card's hover/active/transition treatment for free */
 .card.card-big { display: block; padding: 0; overflow: hidden; }
 .card-big .photo-wrap {
-  width: 100%; aspect-ratio: 16/9;
+  width: 100%; height: auto; aspect-ratio: 16/9;
 }
 .card-big .card-body { padding: 10px 12px 12px; }
 
