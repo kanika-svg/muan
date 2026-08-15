@@ -145,6 +145,79 @@ function geoDebug(msg) {
   box.textContent += msg + '\n';
 }
 
+// TEMP diagnostic for the pinned-chip-bar-shows-through bug (reuses
+// ?debug=1 rather than a separate flag, same reasoning as DEBUG_GEO above:
+// phones have no devtools). A desktop harness verified the CSS fix clean,
+// but the symptom persists on a real phone — leading hypothesis is that
+// env(safe-area-inset-top) resolves to 0 in every desktop test and a real
+// value on device, which would make --sheet-pad-top (used for both #sheet's
+// own padding-top and .chip-bar's sticky `top` — see style.css) agree in
+// testing and disagree on the phone. This panel exists to read that back
+// off an actual device rather than guess further. Remove once Kar's read
+// the numbers and the real cause is confirmed — do not use this to justify
+// another blind fix.
+//
+// --sheet-pad-top's OWN resolved value can't be read directly:
+// getComputedStyle(el).getPropertyValue('--sheet-pad-top') returns the raw
+// calc()/env() source text as authored, not a resolved pixel number —
+// custom properties don't get resolved to used values the way real
+// geometry properties do. The only way to see what it actually computes to
+// is to apply it to a real property on a probe element and read THAT
+// property back. Same story for env(safe-area-inset-top) alone. padProbe
+// has to live inside #sheet to inherit the value #sheet itself sets (custom
+// properties cascade like any other inherited value); safeProbe doesn't,
+// env() is a global.
+function pinDebugPanel() {
+  if (!DEBUG_GEO) return;
+  const sheet = document.getElementById('sheet');
+  const chipBar = document.getElementById('chipBar');
+  if (!sheet || !chipBar) return;
+
+  let panel = document.getElementById('pinDebugPanel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'pinDebugPanel';
+    panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;' +
+      'background:#000;color:#0f0;font:11px/1.5 monospace;padding:6px 8px;z-index:9999;' +
+      'white-space:pre-wrap;pointer-events:none;';
+    document.body.appendChild(panel);
+  }
+
+  let padProbe = document.getElementById('pinDebugPadProbe');
+  if (!padProbe) {
+    padProbe = document.createElement('div');
+    padProbe.id = 'pinDebugPadProbe';
+    padProbe.style.cssText = 'position:absolute;visibility:hidden;height:var(--sheet-pad-top);';
+    sheet.appendChild(padProbe);
+  }
+  let safeProbe = document.getElementById('pinDebugSafeProbe');
+  if (!safeProbe) {
+    safeProbe = document.createElement('div');
+    safeProbe.id = 'pinDebugSafeProbe';
+    safeProbe.style.cssText = 'position:absolute;visibility:hidden;padding-top:env(safe-area-inset-top, 0px);';
+    document.body.appendChild(safeProbe);
+  }
+
+  const render = () => {
+    const chipRect = chipBar.getBoundingClientRect();
+    const sheetRect = sheet.getBoundingClientRect();
+    panel.textContent =
+      `[pin-debug] chipBar computed top: ${getComputedStyle(chipBar).top}\n` +
+      `[pin-debug] sheet computed padding-top: ${getComputedStyle(sheet).paddingTop}\n` +
+      `[pin-debug] --sheet-pad-top resolved: ${getComputedStyle(padProbe).height}\n` +
+      `[pin-debug] env(safe-area-inset-top) resolved: ${getComputedStyle(safeProbe).paddingTop}\n` +
+      `[pin-debug] chipBar rect.top: ${chipRect.top.toFixed(1)}  rect.height: ${chipRect.height.toFixed(1)}\n` +
+      `[pin-debug] sheet rect.top: ${sheetRect.top.toFixed(1)}\n` +
+      `[pin-debug] .pinned applied: ${chipBar.classList.contains('pinned')}`;
+  };
+
+  render();
+  // #sheet is a persistent node (only #sheetInner's content is replaced on
+  // each render — see setSheet()), so this is set up once here rather than
+  // re-wired on every Home render the way observeChipPin() has to be
+  sheet.addEventListener('scroll', render, { passive: true });
+}
+
 // the one place that requests location — the "near me" pill and the
 // Directions button both call this so their error handling can't drift apart
 async function requestLocation() {
@@ -269,6 +342,7 @@ async function boot() {
 
     placeChips();
     window.addEventListener('resize', placeChips);
+    pinDebugPanel();  // no-op unless ?debug=1 — see pinDebugPanel()'s own comment
     const [vRes, eRes, picks] = await Promise.all([
       fetch('/api/venues'),
       fetch('data/events.json'),
