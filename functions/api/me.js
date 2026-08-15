@@ -51,6 +51,7 @@ export async function onRequest(context) {
       // admin by faking this field, only by having a session that qualifies
       is_admin: isAdmin(context, user),
       handle: user.handle,
+      avatar_url: user.avatar_url || null,
       embers_total: user.embers_total || 0,
       streak_months: user.streak_months || 0,
       phai_stage: stage,

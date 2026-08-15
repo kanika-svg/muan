@@ -44,6 +44,7 @@ const state = {
   screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
   geoAutoAttempted: false,  // boot()'s one silent location request — never retried automatically once this is true, see item 4 in the CLAUDE.md task this was written for
+  avatarUrl: null,          // signed-in user's own uploaded profile picture ("<version>/<publicId>"), null = show the chibi instead — see applyAvatarUrl()
 };
 
 const isMobile = () => window.innerWidth < 768;
@@ -234,17 +235,24 @@ async function warmLocation() {
 // attached anywhere, but this reference still points at the live node and
 // can reattach it regardless of where it currently sits.
 const chipBarEl = document.getElementById('chipBar');
+// chips are allowed in exactly two places, explicitly — never a fallback:
+// mobile Home gets them via its own #chipSlot (set directly in setSheet(),
+// not here); desktop always, and mobile's Map screen (but only when no
+// detail view is pushed over it — a venue opened from a map marker keeps
+// state.screen 'map' underneath), get them in #topbar. Every other view —
+// You, venue detail, the owner editor, admin views, the submit form, the
+// avatar picker — gets no chips at all, so the "else" here removes the bar
+// rather than inserting it somewhere it'd still be visible (the bug: it
+// used to fall back into #sheet, which is exactly what showed chips on the
+// You screen, which has no #chipSlot of its own).
 function placeChips() {
   const topbar = document.getElementById('topbar');
-  const sheet = document.getElementById('sheet');
-  // mobile Map screen shows the topbar (not #sheet) full-screen — see the
-  // mobile screen-shell CSS — so chips dock there, same as desktop, rather
-  // than into a hidden #sheet where nobody could reach them
-  const chipsOnTopbar = !isMobile() || state.screen === 'map';
+  const detailOpen = !BASE_SHEET_VIEWS.includes(state.sheetView.type);
+  const chipsOnTopbar = !isMobile() || (state.screen === 'map' && !detailOpen);
   if (chipsOnTopbar) {
     if (!topbar.contains(chipBarEl)) topbar.appendChild(chipBarEl);
-  } else if (!sheet.contains(chipBarEl)) {
-    sheet.insertBefore(chipBarEl, document.getElementById('sheetInner'));
+  } else if (chipBarEl.isConnected) {
+    chipBarEl.remove();
   }
 }
 
@@ -282,6 +290,14 @@ async function boot() {
     bindTheme();
     refreshAvatarBtn();
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
+    // fire-and-forget: the only reason to learn avatar_url this early is
+    // the top-right button — everywhere else it's read straight off /api/me
+    // when the You screen itself opens. Doesn't block or delay anything
+    // else in boot(); a signed-out visitor just gets signed_out:true back
+    // and the button stays on the chibi/emoji fallback it already shows.
+    fetch('/api/me').then(r => r.json()).then(me => {
+      if (me?.ok && !me.signed_out) applyAvatarUrl(me.avatar_url || null);
+    }).catch(() => {});
     initMap();
     renderHomeSheet();
 
@@ -567,9 +583,101 @@ function avatarSVG(i, size, itemIds) {
     ${itemIds.includes('crown') ? ITEM_LAYERS.crown : ''}
   </svg>`;
 }
+// the top-right button shows the user's own uploaded photo when they have
+// one (state.avatarUrl, kept current by applyAvatarUrl() below), and only
+// falls back to the existing chibi/emoji when they don't — the one place
+// (besides the You screen header, rendered directly in
+// renderFlameSheetBody()) the real photo is allowed to appear; it never
+// shows anywhere the chibi itself appears (comments/friends later)
 function refreshAvatarBtn() {
+  const slot = document.getElementById('avatarSlot');
+  if (state.avatarUrl) {
+    slot.innerHTML = `<img src="${esc(cloudinaryAvatarUrl(state.avatarUrl, 40))}" alt="">`;
+    return;
+  }
   const i = localStorage.getItem('muan-avatar');
-  document.getElementById('avatarSlot').innerHTML = i !== null ? avatarSVG(+i, 20) : '😊';
+  slot.innerHTML = i !== null ? avatarSVG(+i, 20) : '😊';
+}
+
+// single funnel for every place that learns the current profile-picture
+// value (boot's own /api/me check, opening the flame sheet, a fresh
+// upload, signing out) so the top-right button never drifts out of sync
+function applyAvatarUrl(url) {
+  state.avatarUrl = url;
+  refreshAvatarBtn();
+}
+
+const MAX_AVATAR_BYTES = 4 * 1024 * 1024;
+
+// uploads straight to Cloudinary via the same signed-upload mechanism the
+// venue photo uploader uses (see /api/upload-signature's { target: 'avatar'}
+// branch, scoped to this user's own paisaidee/users/<id>/ folder), then
+// saves the resulting public id server-side — /api/me/avatar rejects
+// anything not actually in that folder, same ownership check as venue
+// photos have
+async function uploadAvatarFile(file) {
+  const sigRes = await fetch('/api/upload-signature', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target: 'avatar' }),
+  });
+  const sig = await sigRes.json().catch(() => null);
+  if (!sig || !sig.ok) throw new Error(sig?.error || 'could not start upload');
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('api_key', sig.api_key);
+  form.append('signature', sig.signature);
+  for (const [key, value] of Object.entries(sig.params)) form.append(key, value);
+
+  const uploadResult = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`);
+    xhr.onload = () => {
+      let data;
+      try { data = JSON.parse(xhr.responseText); } catch (e) { reject(new Error('upload failed')); return; }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else reject(new Error(data?.error?.message || 'upload failed'));
+    };
+    xhr.onerror = () => reject(new Error('connection error during upload'));
+    xhr.send(form);
+  });
+
+  const publicId = `v${uploadResult.version}/${uploadResult.public_id}`;
+  const saveRes = await fetch('/api/me/avatar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ public_id: publicId }),
+  });
+  const saved = await saveRes.json().catch(() => null);
+  if (!saved || !saved.ok) throw new Error(saved?.error || 'could not save photo');
+  return saved.avatar_url;
+}
+
+// wired fresh on every renderFlameSheetBody() render, same as the sheet's
+// other buttons — #pfpBtn/#pfpFile/#pfpErr are only present in that markup
+function wirePfpUpload() {
+  const btn = document.getElementById('pfpBtn');
+  const file = document.getElementById('pfpFile');
+  const err = document.getElementById('pfpErr');
+  if (!btn || !file) return;
+  btn.addEventListener('click', () => { err.textContent = ''; file.value = ''; file.click(); });
+  file.addEventListener('change', async () => {
+    const f = file.files[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { err.textContent = 'images only'; return; }
+    if (f.size > MAX_AVATAR_BYTES) { err.textContent = 'must be 4MB or smaller'; return; }
+    btn.disabled = true;
+    err.textContent = 'Uploading…';
+    try {
+      const url = await uploadAvatarFile(f);
+      applyAvatarUrl(url);
+      openFlameSheet();  // re-renders the You screen header with the new photo
+    } catch (e) {
+      err.textContent = e.message || 'upload failed';
+      btn.disabled = false;
+    }
+  });
 }
 function openAvatarSheet() {
   toggleSheet(false);
@@ -702,6 +810,11 @@ async function openFlameSheet() {
   let me = null;
   try { me = await (await fetch('/api/me')).json(); } catch(e) {}
   if (!me || !me.ok) { setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Could not load — try again.</div>'); return; }
+  // this is the freshest read of avatar_url there is (the same request that
+  // just fetched everything else on this screen) — keeps the top-right
+  // button in sync here too, and correctly clears it back to the chibi on
+  // sign-out, since me.signed_out means no avatar_url at all
+  applyAvatarUrl(me.signed_out ? null : (me.avatar_url || null));
 
   if (me.signed_out) {
     const flameHtml = await flameSvg();
@@ -819,21 +932,21 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
     roaring: 'roaring 🔥'
   };
 
-  // month calendar
+  // "rhythm strip": one dot per day this month, filled on a check-in day —
+  // a quick sense of pattern, not a centrepiece, so no day-of-week
+  // alignment or numbers like the old full grid had
   const now = new Date();
   const yearMonth = me.month;
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const firstDow = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
   const checkinSet = new Set(me.checkin_days);
-  let cal = '<div class="fl-cal">';
-  for (let i=0; i<firstDow; i++) cal += '<span class="fl-day empty"></span>';
+  let calDots = '<div class="fl-cal-dots">';
   for (let d=1; d<=daysInMonth; d++) {
     const iso = `${yearMonth}-${String(d).padStart(2,'0')}`;
     const lit = checkinSet.has(iso);
     const today = d === now.getDate();
-    cal += `<span class="fl-day ${lit?'lit':''} ${today?'today':''}">${lit?'🔥':d}</span>`;
+    calDots += `<span class="fl-dot ${lit?'lit':''} ${today?'today':''}"></span>`;
   }
-  cal += '</div>';
+  calDots += '</div>';
 
   const monthName = now.toLocaleString('en',{month:'long'});
   const i = localStorage.getItem('muan-avatar');
@@ -844,12 +957,26 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
 
   setSheet(`
     <div class="fl-wrap">
+      <div class="fl-pfp-wrap">
+        <input type="file" id="pfpFile" accept="image/*" hidden>
+        <button type="button" class="fl-pfp" id="pfpBtn" aria-label="${me.avatar_url ? 'Change your photo' : 'Add a photo'}">
+          ${me.avatar_url
+            ? `<img src="${esc(cloudinaryAvatarUrl(me.avatar_url, 144))}" alt="">`
+            : `<span class="fl-pfp-add">+</span>`}
+        </button>
+        <div class="fl-pfp-err" id="pfpErr"></div>
+      </div>
+
       ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
 
       <div class="fl-avatar-big">${i !== null ? avatarSVG(+i, 96, earnedIds) : '😊'}</div>
 
-      <div class="fl-month">${monthName}</div>
-      ${cal}
+      ${me.total_checkins > 0 ? `
+      <div class="fl-headline">
+        <div class="fl-headline-num">${me.venues_explored}</div>
+        <div class="fl-headline-label">places explored · ບ່ອນທີ່ໄປມາ</div>
+        <div class="fl-headline-sub"><b>${me.total_checkins}</b> check-ins</div>
+      </div>` : ''}
 
       <div class="fl-flame" data-heat="${me.heat_level}">
         ${flameHtml}
@@ -858,13 +985,10 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
       <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
       <div class="fl-sub">${noCheckins ? 'light your first flame — check in anywhere' : esc(heatLines[me.heat_level] || '')}</div>
 
-      ${me.embers_total > 0 ? `<div class="fl-embers"><b>${me.embers_total}</b> embers</div>` : ''}
+      <div class="fl-month">${monthName}</div>
+      ${calDots}
 
-      ${me.total_checkins > 0 ? `
-      <div class="fl-stats">
-        <div class="fl-stat"><b>${me.venues_explored}</b><span>places explored</span></div>
-        <div class="fl-stat"><b>${me.total_checkins}</b><span>check-ins</span></div>
-      </div>` : ''}
+      ${me.embers_total > 0 ? `<div class="fl-embers"><b>${me.embers_total}</b> embers</div>` : ''}
 
       ${!myVenuesResult.ok ? `
       <div class="fl-fetch-error">
@@ -903,6 +1027,7 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
   pauseFlameIfReducedMotion();
   document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
+  wirePfpUpload();
   document.querySelector('[data-list-venue]')?.addEventListener('click', openVenueSubmitForm);
   document.querySelectorAll('[data-manage-venue]').forEach(el => el.addEventListener('click', () => {
     const v = myVenuesResult.venues.find(mv => mv.id === el.dataset.manageVenue);
@@ -2689,6 +2814,15 @@ function cloudinaryUrl(stored, width) {
     console.warn('cloudinaryUrl: stored value is neither a full URL nor "v<digits>/<publicId>":', stored);
   }
   return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/w_${width},q_auto,f_auto,dpr_auto/${stored}`;
+}
+
+// profile pictures only: square, centre-cropped to `size` — the circular
+// mask itself is CSS (border-radius:50%, see .fl-pfp/#avatarSlot img), not
+// baked into this transform, so the same stored photo works at any size
+function cloudinaryAvatarUrl(stored, size) {
+  if (typeof stored !== 'string') return stored;
+  if (/^https?:\/\//i.test(stored)) return stored;
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/c_fill,g_center,w_${size},h_${size},q_auto,f_auto,dpr_auto/${stored}`;
 }
 
 // dev-only guard for the bug class cloudinaryUrl() itself can't see: a call

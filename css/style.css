@@ -636,6 +636,9 @@ body {
 }
 
 #avatarSlot svg { display:block; width:20px; height:20px; }
+/* profile picture, top-right button — see refreshAvatarBtn() in app.js;
+   falls back to the chibi svg/emoji above when the user has no photo */
+#avatarSlot img { display:block; width:20px; height:20px; border-radius:50%; object-fit:cover; }
 #avatarSheet { text-align:center; }
 .av-grid { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
 .av-opt { width:56px; height:56px; border-radius:50%; border:2px solid transparent; background:var(--ink3); cursor:pointer; padding:4px; }
@@ -773,6 +776,18 @@ body {
 }
 
 .fl-wrap { text-align: center; padding-top: 6px; }
+/* profile picture, top of the You screen — separate from .fl-avatar-big
+   (the chibi) below it; see wirePfpUpload()/renderFlameSheetBody() in
+   app.js. Tap to add one, or to replace the one already there. */
+.fl-pfp-wrap { margin-bottom: 6px; }
+.fl-pfp {
+  width: 72px; height: 72px; margin: 0 auto; border-radius: 50%; overflow: hidden;
+  border: none; padding: 0; cursor: pointer; background: var(--ink3);
+  display: flex; align-items: center; justify-content: center;
+}
+.fl-pfp img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fl-pfp-add { font-size: 26px; color: var(--mute); line-height: 1; }
+.fl-pfp-err { font-size: 11px; color: var(--mute); margin-top: 4px; min-height: 14px; }
 .fl-handle { font-size: 12px; font-weight: 700; color: var(--mute); margin-bottom: 8px; }
 .fl-signout {
   display: block; margin: 10px auto 0; background: none; border: none;
@@ -825,26 +840,26 @@ body {
 .fl-sub { font-size: 12px; color: var(--mute); margin-top: 3px; }
 .fl-embers { font-size: 15px; color: var(--gold); margin: 14px 0 4px; }
 .fl-embers b { font-size: 22px; }
-.fl-month { font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--mute); margin-top: 14px; }
-.fl-cal {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;
-  max-width: 300px; margin: 8px auto 0;
+/* rhythm strip (renderFlameSheetBody() in app.js) — moved below the flame
+   and shrunk to a single row of dots, one per day this month; no numbers,
+   no day-of-week alignment, just a quick sense of pattern */
+.fl-month { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--mute); margin-top: 16px; }
+.fl-cal-dots {
+  display: flex; justify-content: space-between; align-items: center;
+  max-width: 260px; margin: 8px auto 0;
 }
-.fl-day {
-  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-  font-size: 11.5px; color: var(--dim); background: var(--ink3); border-radius: 9px;
-}
-.fl-day.empty { background: transparent; }
-.fl-day.lit { background: rgba(255,90,60,.16); font-size: 13px; }
-.fl-day.today { outline: 2px solid var(--flame); outline-offset: -2px; color: var(--bone); }
-.fl-stats { display: flex; gap: 10px; max-width: 300px; margin: 14px auto 0; }
-.fl-stat {
-  flex: 1; background: var(--ink3); border-radius: 14px; padding: 12px 8px;
-  animation: cel-slide .4s cubic-bezier(.34,1.56,.64,1) backwards;
-}
-.fl-stat:nth-child(2) { animation-delay: .1s; }
-.fl-stat b { display: block; font-size: 20px; color: var(--bone); }
-.fl-stat span { font-size: 11px; color: var(--mute); }
+.fl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); flex-shrink: 0; }
+.fl-dot.lit { background: var(--flame); }
+.fl-dot.today { outline: 2px solid var(--flame); outline-offset: 2px; }
+
+/* headline stat (renderFlameSheetBody()) — distinct venues visited is the
+   number the app leads with, not check-in count or the calendar; see the
+   task this was written for: "that is what the app is actually about" */
+.fl-headline { margin: 8px 0 10px; animation: cel-slide .4s cubic-bezier(.34,1.56,.64,1) backwards; }
+.fl-headline-num { font-size: 40px; font-weight: 700; color: var(--bone); line-height: 1.1; }
+.fl-headline-label { font-size: 12px; color: var(--mute); margin-top: 2px; }
+.fl-headline-sub { font-size: 12px; color: var(--mute); margin-top: 8px; }
+.fl-headline-sub b { color: var(--bone); font-weight: 700; }
 .fl-badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; }
 .fl-badge {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);

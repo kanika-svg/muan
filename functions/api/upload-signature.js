@@ -1,11 +1,13 @@
 import { getSessionUser } from './_auth.js';
 
-// POST /api/upload-signature — issues a signed Cloudinary upload for one
-// venue's photo, scoped to that venue's own folder. Signed rather than an
-// unsigned preset: an unsigned preset name is public the moment anyone sees
-// it in a network tab, and would let anyone upload to this Cloudinary
-// account. The API secret used to sign never reaches the client — only the
-// resulting signature, timestamp and api_key do.
+// POST /api/upload-signature — issues a signed Cloudinary upload, scoped to
+// either one venue's own folder (default) or the signed-in user's own
+// avatar folder ({ target: 'avatar' } — see js/app.js's profile-picture
+// upload). Signed rather than an unsigned preset: an unsigned preset name
+// is public the moment anyone sees it in a network tab, and would let
+// anyone upload to this Cloudinary account. The API secret used to sign
+// never reaches the client — only the resulting signature, timestamp and
+// api_key do.
 //
 // The signed params (folder, allowed_formats, timestamp) are what actually
 // enforce "images only, in this venue's folder" — Cloudinary rejects the
@@ -50,21 +52,31 @@ export async function onRequest(context) {
     if (!user) return Response.json({ ok: false, need_auth: true }, { status: 401 });
 
     const body = await context.request.json().catch(() => null);
-    const venueId = body && typeof body.venue_id === 'string' ? body.venue_id : '';
-    if (!venueId) return Response.json({ ok: false, error: 'missing venue_id' }, { status: 400 });
+    const forAvatar = body && body.target === 'avatar';
 
     const db = context.env.DB;
-    const owns = await db.prepare(
-      'SELECT 1 FROM venue_owners WHERE user_id = ? AND venue_id = ?'
-    ).bind(user.id, venueId).first();
-    if (!owns) return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
+    let folder;
+    if (forAvatar) {
+      // one photo, no per-venue ownership check needed — every signed-in
+      // user owns exactly their own folder, checked by user.id alone
+      folder = `paisaidee/users/${user.id}`;
+    } else {
+      const venueId = body && typeof body.venue_id === 'string' ? body.venue_id : '';
+      if (!venueId) return Response.json({ ok: false, error: 'missing venue_id' }, { status: 400 });
 
-    const venue = await db.prepare('SELECT photos FROM venues WHERE id = ?').bind(venueId).first();
-    if (!venue) return Response.json({ ok: false, error: 'not found' }, { status: 404 });
+      const owns = await db.prepare(
+        'SELECT 1 FROM venue_owners WHERE user_id = ? AND venue_id = ?'
+      ).bind(user.id, venueId).first();
+      if (!owns) return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
-    const currentCount = JSON.parse(venue.photos || '[]').length;
-    if (currentCount >= MAX_PHOTOS) {
-      return Response.json({ ok: false, error: `up to ${MAX_PHOTOS} photos per venue` }, { status: 400 });
+      const venue = await db.prepare('SELECT photos FROM venues WHERE id = ?').bind(venueId).first();
+      if (!venue) return Response.json({ ok: false, error: 'not found' }, { status: 404 });
+
+      const currentCount = JSON.parse(venue.photos || '[]').length;
+      if (currentCount >= MAX_PHOTOS) {
+        return Response.json({ ok: false, error: `up to ${MAX_PHOTOS} photos per venue` }, { status: 400 });
+      }
+      folder = `paisaidee/venues/${venueId}`;
     }
 
     const cloudName = context.env.CLOUDINARY_CLOUD_NAME;
@@ -76,7 +88,6 @@ export async function onRequest(context) {
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const folder = `paisaidee/venues/${venueId}`;
 
     // Cloudinary's signing rule: every param going to the upload call except
     // file/api_key/signature/resource_type, sorted alphabetically by key,
