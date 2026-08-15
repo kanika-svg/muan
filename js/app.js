@@ -87,6 +87,7 @@ function leaveVenue(screen, viaPopstate) {
   // while a venue happens to be open — only the latter counts as a "fresh"
   // Map arrival for maybeRecenterMap()
   const isReturnToSameScreen = screen === state.screenBeforeVenue;
+  closeLightbox();  // a photo viewer left open over a venue survives every other exit path here — close it too
   stopTracking();
   state.selectedId = null; if (state.map) updateSelection();
   if (state.map) clearRoute();
