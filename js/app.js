@@ -147,68 +147,55 @@ function geoDebug(msg) {
 
 // TEMP diagnostic for the pinned-chip-bar-shows-through bug (reuses
 // ?debug=1 rather than a separate flag, same reasoning as DEBUG_GEO above:
-// phones have no devtools). A desktop harness verified the CSS fix clean,
-// but the symptom persists on a real phone — leading hypothesis is that
-// env(safe-area-inset-top) resolves to 0 in every desktop test and a real
-// value on device, which would make --sheet-pad-top (used for both #sheet's
-// own padding-top and .chip-bar's sticky `top` — see style.css) agree in
-// testing and disagree on the phone. This panel exists to read that back
-// off an actual device rather than guess further. Remove once Kar's read
-// the numbers and the real cause is confirmed — do not use this to justify
-// another blind fix.
-//
-// --sheet-pad-top's OWN resolved value can't be read directly:
-// getComputedStyle(el).getPropertyValue('--sheet-pad-top') returns the raw
-// calc()/env() source text as authored, not a resolved pixel number —
-// custom properties don't get resolved to used values the way real
-// geometry properties do. The only way to see what it actually computes to
-// is to apply it to a real property on a probe element and read THAT
-// property back. Same story for env(safe-area-inset-top) alone. padProbe
-// has to live inside #sheet to inherit the value #sheet itself sets (custom
-// properties cascade like any other inherited value); safeProbe doesn't,
-// env() is a global.
+// phones have no devtools). Three fixes have shipped for this — the
+// padding-top/margin drift, then will-change scoped off #sheetInner at
+// idle — each verified clean in Chromium, each still broken on Kar's
+// phone. Chromium does not reproduce whatever's actually happening on
+// device, so nothing checked only here can tell a real fix from a
+// non-fix. This panel is deliberately NOT hypothesis-shaped this time —
+// no probes for a specific suspected value, just the raw computed facts,
+// so the next step is reading what the phone itself is actually doing
+// rather than guessing again. Remove once that's back and the real cause
+// is confirmed.
 function pinDebugPanel() {
   if (!DEBUG_GEO) return;
   const sheet = document.getElementById('sheet');
   const chipBar = document.getElementById('chipBar');
-  if (!sheet || !chipBar) return;
+  const sheetInner = document.getElementById('sheetInner');
+  if (!sheet || !chipBar || !sheetInner) return;
 
   let panel = document.getElementById('pinDebugPanel');
   if (!panel) {
     panel = document.createElement('div');
     panel.id = 'pinDebugPanel';
-    panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;' +
-      'background:#000;color:#0f0;font:11px/1.5 monospace;padding:6px 8px;z-index:9999;' +
-      'white-space:pre-wrap;pointer-events:none;';
+    // position:fixed on a direct child of <body> (sibling of #app, not
+    // nested inside it) — outside #app entirely, so nothing that happens
+    // to #sheetInner's containing-block/transform state can touch this
+    // element or make it scroll away with the rest of #sheet's content.
+    // High z-index and !important on the geometry so nothing already in
+    // the app can end up covering or repositioning it either.
+    panel.style.cssText = 'position:fixed!important;left:0!important;right:0!important;' +
+      'bottom:0!important;top:auto!important;transform:none!important;' +
+      'background:#000;color:#0f0;font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;' +
+      'padding:6px 8px;z-index:2147483647;white-space:pre-wrap;pointer-events:none;' +
+      'border-top:1px solid #0f0;';
     document.body.appendChild(panel);
   }
 
-  let padProbe = document.getElementById('pinDebugPadProbe');
-  if (!padProbe) {
-    padProbe = document.createElement('div');
-    padProbe.id = 'pinDebugPadProbe';
-    padProbe.style.cssText = 'position:absolute;visibility:hidden;height:var(--sheet-pad-top);';
-    sheet.appendChild(padProbe);
-  }
-  let safeProbe = document.getElementById('pinDebugSafeProbe');
-  if (!safeProbe) {
-    safeProbe = document.createElement('div');
-    safeProbe.id = 'pinDebugSafeProbe';
-    safeProbe.style.cssText = 'position:absolute;visibility:hidden;padding-top:env(safe-area-inset-top, 0px);';
-    document.body.appendChild(safeProbe);
-  }
-
   const render = () => {
+    const chipCs = getComputedStyle(chipBar);
+    const innerCs = getComputedStyle(sheetInner);
     const chipRect = chipBar.getBoundingClientRect();
     const sheetRect = sheet.getBoundingClientRect();
     panel.textContent =
-      `[pin-debug] chipBar computed top: ${getComputedStyle(chipBar).top}\n` +
-      `[pin-debug] sheet computed padding-top: ${getComputedStyle(sheet).paddingTop}\n` +
-      `[pin-debug] --sheet-pad-top resolved: ${getComputedStyle(padProbe).height}\n` +
-      `[pin-debug] env(safe-area-inset-top) resolved: ${getComputedStyle(safeProbe).paddingTop}\n` +
-      `[pin-debug] chipBar rect.top: ${chipRect.top.toFixed(1)}  rect.height: ${chipRect.height.toFixed(1)}\n` +
-      `[pin-debug] sheet rect.top: ${sheetRect.top.toFixed(1)}\n` +
-      `[pin-debug] .pinned applied: ${chipBar.classList.contains('pinned')}`;
+      `chipBar.position: ${chipCs.position}\n` +
+      `chipBar.top: ${chipCs.top}\n` +
+      `chipBar.backgroundColor: ${chipCs.backgroundColor}\n` +
+      `sheetInner.willChange: ${innerCs.willChange}\n` +
+      `sheetInner.transform: ${innerCs.transform}\n` +
+      `chipBar rect.top: ${chipRect.top.toFixed(1)}\n` +
+      `sheet rect.top: ${sheetRect.top.toFixed(1)}  scrollTop: ${sheet.scrollTop.toFixed(1)}\n` +
+      `.pinned applied: ${chipBar.classList.contains('pinned')}`;
   };
 
   render();
