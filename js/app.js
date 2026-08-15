@@ -2774,16 +2774,19 @@ function rowCard(v, extraLine) {
   </div>`;
 }
 
-// "Surprise me": a random OPEN venue, weighted toward nearby when location
-// is known (nearest 8 rather than a flat citywide random, so "near" means
-// something) — requests location first if it isn't already known, same as
-// warmLocation()'s permission-respecting pattern (never triggers the
-// browser prompt from a background tap, only from this explicit one)
-async function quickSurpriseMe() {
+// "Surprise me": a random OPEN venue of `filter`'s type ('bar' | 'cafe' —
+// see surpriseMeHtml(), the only two filters this button ever shows for),
+// weighted toward nearby when location is known (nearest 8 rather than a
+// flat citywide random, so "near" means something) — requests location
+// first if it isn't already known, same as warmLocation()'s permission-
+// respecting pattern (never triggers the browser prompt from a background
+// tap, only from this explicit one)
+async function quickSurpriseMe(filter) {
   if (!state.userPos) await requestLocation();
   const candidates = state.venues.filter(v =>
-    v.pin_status !== 'pending' && v.lat != null && v.lng != null && openStatus(v).open);
-  if (!candidates.length) return;
+    v.pin_status !== 'pending' && v.lat != null && v.lng != null &&
+    v.type === filter && openStatus(v).open);
+  if (!candidates.length) { flashSurpriseMessage('nothing open right now — try later'); return; }
   let pool = candidates;
   if (state.userPos) {
     pool = [...candidates]
@@ -2791,6 +2794,19 @@ async function quickSurpriseMe() {
       .slice(0, Math.min(8, candidates.length));
   }
   openVenue(pool[Math.floor(Math.random() * pool.length)].id);
+}
+
+// swaps the Surprise me button's own label for a couple seconds instead of
+// tapping doing nothing — same transient-label pattern as toggleRoute()'s
+// "Route unavailable" state. Guards on the label still showing this exact
+// message before reverting, in case a second tap (or leaving the screen and
+// coming back) already moved it on to something else.
+function flashSurpriseMessage(msg) {
+  const label = document.querySelector('[data-surprise-me] .surprise-label');
+  if (!label) return;
+  const original = label.textContent;
+  label.textContent = msg;
+  setTimeout(() => { if (label.isConnected && label.textContent === msg) label.textContent = original; }, 2500);
 }
 
 /* ---------- Cloudinary URLs: build the delivery URL a slot actually renders at */
@@ -3195,16 +3211,17 @@ function goHome() {
   renderHomeSheet();
 }
 
-// mobile Home only (see style.css's .surprise-btn) — always rendered into
-// both of renderHomeSheet()'s branches; CSS hides it on desktop rather
-// than branching here, so there's one markup path instead of two. The one
-// quick action left after Open now/Near me/Tonight were removed: sorting
-// and location are default behaviour now (see sortForDisplay()/boot()),
-// not opt-in buttons, and Tonight duplicated the Tonight section and the
-// Events chip.
-function surpriseMeHtml() {
+// mobile Home only (see style.css's .surprise-btn) — CSS hides it on
+// desktop. Bars/Cafes only: "surprise me" from every venue was too broad on
+// All (the whole point of the other sections) and meaningless on Events (no
+// venue-driven pick to make), so renderHomeSheet() only calls this from its
+// f === 'bar' || 'cafe' branch now — All/Events render nothing here at all,
+// not a hidden button. `filter` is always 'bar' or 'cafe' for that reason;
+// quickSurpriseMe() below scopes its pick the same way.
+function surpriseMeHtml(filter) {
+  const label = filter === 'bar' ? 'Surprise me · ບາຣ໌ໃດກໍໄດ້' : 'Surprise me · ຄາເຟໃດກໍໄດ້';
   return `<button class="surprise-btn" data-surprise-me>
-    ${icoSurprise(20)}<span>Surprise me · ໄປໃສກໍໄດ້</span>
+    ${icoSurprise(20)}<span class="surprise-label">${label}</span>
   </button>`;
 }
 
@@ -3252,7 +3269,7 @@ function renderHomeSheet() {
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>
-      ${surpriseMeHtml()}
+      ${surpriseMeHtml(f)}
       <div id="chipSlot"></div>`;
     html += secH(color, label);
 
@@ -3311,7 +3328,6 @@ function renderHomeSheet() {
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">${sub}</div>
-    ${surpriseMeHtml()}
     <div id="chipSlot"></div>`;
   let rendered = false;
   const mobile = isMobile();
@@ -4263,7 +4279,7 @@ function setSheet(html) {
       renderHomeSheet();
     }));
   inner.querySelectorAll('[data-surprise-me]').forEach(el =>
-    el.addEventListener('click', quickSurpriseMe));
+    el.addEventListener('click', () => quickSurpriseMe(state.filter)));
   inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => {
       // on mobile, the venue detail's back arrow / close button returns to

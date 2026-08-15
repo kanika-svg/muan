@@ -1102,6 +1102,16 @@ body {
     overflow-x: auto; scrollbar-width: none;
   }
   #sheet .chip-bar::-webkit-scrollbar { display: none; }
+  /* All/Events (renderHomeSheet() in app.js): no Surprise me button before
+     the chip bar any more (see the task this was scoped for — it's Bars/
+     Cafes only now), so .chip-bar sits directly after .s-sub instead of
+     after the button's own 52px+margins. Without this, the gap between the
+     subtitle and the chips collapses to just the chip bar's own 8px top
+     padding — same 28px .s-sub already gets before a section header
+     elsewhere on this screen (see .s-sub + .sec-h below), reused here so
+     the two "nothing else between them" cases read the same. Specificity
+     needs the #sheet prefix to beat the margin-top:0 above.  */
+  #sheet .s-sub + .chip-bar { margin-top: 28px; }
 }
 
 @media (min-width: 768px) {
