@@ -44,7 +44,7 @@ async function handleGet(context) {
     // unfiltered /api/my-venues -> "Manage your venue" (js/app.js)
     const rows = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
-              description, photos, hours, contact, parking, links,
+              description, photos, hours, hours_note, contact, parking, links,
               verified, status, source, signature, pin_status
        FROM venues WHERE pin_status != 'rejected' ORDER BY rowid`
     ).all();
@@ -63,6 +63,7 @@ async function handleGet(context) {
         description: r.description,
         photos: JSON.parse(r.photos || '[]'),
         hours: r.hours ? JSON.parse(r.hours) : null,
+        hours_note: r.hours_note,
         links: r.links ? JSON.parse(r.links) : {},
         verified: !!r.verified,
         source: r.source,
@@ -195,15 +196,16 @@ async function handlePost(context) {
       db.prepare(
         `INSERT INTO venues (
            id, name, short_name, name_lo, type, lat, lng, area, short,
-           description, photos, hours, contact, parking, links, verified,
+           description, photos, hours, hours_note, contact, parking, links, verified,
            status, source, updated_at, location_review, signature, pin_status
-         ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, '[]', ?, ?, ?, ?, 0,
+         ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, '[]', ?, ?, ?, ?, ?, 0,
            NULL, ?, ?, 0, ?, 'pending')`
       ).bind(
         id, fields.name, fields.short_name || null, fields.name_lo || null,
         fields.type, fields.area || null, fields.short || null,
         fields.description || null,
         hours ? JSON.stringify(hours) : null,
+        fields.hours_note || null,
         contact ? JSON.stringify(contact) : null,
         parking ? JSON.stringify(parking) : null,
         JSON.stringify(links),
@@ -229,7 +231,7 @@ async function handlePost(context) {
         name_lo: fields.name_lo || null, type: fields.type,
         lat: null, lng: null, area: fields.area || null,
         short: fields.short || null, description: fields.description || null,
-        photos: [], hours: hours || null, links, verified: false,
+        photos: [], hours: hours || null, hours_note: fields.hours_note || null, links, verified: false,
         source, pin_status: 'pending',
         ...(contact ? { contact } : {}),
         ...(parking ? { parking } : {}),

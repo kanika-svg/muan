@@ -204,7 +204,7 @@ export async function onRequest(context) {
 
     const updated = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
-              description, photos, hours, contact, parking, links,
+              description, photos, hours, hours_note, contact, parking, links,
               verified, status, source, signature, pin_status
        FROM venues WHERE id = ?`
     ).bind(venueId).first();
@@ -222,6 +222,7 @@ export async function onRequest(context) {
       description: updated.description,
       photos: JSON.parse(updated.photos || '[]'),
       hours: updated.hours ? JSON.parse(updated.hours) : null,
+      hours_note: updated.hours_note,
       links: updated.links ? JSON.parse(updated.links) : {},
       verified: !!updated.verified,
       source: updated.source,

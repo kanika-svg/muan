@@ -2453,7 +2453,10 @@ function isNo1(v) {
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 function openStatus(v) {
-  if (!v.hours) return { open: false, label: 'hours unconfirmed' };
+  // hours_note covers venues with genuinely no daily schedule (e.g. an
+  // exhibition centre that only opens for events) — "hours unconfirmed"
+  // would wrongly imply nobody checked
+  if (!v.hours) return { open: false, label: v.hours_note || 'hours unconfirmed' };
   const now = new Date();
   const today = DAYS[now.getDay()];
   const yesterday = DAYS[(now.getDay() + 6) % 7];
@@ -2959,11 +2962,12 @@ function observeCollageCards() {
 
 /* ---------- Recommended cafés: photo-collage cards ---------- */
 // "closed" already says so on its own (openStatus() covers "closed today" /
-// "closed" / "hours unconfirmed"); only the not-yet-open case ("opens 10 am")
-// needs a "closed ·" prefix to read honestly at a glance
+// "closed" / "hours unconfirmed" / a venue's own hours_note); only the
+// not-yet-open case ("opens 10 am") needs a "closed ·" prefix to read
+// honestly at a glance
 function collageStatusLine(v) {
   const st = openStatus(v);
-  const statusPart = (st.open || /^closed/.test(st.label) || st.label === 'hours unconfirmed')
+  const statusPart = (st.open || /^closed/.test(st.label) || !v.hours)
     ? st.label
     : `closed · ${st.label}`;
   // reachable in principle even though the Recommended tab already filters

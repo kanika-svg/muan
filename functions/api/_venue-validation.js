@@ -3,7 +3,7 @@
 // (owner submissions, POST). Pulled out here once a second write path needed
 // the exact same rules, same pattern as _auth.js/_heat.js being shared
 // helpers rather than duplicated per-endpoint.
-export const SIMPLE_FIELDS = ['name', 'short_name', 'name_lo', 'type', 'area', 'short', 'description'];
+export const SIMPLE_FIELDS = ['name', 'short_name', 'name_lo', 'type', 'area', 'short', 'description', 'hours_note'];
 // the only two SIMPLE_FIELDS an owner can't leave blank — 'type' has its
 // own required check (must be a valid VENUE_TYPES value) and maps_url is
 // required separately in functions/api/venues.js since it isn't a plain
@@ -14,7 +14,7 @@ export const SIMPLE_FIELDS = ['name', 'short_name', 'name_lo', 'type', 'area', '
 export const REQUIRED_SIMPLE_FIELDS = new Set(['name', 'area']);
 export const VENUE_TYPES = ['bar', 'cafe', 'venue'];
 export const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-export const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500 };
+export const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500, hours_note: 80 };
 export const MAX_PARKING_NOTE = 60;
 export const MAX_SIG_ITEMS = 3;
 export const MAX_SIG_NAME = 60;

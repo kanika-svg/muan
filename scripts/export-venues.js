@@ -24,7 +24,10 @@ const SCHEMA_NOTES =
   "Google hours can lag reality — spot-check in person when convenient. " +
   "hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours " +
   "object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am " +
-  "= '26:00', 03:00 am = '27:00'. " +
+  "= '26:00', 03:00 am = '27:00'. hours_note: shown instead of 'hours " +
+  "unconfirmed' when hours is null but there's a known reason (e.g. a venue " +
+  "with no daily schedule) rather than nobody having looked — only read " +
+  "when hours is null. " +
   "photos (and events.json's photo field): '<version>/<publicId>', e.g. " +
   "'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. " +
   "See cloudinaryUrl() in js/app.js, the only place that turns this into a " +
@@ -34,7 +37,7 @@ const SCHEMA_NOTES =
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a
 // multi-line value doesn't survive that quoting intact
-const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, contact, parking, links, verified, status, source, signature, pin_status FROM venues ORDER BY rowid;";
+const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status FROM venues ORDER BY rowid;";
 
 // mirrors functions/api/venues.js's row -> JSON reassembly exactly; if that
 // shape ever changes, change it there and here together
@@ -52,6 +55,7 @@ function rowToVenue(r) {
     description: r.description,
     photos: JSON.parse(r.photos || '[]'),
     hours: r.hours ? JSON.parse(r.hours) : null,
+    hours_note: r.hours_note,
     links: r.links ? JSON.parse(r.links) : {},
     verified: !!r.verified,
     source: r.source,
