@@ -957,67 +957,69 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
 
   setSheet(`
     <div class="fl-wrap">
-      <div class="fl-pfp-wrap">
+
+      <div class="fl-card fl-card-id">
+        <div class="fl-id-row">
+          <button type="button" class="fl-pfp" id="pfpBtn" aria-label="${me.avatar_url ? 'Change your photo' : 'Add a photo'}">
+            ${me.avatar_url
+              ? `<img src="${esc(cloudinaryAvatarUrl(me.avatar_url, 112))}" alt="">`
+              : `<span class="fl-pfp-add">+</span>`}
+          </button>
+          <div class="fl-id-text">
+            ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
+            <div class="fl-id-summary">${me.venues_explored} places · ${me.total_checkins} check-ins</div>
+          </div>
+        </div>
         <input type="file" id="pfpFile" accept="image/*" hidden>
-        <button type="button" class="fl-pfp" id="pfpBtn" aria-label="${me.avatar_url ? 'Change your photo' : 'Add a photo'}">
-          ${me.avatar_url
-            ? `<img src="${esc(cloudinaryAvatarUrl(me.avatar_url, 144))}" alt="">`
-            : `<span class="fl-pfp-add">+</span>`}
-        </button>
         <div class="fl-pfp-err" id="pfpErr"></div>
+
+        <div class="fl-avatar-big">${i !== null ? avatarSVG(+i, 96, earnedIds) : '😊'}</div>
+        <button class="fl-avatar-link" data-open-avatar>Change avatar</button>
       </div>
 
-      ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
-
-      <div class="fl-avatar-big">${i !== null ? avatarSVG(+i, 96, earnedIds) : '😊'}</div>
-
-      ${me.total_checkins > 0 ? `
-      <div class="fl-headline">
-        <div class="fl-headline-num">${me.venues_explored}</div>
-        <div class="fl-headline-label">places explored · ບ່ອນທີ່ໄປມາ</div>
-        <div class="fl-headline-sub"><b>${me.total_checkins}</b> check-ins</div>
-      </div>` : ''}
-
-      <div class="fl-flame" data-heat="${me.heat_level}">
-        ${flameHtml}
-        <div class="fl-streak">${noCheckins ? '' : me.streak_months}</div>
+      <div class="fl-card fl-card-flame">
+        <div class="fl-flame" data-heat="${me.heat_level}">
+          ${flameHtml}
+          <div class="fl-streak">${noCheckins ? '' : me.streak_months}</div>
+        </div>
+        <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
+        <div class="fl-sub">${noCheckins ? 'light your first flame — check in anywhere' : esc(heatLines[me.heat_level] || '')}</div>
+        ${me.embers_total > 0 ? `<div class="fl-embers"><b>${me.embers_total}</b> embers</div>` : ''}
+        <div class="fl-month">${monthName}</div>
+        ${calDots}
       </div>
-      <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
-      <div class="fl-sub">${noCheckins ? 'light your first flame — check in anywhere' : esc(heatLines[me.heat_level] || '')}</div>
-
-      <div class="fl-month">${monthName}</div>
-      ${calDots}
-
-      ${me.embers_total > 0 ? `<div class="fl-embers"><b>${me.embers_total}</b> embers</div>` : ''}
-
-      ${!myVenuesResult.ok ? `
-      <div class="fl-fetch-error">
-        Couldn't load your venues.
-        <button type="button" class="fl-retry" data-retry-flame>Try again</button>
-      </div>` : myVenuesResult.venues.length ? `
-      <div class="fl-manage">
-        <div class="fl-manage-h">Manage your venue</div>
-        ${myVenuesResult.venues.map(v => `<button class="fl-manage-item" data-manage-venue="${v.id}">
-            <span>${esc(v.short_name || v.name)}${v.pin_status === 'pending' ? '<span class="fl-manage-pending"> · pending</span>' : ''}${v.pin_status === 'rejected' ? '<span class="fl-manage-rejected"> · rejected</span>' : ''}</span><span class="fl-manage-arrow">›</span>
-          </button>`).join('')}
-      </div>` : ''}
-
-      <button class="fl-avatar-link" data-list-venue>+ List your venue</button>
-
-      ${me.is_admin ? (pendingVenuesResult.ok
-        ? `<button class="fl-avatar-link" data-admin-pending>Pending venues (${pendingVenuesResult.venues.length})</button>`
-        : `<button class="fl-avatar-link" data-retry-flame>Pending venues — couldn't load, tap to retry</button>`
-      ) : ''}
 
       ${me.badges?.length ? `
-      <div class="fl-badges">
-        ${me.badges.map(b => `<div class="fl-badge" title="${esc(b.description||'')}">
-           <span class="fl-badge-ico">${b.icon}</span>
-           <span class="fl-badge-name">${esc(b.name)}</span>
-         </div>`).join('')}
+      <div class="fl-card fl-card-badges">
+        <div class="fl-badges">
+          ${me.badges.map(b => `<div class="fl-badge" title="${esc(b.description||'')}">
+             <span class="fl-badge-ico">${b.icon}</span>
+             <span class="fl-badge-name">${esc(b.name)}</span>
+           </div>`).join('')}
+        </div>
       </div>` : ''}
 
-      <button class="fl-avatar-link" data-open-avatar>Change avatar</button>
+      <div class="fl-links">
+        ${!myVenuesResult.ok ? `
+        <div class="fl-fetch-error">
+          Couldn't load your venues.
+          <button type="button" class="fl-retry" data-retry-flame>Try again</button>
+        </div>` : myVenuesResult.venues.length ? `
+        <div class="fl-manage">
+          <div class="fl-manage-h">Manage your venue</div>
+          ${myVenuesResult.venues.map(v => `<button class="fl-manage-item" data-manage-venue="${v.id}">
+              <span>${esc(v.short_name || v.name)}${v.pin_status === 'pending' ? '<span class="fl-manage-pending"> · pending</span>' : ''}${v.pin_status === 'rejected' ? '<span class="fl-manage-rejected"> · rejected</span>' : ''}</span><span class="fl-manage-arrow">›</span>
+            </button>`).join('')}
+        </div>` : ''}
+
+        <button class="fl-avatar-link" data-list-venue>+ List your venue</button>
+
+        ${me.is_admin ? (pendingVenuesResult.ok
+          ? `<button class="fl-avatar-link" data-admin-pending>Pending venues (${pendingVenuesResult.venues.length})</button>`
+          : `<button class="fl-avatar-link" data-retry-flame>Pending venues — couldn't load, tap to retry</button>`
+        ) : ''}
+      </div>
+
       <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
       <button class="fl-signout" data-sign-out>Sign out</button>
     </div>
