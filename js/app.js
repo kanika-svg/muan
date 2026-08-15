@@ -3098,6 +3098,25 @@ function loadCollageCardPhotos(cardEl, v) {
 // always "visible". IntersectionObserver fires immediately for whatever's
 // already in range when observe() is called, so the first card (or few,
 // depending on sheet height) loads right away with no special-casing.
+// pinned-state affordance for the sticky chip bar (see #sheet .chip-bar in
+// style.css) — an IntersectionObserver on a 1px-tall sentinel placed just
+// above it, rather than a scroll listener: no per-scroll-frame handler on
+// exactly the phones this bar's pinning bug was reported on, and the same
+// pattern collageObserver below already uses against this same #sheet
+// root. When the sentinel scrolls out of view the bar has stuck; toggling
+// .pinned adds the hairline that makes the stuck state read as intentional
+// rather than a rendering glitch.
+let chipPinObserver = null;
+function observeChipPin() {
+  chipPinObserver?.disconnect();
+  const sentinel = document.getElementById('chipSentinel');
+  if (!sentinel) return;
+  chipPinObserver = new IntersectionObserver(([entry]) => {
+    chipBarEl.classList.toggle('pinned', !entry.isIntersecting);
+  }, { root: document.getElementById('sheet'), threshold: 0 });
+  chipPinObserver.observe(sentinel);
+}
+
 let collageObserver = null;
 function observeCollageCards() {
   collageObserver?.disconnect();
@@ -3270,6 +3289,7 @@ function renderHomeSheet() {
       <div class="s-title">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>
       ${surpriseMeHtml(f)}
+      <div id="chipSentinel"></div>
       <div id="chipSlot"></div>`;
     html += secH(color, label);
 
@@ -3328,6 +3348,7 @@ function renderHomeSheet() {
   let html = `
     <div class="s-title">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">${sub}</div>
+    <div id="chipSentinel"></div>
     <div id="chipSlot"></div>`;
   let rendered = false;
   const mobile = isMobile();
@@ -4268,8 +4289,14 @@ function setSheet(html) {
   // in there. Every other render (venue detail, You, desktop) has no slot,
   // so falls back to placeChips()'s topbar/sheet-sibling placement.
   const chipSlot = isMobile() ? inner.querySelector('#chipSlot') : null;
-  if (chipSlot) chipSlot.replaceWith(chipBarEl);
-  else placeChips();
+  if (chipSlot) {
+    chipSlot.replaceWith(chipBarEl);
+    observeChipPin();
+  } else {
+    chipPinObserver?.disconnect();
+    chipBarEl.classList.remove('pinned');
+    placeChips();
+  }
   inner.classList.add('anim');
   inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));

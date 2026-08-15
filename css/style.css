@@ -1089,19 +1089,36 @@ body {
 
   /* chipBar is moved into #sheet on mobile (see placeChips()/setSheet() in
      app.js) — on Home it's nested inside #sheetInner's own content, below
-     the greeting and Surprise me button, so it scrolls away with the list
-     like any other section; position: sticky re-pins it to the top of
-     #sheet's scrollport once it would scroll out of view. Other mobile
-     screens (venue detail, You) have no #chipSlot and fall back to sitting
-     as a sheet-sibling ahead of #sheetInner — this same selector covers
-     both placements since it matches on ancestry, not exact parent. */
+     the greeting and Surprise me/chip-sentinel markup, so it scrolls away
+     with the list like any other section; position: sticky re-pins it to
+     the top of #sheet's scrollport once it would scroll out of view. Home
+     is the only mobile screen this ever applies to — every other screen
+     either has no chips at all or shows them in #topbar (see placeChips()).
+     Three things had to line up for the pinned bar to actually paint edge
+     to edge instead of showing scrolled-past content through its top/side
+     edges (the bug this whole rule was rewritten for):
+       - background belongs on .chip-bar itself (the sticky element), not a
+         child — it already did, kept as-is
+       - `top` must equal #sheet's own padding-top (--sheet-pad-top, set
+         above), not a bare 0 — sticky's offset leaves the scroll
+         container's own padding showing above it otherwise
+       - the negative side margins that let it span full-bleed must match
+         #sheet's actual left/right padding on this screen (16px, not the
+         14px this had drifted to — see the padding-left/right rule above) */
   #sheet .chip-bar {
-    position: sticky; top: 0; z-index: 2;
+    position: sticky; top: var(--sheet-pad-top); z-index: 2;
     background: var(--ink2);
-    margin: 0 -14px 8px; padding: 8px 14px 4px;
+    margin: 0 -16px 8px; padding: 8px 16px 4px;
     overflow-x: auto; scrollbar-width: none;
   }
   #sheet .chip-bar::-webkit-scrollbar { display: none; }
+  /* only while actually stuck (see observeChipPin() in app.js, which
+     toggles this via an IntersectionObserver on #chipSentinel rather than a
+     scroll listener — no per-frame scroll handler on exactly the phones
+     this bug was reported on) — a bare background-color swap read as a
+     rendering glitch in testing, the hairline is what makes it read as a
+     deliberate "you're now looking at a pinned bar" state */
+  #sheet .chip-bar.pinned { box-shadow: 0 1px 0 var(--ink4); }
   /* All/Events (renderHomeSheet() in app.js): no Surprise me button before
      the chip bar any more (see the task this was scoped for — it's Bars/
      Cafes only now), so .chip-bar sits directly after .s-sub instead of
@@ -1165,7 +1182,12 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   #app.sheet-detail #sheet {
     display: block; position: fixed; inset: 0; transform: none;
     max-height: none; border-radius: 0;
-    padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+    /* also read by #sheet .chip-bar's sticky `top` below — they must match
+       exactly or the pinned chip bar stops short of #sheet's real top edge,
+       leaving a gap that scrolled-past content shows through (the bug this
+       variable was added to stop happening again) */
+    --sheet-pad-top: calc(env(safe-area-inset-top, 0px) + 14px);
+    padding-top: var(--sheet-pad-top);
   }
   /* leave room for the bottom nav only when it's actually showing beneath */
   #app[data-screen="home"]:not(.sheet-detail) #sheet,
