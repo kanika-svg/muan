@@ -4,6 +4,25 @@
    Check-ins, streaks and badges arrive in phase 2 (Workers + D1).
    ============================================================ */
 
+// literal, hand-updated on every edit — there's no build step to stamp this
+// automatically (see CLAUDE.md), so it's only as trustworthy as whoever
+// last touched this file remembering to bump it. Exists so pinDebugPanel()
+// can show it: if Kar's phone is showing an old value here, the phone is
+// running cached JS/CSS and every fix so far genuinely never reached it —
+// that's a real, distinct possibility "verified in Chromium" could never
+// have caught. Bump this string whenever js/app.js or css/style.css change.
+const BUILD_TIME = '2026-08-15T10:08:23Z';
+
+// the very first thing this script does, before anything else — including
+// COLORS below — has any chance to run, let alone touch the URL. Logged
+// unconditionally (not just when true) so there's a console record either
+// way of what the page actually saw at load, on a phone with no devtools
+// to check this after the fact. See DEBUG_GEO further down: the tap-trigger
+// there is the primary way to reach the debug panel now, this is kept
+// working alongside it, not instead of it.
+const DEBUG_FROM_URL = new URLSearchParams(location.search).get('debug') === '1';
+console.log('[muan] ?debug=1 seen at script start:', DEBUG_FROM_URL);
+
 const COLORS = { bar: 'var(--pin-bar)', cafe: 'var(--pin-cafe)', event: 'var(--pin-venue)', venue: 'var(--pin-venue)' };
 const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
 /* normal map fence — initMap() sets these, clearRoute() restores them after a
@@ -131,7 +150,47 @@ function maybeRecenterMap() {
 // TEMP diagnostic — remove once the retry flow is confirmed working.
 // ?debug=1 writes into a box in the sheet (phones have no devtools);
 // otherwise it just goes to console.log.
-const DEBUG_GEO = new URLSearchParams(location.search).get('debug') === '1';
+//
+// DEBUG_GEO is `let`, not `const`: the ?debug=1 route has already failed
+// once for reasons nobody could pin down, so it's no longer the only way
+// in — tapping the app logo 5x within 3s (see initDebugTapTrigger()) flips
+// this at runtime too, and persists the choice in sessionStorage so it
+// survives every Home/filter re-render for the rest of the tab's life, not
+// just the current one. Nothing about the URL, no query string to strip or
+// autocomplete wrong.
+const DEBUG_STORAGE_KEY = 'muan-debug-panel';
+function readDebugStorage() {
+  try { return sessionStorage.getItem(DEBUG_STORAGE_KEY) === '1'; }
+  catch (e) { return false; } // private-browsing/storage-disabled — fall back silently
+}
+let DEBUG_GEO = DEBUG_FROM_URL || readDebugStorage();
+
+// single place that turns debug mode on/off after boot — keeps DEBUG_GEO,
+// sessionStorage, the console record, and the panel's own visibility all
+// in sync no matter which of the two entry points changed it
+function setDebugMode(on) {
+  DEBUG_GEO = on;
+  try { sessionStorage.setItem(DEBUG_STORAGE_KEY, on ? '1' : '0'); } catch (e) {}
+  console.log('[muan] debug panel', on ? 'enabled' : 'disabled', '— build', BUILD_TIME);
+  if (on) pinDebugPanel(); else hideDebugPanel();
+}
+
+// tap the app logo 5x within 3s to toggle debug mode — see DEBUG_GEO above
+// for why this exists alongside ?debug=1 rather than replacing it
+function initDebugTapTrigger() {
+  const target = document.querySelector('.brand-pill');
+  if (!target) return;
+  let taps = [];
+  target.addEventListener('click', () => {
+    const now = Date.now();
+    taps = taps.filter(t => now - t < 3000);
+    taps.push(now);
+    if (taps.length < 5) return;
+    taps = [];
+    setDebugMode(!DEBUG_GEO);
+  });
+}
+
 function geoDebug(msg) {
   if (!DEBUG_GEO) { console.log(msg); return; }
   let box = document.getElementById('geoDebugBox');
@@ -145,18 +204,23 @@ function geoDebug(msg) {
   box.textContent += msg + '\n';
 }
 
-// TEMP diagnostic for the pinned-chip-bar-shows-through bug (reuses
-// ?debug=1 rather than a separate flag, same reasoning as DEBUG_GEO above:
-// phones have no devtools). Three fixes have shipped for this — the
-// padding-top/margin drift, then will-change scoped off #sheetInner at
-// idle — each verified clean in Chromium, each still broken on Kar's
-// phone. Chromium does not reproduce whatever's actually happening on
-// device, so nothing checked only here can tell a real fix from a
-// non-fix. This panel is deliberately NOT hypothesis-shaped this time —
-// no probes for a specific suspected value, just the raw computed facts,
-// so the next step is reading what the phone itself is actually doing
-// rather than guessing again. Remove once that's back and the real cause
-// is confirmed.
+// TEMP diagnostic for the pinned-chip-bar-shows-through bug. Four fixes
+// have shipped for this, each verified clean in Chromium, each still
+// broken on Kar's phone — and the ?debug=1 route to even SEE this panel on
+// that phone has itself failed once, for reasons that didn't hold up under
+// inspection (see the task this note is from: the read timing checked out
+// fine, so whatever went wrong is still unconfirmed). This build now has
+// two independent ways in (DEBUG_GEO above) specifically so a single
+// failure mode can't zero out device data again.
+//
+// Deliberately not hypothesis-shaped: no probes for a specific suspected
+// value, just the raw computed facts, a build-time stamp so a stale cache
+// is visible rather than assumed, and a sticky-test button that swaps
+// position:sticky for position:fixed live, in place, so "does *anything*
+// hold still here" and "does sticky specifically hold still" become two
+// separate yes/no answers instead of one guess. Remove this whole function
+// (and the tap trigger/DEBUG_GEO plumbing above) once the real cause is
+// confirmed off a real device.
 function pinDebugPanel() {
   if (!DEBUG_GEO) return;
   const sheet = document.getElementById('sheet');
@@ -165,36 +229,69 @@ function pinDebugPanel() {
   if (!sheet || !chipBar || !sheetInner) return;
 
   let panel = document.getElementById('pinDebugPanel');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'pinDebugPanel';
-    // position:fixed on a direct child of <body> (sibling of #app, not
-    // nested inside it) — outside #app entirely, so nothing that happens
-    // to #sheetInner's containing-block/transform state can touch this
-    // element or make it scroll away with the rest of #sheet's content.
-    // High z-index and !important on the geometry so nothing already in
-    // the app can end up covering or repositioning it either.
-    panel.style.cssText = 'position:fixed!important;left:0!important;right:0!important;' +
-      'bottom:0!important;top:auto!important;transform:none!important;' +
-      'background:#000;color:#0f0;font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;' +
-      'padding:6px 8px;z-index:2147483647;white-space:pre-wrap;pointer-events:none;' +
-      'border-top:1px solid #0f0;';
-    document.body.appendChild(panel);
-  }
+  if (panel) { panel.style.display = ''; return; } // already built and wired once — just make it visible again
+
+  panel = document.createElement('div');
+  panel.id = 'pinDebugPanel';
+  // position:fixed on a direct child of <body> (sibling of #app, not
+  // nested inside it) — outside #app entirely, so nothing that happens to
+  // #sheetInner's containing-block/transform state can touch this element
+  // or make it scroll away with the rest of #sheet's content. High
+  // z-index and !important on the geometry so nothing already in the app
+  // can end up covering or repositioning it either.
+  panel.style.cssText = 'position:fixed!important;left:0!important;right:0!important;' +
+    'bottom:0!important;top:auto!important;transform:none!important;' +
+    'background:#000;color:#0f0;font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;' +
+    'padding:6px 8px;z-index:2147483647;pointer-events:none;border-top:1px solid #0f0;';
+  document.body.appendChild(panel);
+
+  const readout = document.createElement('div');
+  readout.style.cssText = 'white-space:pre-wrap;';
+  panel.appendChild(readout);
+
+  // pointer-events:auto on just the button, inside a pointer-events:none
+  // panel — the readout stays a passive overlay (can't eat taps meant for
+  // #bottomNav underneath it), the button stays tappable
+  const stickyTestBtn = document.createElement('button');
+  stickyTestBtn.id = 'pinDebugStickyTestBtn';
+  stickyTestBtn.type = 'button';
+  stickyTestBtn.style.cssText = 'pointer-events:auto;display:block;margin-top:6px;padding:6px 10px;' +
+    'background:#0f0;color:#000;border:none;border-radius:4px;font:11px/1.4 ' +
+    'ui-monospace,Menlo,Consolas,monospace;font-weight:700;';
+  stickyTestBtn.textContent = 'sticky test: OFF (tap to force fixed)';
+  // state is read off chipBar's own inline style each click rather than a
+  // separate JS variable — so hideDebugPanel()'s cleanup (below) can't
+  // desync from what's actually applied
+  stickyTestBtn.addEventListener('click', () => {
+    if (chipBar.style.position === 'fixed') {
+      chipBar.style.removeProperty('position');
+      chipBar.style.removeProperty('top');
+      stickyTestBtn.textContent = 'sticky test: OFF (tap to force fixed)';
+    } else {
+      const top = getComputedStyle(chipBar).top;
+      chipBar.style.setProperty('position', 'fixed', 'important');
+      chipBar.style.setProperty('top', top, 'important');
+      stickyTestBtn.textContent = `sticky test: ON (fixed, top:${top} — tap to revert)`;
+    }
+  });
+  panel.appendChild(stickyTestBtn);
 
   const render = () => {
     const chipCs = getComputedStyle(chipBar);
+    const sheetCs = getComputedStyle(sheet);
     const innerCs = getComputedStyle(sheetInner);
     const chipRect = chipBar.getBoundingClientRect();
     const sheetRect = sheet.getBoundingClientRect();
-    panel.textContent =
+    readout.textContent =
+      `build: ${BUILD_TIME}\n` +
+      `styleSheets: ${document.styleSheets.length}\n` +
       `chipBar.position: ${chipCs.position}\n` +
-      `chipBar.top: ${chipCs.top}\n` +
       `chipBar.backgroundColor: ${chipCs.backgroundColor}\n` +
-      `sheetInner.willChange: ${innerCs.willChange}\n` +
-      `sheetInner.transform: ${innerCs.transform}\n` +
       `chipBar rect.top: ${chipRect.top.toFixed(1)}\n` +
       `sheet rect.top: ${sheetRect.top.toFixed(1)}  scrollTop: ${sheet.scrollTop.toFixed(1)}\n` +
+      `sheet willChange: ${sheetCs.willChange}\n` +
+      `sheetInner willChange: ${innerCs.willChange}\n` +
+      `sheetInner transform: ${innerCs.transform}\n` +
       `.pinned applied: ${chipBar.classList.contains('pinned')}`;
   };
 
@@ -203,6 +300,17 @@ function pinDebugPanel() {
   // each render — see setSheet()), so this is set up once here rather than
   // re-wired on every Home render the way observeChipPin() has to be
   sheet.addEventListener('scroll', render, { passive: true });
+}
+
+function hideDebugPanel() {
+  const panel = document.getElementById('pinDebugPanel');
+  if (panel) panel.style.display = 'none';
+  // undo a live sticky test too — hiding the panel shouldn't leave the
+  // chip bar permanently forced into position:fixed
+  const chipBar = document.getElementById('chipBar');
+  if (chipBar) { chipBar.style.removeProperty('position'); chipBar.style.removeProperty('top'); }
+  const btn = document.getElementById('pinDebugStickyTestBtn');
+  if (btn) btn.textContent = 'sticky test: OFF (tap to force fixed)';
 }
 
 // the one place that requests location — the "near me" pill and the
@@ -329,7 +437,8 @@ async function boot() {
 
     placeChips();
     window.addEventListener('resize', placeChips);
-    pinDebugPanel();  // no-op unless ?debug=1 — see pinDebugPanel()'s own comment
+    initDebugTapTrigger();  // 5 taps on the logo within 3s — see DEBUG_GEO above
+    pinDebugPanel();  // no-op unless already on via ?debug=1 or a prior tap this session
     const [vRes, eRes, picks] = await Promise.all([
       fetch('/api/venues'),
       fetch('data/events.json'),
