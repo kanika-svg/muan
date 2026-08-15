@@ -251,8 +251,26 @@ body {
   background: var(--ink4); border-radius: 3px; margin: 0 auto 10px;
 }
 /* horizontal filter-swipe translates only this wrapper — #sheet itself keeps
-   the vertical scroll and collapse transform, so the two never fight */
-#sheetInner { will-change: transform; }
+   the vertical scroll and collapse transform, so the two never fight.
+   will-change was unconditional here until real-device testing (see the
+   task this was fixed for) found it was the actual cause of the pinned
+   chip bar breaking on a phone: #sheet .chip-bar (style.css, further down)
+   is a descendant of #sheetInner, and will-change:transform on an ancestor
+   makes it a new containing block for sticky descendants — always-on here
+   meant .chip-bar could never stick correctly against #sheet at all, not
+   just show a gap. Chromium doesn't reproduce this (confirmed: identical
+   behaviour in a desktop harness with will-change forced on vs off), which
+   is exactly why the previous gap/margin fix tested clean and didn't touch
+   the real bug. Scoped to .swiping/.settling instead — the two classes
+   already precisely bracket every moment #sheetInner actually has a
+   non-empty transform (added in touchmove's axis:'x' branch and by
+   changeFilterAnimated(), removed by endGesture() and the settle's
+   transitionend — see initSheetDrag()/changeFilterAnimated() in app.js) —
+   so the swipe keeps its promoted layer exactly when it's transforming,
+   and .chip-bar has no transformed ancestor the rest of the time, which is
+   effectively always: swiping and the vertical scroll sticky depends on
+   are mutually exclusive gestures. */
+#sheetInner.swiping, #sheetInner.settling { will-change: transform; }
 #sheetInner.swiping { transition: none; }
 #sheetInner.settling { transition: transform .22s cubic-bezier(.32,1.1,.5,1), opacity .22s ease; }
 
