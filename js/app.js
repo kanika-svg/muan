@@ -11,7 +11,7 @@
 // running cached JS/CSS and every fix so far genuinely never reached it —
 // that's a real, distinct possibility "verified in Chromium" could never
 // have caught. Bump this string whenever js/app.js or css/style.css change.
-const BUILD_TIME = '2026-08-15T10:08:23Z';
+const BUILD_TIME = '2026-08-15T14:20:00Z';
 
 // the very first thing this script does, before anything else — including
 // COLORS below — has any chance to run, let alone touch the URL. Logged
@@ -221,6 +221,40 @@ function geoDebug(msg) {
 // separate yes/no answers instead of one guess. Remove this whole function
 // (and the tap trigger/DEBUG_GEO plumbing above) once the real cause is
 // confirmed off a real device.
+// position:fixed following the sticky test (see stickyTestBtn below) still
+// scrolled with content instead of holding still — that's only possible if
+// some ancestor of chip-bar establishes a containing block for fixed-
+// position descendants, which transform, filter, backdrop-filter,
+// perspective, contain AND will-change (not just will-change:transform —
+// any will-change value naming a property that itself would create a
+// containing block) all do independently. sheetInner's transform and
+// sheet's will-change were checked by hand and came back clean, but that
+// only clears two properties on two elements — #app, body and html were
+// never actually read. Walks chip-bar's REAL current parent chain (it
+// relocates between #topbar, #sheet and a #chipSlot position inside
+// #sheetInner depending on screen — see placeChips()/setSheet()) rather
+// than a hardcoded list, so this can't silently stop being accurate if
+// that placement logic changes later.
+function ancestorContainingBlockDump(el) {
+  const lines = [];
+  let node = el.parentElement;
+  while (node) {
+    const cs = getComputedStyle(node);
+    const label = node.id ? '#' + node.id
+      : (typeof node.className === 'string' && node.className) ? '.' + node.className.split(' ')[0]
+      : node.tagName.toLowerCase();
+    // Safari/older WebKit only exposes this prefixed — backdrop-filter is
+    // named directly in this bug's own suspect list, so it gets the same
+    // fallback the @supports checks elsewhere in the CSS already assume
+    const bdf = cs.backdropFilter || cs.webkitBackdropFilter || 'none';
+    lines.push(`${label}: pos=${cs.position} ovf=${cs.overflow} tf=${cs.transform} ` +
+      `filt=${cs.filter} bdf=${bdf} persp=${cs.perspective} contain=${cs.contain} wc=${cs.willChange}`);
+    if (node === document.documentElement) break;
+    node = node.parentElement;
+  }
+  return lines.join('\n');
+}
+
 function pinDebugPanel() {
   if (!DEBUG_GEO) return;
   const sheet = document.getElementById('sheet');
@@ -278,21 +312,19 @@ function pinDebugPanel() {
 
   const render = () => {
     const chipCs = getComputedStyle(chipBar);
-    const sheetCs = getComputedStyle(sheet);
-    const innerCs = getComputedStyle(sheetInner);
     const chipRect = chipBar.getBoundingClientRect();
     const sheetRect = sheet.getBoundingClientRect();
     readout.textContent =
       `build: ${BUILD_TIME}\n` +
+      `theme: ${document.documentElement.dataset.theme || '(unset)'}\n` +
       `styleSheets: ${document.styleSheets.length}\n` +
       `chipBar.position: ${chipCs.position}\n` +
       `chipBar.backgroundColor: ${chipCs.backgroundColor}\n` +
       `chipBar rect.top: ${chipRect.top.toFixed(1)}\n` +
       `sheet rect.top: ${sheetRect.top.toFixed(1)}  scrollTop: ${sheet.scrollTop.toFixed(1)}\n` +
-      `sheet willChange: ${sheetCs.willChange}\n` +
-      `sheetInner willChange: ${innerCs.willChange}\n` +
-      `sheetInner transform: ${innerCs.transform}\n` +
-      `.pinned applied: ${chipBar.classList.contains('pinned')}`;
+      `.pinned applied: ${chipBar.classList.contains('pinned')}\n` +
+      `--- ancestor chain, chip-bar's actual current parent up to html ---\n` +
+      ancestorContainingBlockDump(chipBar);
   };
 
   render();
