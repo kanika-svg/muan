@@ -285,22 +285,28 @@ body {
 
 /* status pill: sits top-left over a card's photo (see statusPillHtml()/
    photoWrap() in app.js) — open/closed is now an explicit label instead of
-   only being implied by the .closed fade below. The scrim is the pill's
-   own background rather than a full-photo gradient, and its colors are
-   fixed hex rather than theme tokens, both so it reads over any photo
-   regardless of the app's light/dark theme. Closed is deliberately a
-   neutral grey, not red — closed is a fact, not an error. */
+   only being implied by the .closed fade below. Its colors are fixed hex
+   rather than theme tokens so it reads over any photo regardless of the
+   app's light/dark theme. Solid fill (not colored text over one shared
+   translucent scrim, the previous approach) so all three states carry the
+   same visual weight — the earlier version read as three different
+   treatments in a list because pale grey text on a dim scrim and bold
+   green/orange text on that same scrim don't look like the same kind of
+   badge even though the markup was already identical. Closed keeps its
+   deliberately neutral grey fill, not red — closed is a fact, not an
+   error, so it still shouldn't shout as loud as open/soon, just read as
+   the same *kind* of chip. */
 .photo-wrap { position: relative; overflow: hidden; }
 .photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .status-pill {
   position: absolute; top: 6px; left: 6px; z-index: 1;
   font-size: 11px; font-weight: 700; line-height: 1.3;
   padding: 3px 7px; border-radius: 6px;
-  background: rgba(19, 14, 26, .58);
+  color: #131019;
 }
-.status-pill.open   { color: #33E0B4; }
-.status-pill.soon   { color: #FF7A5C; }
-.status-pill.closed { color: #D8D2E0; }
+.status-pill.open   { background: #33E0B4; }
+.status-pill.soon   { background: #FF7A5C; }
+.status-pill.closed { background: #D8D2E0; }
 
 /* item 1 ("Sorting becomes the default"): closed venues stay visible
    everywhere, just dimmed — never hidden, since someone browsing at 4pm
@@ -1123,19 +1129,25 @@ body {
      the top of #sheet's scrollport once it would scroll out of view. Home
      is the only mobile screen this ever applies to — every other screen
      either has no chips at all or shows them in #topbar (see placeChips()).
-     Three things had to line up for the pinned bar to actually paint edge
-     to edge instead of showing scrolled-past content through its top/side
+     Two things had to line up for the pinned bar to actually paint edge to
+     edge instead of showing scrolled-past content through its top/side
      edges (the bug this whole rule was rewritten for):
        - background belongs on .chip-bar itself (the sticky element), not a
          child — it already did, kept as-is
-       - `top` must equal #sheet's own padding-top (--sheet-pad-top, set
-         above), not a bare 0 — sticky's offset leaves the scroll
-         container's own padding showing above it otherwise
+       - `top` must be a bare 0, not #sheet's own padding-top. #sheet's
+         padding-top already pushes the bar down by that amount once, in
+         normal flow, before it ever sticks — adding the same amount again
+         as the sticky offset (the previous version of this rule, via
+         --sheet-pad-top) double-applies it, pinning the bar 40-45px below
+         the scroll container's real top edge with a gap above it that
+         content keeps scrolling through. Confirmed against device
+         screenshots: sticky itself holds position correctly (within 5px
+         across several cards of scroll) — the bug was purely this offset.
        - the negative side margins that let it span full-bleed must match
          #sheet's actual left/right padding on this screen (16px, not the
          14px this had drifted to — see the padding-left/right rule above) */
   #sheet .chip-bar {
-    position: sticky; top: var(--sheet-pad-top); z-index: 2;
+    position: sticky; top: 0; z-index: 2;
     background: var(--ink2);
     margin: 0 -16px 8px; padding: 8px 16px 4px;
     overflow-x: auto; scrollbar-width: none;
@@ -1211,12 +1223,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   #app.sheet-detail #sheet {
     display: block; position: fixed; inset: 0; transform: none;
     max-height: none; border-radius: 0;
-    /* also read by #sheet .chip-bar's sticky `top` below — they must match
-       exactly or the pinned chip bar stops short of #sheet's real top edge,
-       leaving a gap that scrolled-past content shows through (the bug this
-       variable was added to stop happening again) */
-    --sheet-pad-top: calc(env(safe-area-inset-top, 0px) + 14px);
-    padding-top: var(--sheet-pad-top);
+    padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
   }
   /* leave room for the bottom nav only when it's actually showing beneath */
   #app[data-screen="home"]:not(.sheet-detail) #sheet,

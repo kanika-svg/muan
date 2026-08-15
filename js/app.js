@@ -6,11 +6,11 @@
 
 // literal, hand-updated on every edit — there's no build step to stamp this
 // automatically (see CLAUDE.md), so it's only as trustworthy as whoever
-// last touched this file remembering to bump it. Exists so pinDebugPanel()
-// can show it: if Kar's phone is showing an old value here, the phone is
-// running cached JS/CSS and every fix so far genuinely never reached it —
-// that's a real, distinct possibility "verified in Chromium" could never
-// have caught. Bump this string whenever js/app.js or css/style.css change.
+// last touched this file remembering to bump it. Logged by setDebugMode()
+// below: if a phone's console shows an old value here, it's running cached
+// JS/CSS and a fix genuinely never reached it — a real, distinct
+// possibility "verified in Chromium" could never have caught. Bump this
+// string whenever js/app.js or css/style.css change.
 const BUILD_TIME = '2026-08-15T14:20:00Z';
 
 // the very first thing this script does, before anything else — including
@@ -166,13 +166,14 @@ function readDebugStorage() {
 let DEBUG_GEO = DEBUG_FROM_URL || readDebugStorage();
 
 // single place that turns debug mode on/off after boot — keeps DEBUG_GEO,
-// sessionStorage, the console record, and the panel's own visibility all
-// in sync no matter which of the two entry points changed it
+// sessionStorage and the console record in sync no matter which of the two
+// entry points changed it. Currently only gates geoDebug()'s on-screen box
+// below; kept as its own function (rather than inlined at the two call
+// sites) because it's cheap and this toggle will be worth having again.
 function setDebugMode(on) {
   DEBUG_GEO = on;
   try { sessionStorage.setItem(DEBUG_STORAGE_KEY, on ? '1' : '0'); } catch (e) {}
-  console.log('[muan] debug panel', on ? 'enabled' : 'disabled', '— build', BUILD_TIME);
-  if (on) pinDebugPanel(); else hideDebugPanel();
+  console.log('[muan] debug mode', on ? 'enabled' : 'disabled', '— build', BUILD_TIME);
 }
 
 // tap the app logo 5x within 3s to toggle debug mode — see DEBUG_GEO above
@@ -202,147 +203,6 @@ function geoDebug(msg) {
     document.body.appendChild(box);
   }
   box.textContent += msg + '\n';
-}
-
-// TEMP diagnostic for the pinned-chip-bar-shows-through bug. Four fixes
-// have shipped for this, each verified clean in Chromium, each still
-// broken on Kar's phone — and the ?debug=1 route to even SEE this panel on
-// that phone has itself failed once, for reasons that didn't hold up under
-// inspection (see the task this note is from: the read timing checked out
-// fine, so whatever went wrong is still unconfirmed). This build now has
-// two independent ways in (DEBUG_GEO above) specifically so a single
-// failure mode can't zero out device data again.
-//
-// Deliberately not hypothesis-shaped: no probes for a specific suspected
-// value, just the raw computed facts, a build-time stamp so a stale cache
-// is visible rather than assumed, and a sticky-test button that swaps
-// position:sticky for position:fixed live, in place, so "does *anything*
-// hold still here" and "does sticky specifically hold still" become two
-// separate yes/no answers instead of one guess. Remove this whole function
-// (and the tap trigger/DEBUG_GEO plumbing above) once the real cause is
-// confirmed off a real device.
-// position:fixed following the sticky test (see stickyTestBtn below) still
-// scrolled with content instead of holding still — that's only possible if
-// some ancestor of chip-bar establishes a containing block for fixed-
-// position descendants, which transform, filter, backdrop-filter,
-// perspective, contain AND will-change (not just will-change:transform —
-// any will-change value naming a property that itself would create a
-// containing block) all do independently. sheetInner's transform and
-// sheet's will-change were checked by hand and came back clean, but that
-// only clears two properties on two elements — #app, body and html were
-// never actually read. Walks chip-bar's REAL current parent chain (it
-// relocates between #topbar, #sheet and a #chipSlot position inside
-// #sheetInner depending on screen — see placeChips()/setSheet()) rather
-// than a hardcoded list, so this can't silently stop being accurate if
-// that placement logic changes later.
-function ancestorContainingBlockDump(el) {
-  const lines = [];
-  let node = el.parentElement;
-  while (node) {
-    const cs = getComputedStyle(node);
-    const label = node.id ? '#' + node.id
-      : (typeof node.className === 'string' && node.className) ? '.' + node.className.split(' ')[0]
-      : node.tagName.toLowerCase();
-    // Safari/older WebKit only exposes this prefixed — backdrop-filter is
-    // named directly in this bug's own suspect list, so it gets the same
-    // fallback the @supports checks elsewhere in the CSS already assume
-    const bdf = cs.backdropFilter || cs.webkitBackdropFilter || 'none';
-    lines.push(`${label}: pos=${cs.position} ovf=${cs.overflow} tf=${cs.transform} ` +
-      `filt=${cs.filter} bdf=${bdf} persp=${cs.perspective} contain=${cs.contain} wc=${cs.willChange}`);
-    if (node === document.documentElement) break;
-    node = node.parentElement;
-  }
-  return lines.join('\n');
-}
-
-function pinDebugPanel() {
-  if (!DEBUG_GEO) return;
-  const sheet = document.getElementById('sheet');
-  const chipBar = document.getElementById('chipBar');
-  const sheetInner = document.getElementById('sheetInner');
-  if (!sheet || !chipBar || !sheetInner) return;
-
-  let panel = document.getElementById('pinDebugPanel');
-  if (panel) { panel.style.display = ''; return; } // already built and wired once — just make it visible again
-
-  panel = document.createElement('div');
-  panel.id = 'pinDebugPanel';
-  // position:fixed on a direct child of <body> (sibling of #app, not
-  // nested inside it) — outside #app entirely, so nothing that happens to
-  // #sheetInner's containing-block/transform state can touch this element
-  // or make it scroll away with the rest of #sheet's content. High
-  // z-index and !important on the geometry so nothing already in the app
-  // can end up covering or repositioning it either.
-  panel.style.cssText = 'position:fixed!important;left:0!important;right:0!important;' +
-    'bottom:0!important;top:auto!important;transform:none!important;' +
-    'background:#000;color:#0f0;font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;' +
-    'padding:6px 8px;z-index:2147483647;pointer-events:none;border-top:1px solid #0f0;';
-  document.body.appendChild(panel);
-
-  const readout = document.createElement('div');
-  readout.style.cssText = 'white-space:pre-wrap;';
-  panel.appendChild(readout);
-
-  // pointer-events:auto on just the button, inside a pointer-events:none
-  // panel — the readout stays a passive overlay (can't eat taps meant for
-  // #bottomNav underneath it), the button stays tappable
-  const stickyTestBtn = document.createElement('button');
-  stickyTestBtn.id = 'pinDebugStickyTestBtn';
-  stickyTestBtn.type = 'button';
-  stickyTestBtn.style.cssText = 'pointer-events:auto;display:block;margin-top:6px;padding:6px 10px;' +
-    'background:#0f0;color:#000;border:none;border-radius:4px;font:11px/1.4 ' +
-    'ui-monospace,Menlo,Consolas,monospace;font-weight:700;';
-  stickyTestBtn.textContent = 'sticky test: OFF (tap to force fixed)';
-  // state is read off chipBar's own inline style each click rather than a
-  // separate JS variable — so hideDebugPanel()'s cleanup (below) can't
-  // desync from what's actually applied
-  stickyTestBtn.addEventListener('click', () => {
-    if (chipBar.style.position === 'fixed') {
-      chipBar.style.removeProperty('position');
-      chipBar.style.removeProperty('top');
-      stickyTestBtn.textContent = 'sticky test: OFF (tap to force fixed)';
-    } else {
-      const top = getComputedStyle(chipBar).top;
-      chipBar.style.setProperty('position', 'fixed', 'important');
-      chipBar.style.setProperty('top', top, 'important');
-      stickyTestBtn.textContent = `sticky test: ON (fixed, top:${top} — tap to revert)`;
-    }
-  });
-  panel.appendChild(stickyTestBtn);
-
-  const render = () => {
-    const chipCs = getComputedStyle(chipBar);
-    const chipRect = chipBar.getBoundingClientRect();
-    const sheetRect = sheet.getBoundingClientRect();
-    readout.textContent =
-      `build: ${BUILD_TIME}\n` +
-      `theme: ${document.documentElement.dataset.theme || '(unset)'}\n` +
-      `styleSheets: ${document.styleSheets.length}\n` +
-      `chipBar.position: ${chipCs.position}\n` +
-      `chipBar.backgroundColor: ${chipCs.backgroundColor}\n` +
-      `chipBar rect.top: ${chipRect.top.toFixed(1)}\n` +
-      `sheet rect.top: ${sheetRect.top.toFixed(1)}  scrollTop: ${sheet.scrollTop.toFixed(1)}\n` +
-      `.pinned applied: ${chipBar.classList.contains('pinned')}\n` +
-      `--- ancestor chain, chip-bar's actual current parent up to html ---\n` +
-      ancestorContainingBlockDump(chipBar);
-  };
-
-  render();
-  // #sheet is a persistent node (only #sheetInner's content is replaced on
-  // each render — see setSheet()), so this is set up once here rather than
-  // re-wired on every Home render the way observeChipPin() has to be
-  sheet.addEventListener('scroll', render, { passive: true });
-}
-
-function hideDebugPanel() {
-  const panel = document.getElementById('pinDebugPanel');
-  if (panel) panel.style.display = 'none';
-  // undo a live sticky test too — hiding the panel shouldn't leave the
-  // chip bar permanently forced into position:fixed
-  const chipBar = document.getElementById('chipBar');
-  if (chipBar) { chipBar.style.removeProperty('position'); chipBar.style.removeProperty('top'); }
-  const btn = document.getElementById('pinDebugStickyTestBtn');
-  if (btn) btn.textContent = 'sticky test: OFF (tap to force fixed)';
 }
 
 // the one place that requests location — the "near me" pill and the
@@ -470,7 +330,6 @@ async function boot() {
     placeChips();
     window.addEventListener('resize', placeChips);
     initDebugTapTrigger();  // 5 taps on the logo within 3s — see DEBUG_GEO above
-    pinDebugPanel();  // no-op unless already on via ?debug=1 or a prior tap this session
     const [vRes, eRes, picks] = await Promise.all([
       fetch('/api/venues'),
       fetch('data/events.json'),
@@ -2855,18 +2714,16 @@ function distanceTo(v) {
 
 // default sort for every regular venue section and type list (see item 1,
 // "Sorting becomes the default"): open venues first, nearest first when
-// state.userPos is known; closed venues sink to the bottom but keep
-// whatever relative order the list already had (their own distance is
-// never used to reorder them — a closed bar 200m away doesn't outrank a
-// closed cafe 2km away, they're both just "closed, see you later"). A
-// single stable sort (Array#sort has been spec-guaranteed stable since
-// ES2019) does both at once: comparing only within the open group is what
-// makes the closed group fall through untouched, in its original order.
+// state.userPos is known; closed venues sink to the bottom, sorted nearest
+// first within their own group the same way (mirrors sortEditorial()'s
+// closed-group handling below) — a closed venue's distance still matters
+// to someone deciding where to end up once it opens back up. Only the
+// open/closed split itself is exempt from distance, never the ordering
+// inside either group.
 function sortForDisplay(list) {
   return [...list].sort((a, b) => {
     const aOpen = openStatus(a).open, bOpen = openStatus(b).open;
     if (aOpen !== bOpen) return aOpen ? -1 : 1;
-    if (!aOpen) return 0; // closed (or both open with unknown distance below)
     const da = distanceTo(a), db = distanceTo(b);
     return (da != null && db != null) ? da - db : 0;
   });
