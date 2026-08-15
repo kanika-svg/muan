@@ -4299,10 +4299,21 @@ function changeFilterAnimated(dir) {
     syncChipState();
     renderMarkers();
     renderHomeSheet();                 // re-renders into #sheetInner, resetting transform/opacity
+    // .swiping, not .settling, for this jump to the fly-in start position —
+    // .swiping's own transition:none is what keeps the snap instant (the
+    // same reason the touchmove drag itself uses .swiping); .settling only
+    // takes over next frame so the actual fly-in animates. Either way, the
+    // class goes on in the same synchronous block as the transform, not
+    // after — renderHomeSheet() just cleared both classes via setSheet(),
+    // so leaving even one frame between them applied #sheetInner's real
+    // transform with neither class present, which is a real (if narrow)
+    // will-change gap even though it isn't the pinned-chip-bar bug.
     inner.classList.remove('settling');
+    inner.classList.add('swiping');
     inner.style.transform = `translateX(${dir * W * 0.35}px)`;
     inner.style.opacity = '0';
     requestAnimationFrame(() => {
+      inner.classList.remove('swiping');
       inner.classList.add('settling');
       inner.style.transform = 'translateX(0)';
       inner.style.opacity = '1';

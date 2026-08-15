@@ -15,6 +15,12 @@ file/variable names) intentionally remain "muan" — do not rename them.
   `--check` doesn't reliably catch the resulting stray token). Verify syntax
   with a real ESM parse instead, e.g. dynamic `import()` of the file via a
   `file://` URL.
+- CSS cascades per property, not per rule. Overriding `transform` does not
+  override `will-change`, `transition` or anything else in the same
+  declaration block. When neutralising a rule, neutralise every property in
+  it. Bugs from this pattern so far: sticky chip bar, hero aspect-ratio vs
+  height, [hidden] vs display:flex, media-query source order, sticky top vs
+  sheet padding.
 - Migrations must be run against production with `--remote` BEFORE or in the
   same session as the deploy that depends on them — never after.
 - Code that references a new column must not ship until the migration adding

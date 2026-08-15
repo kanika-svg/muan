@@ -1092,12 +1092,23 @@ body {
 
 #sheetHandle { cursor: default; padding: 10px 0 6px; margin-top: -10px; }
 @media (max-width: 767px) {
+  /* transform/transition/will-change removed from here — this rule (and
+     #sheet.collapsed/.dragging below) was for the old handle-drag collapse
+     animation, which #app[data-screen="home"] #sheet's higher-specificity
+     transform:none has already made inert on every mobile screen this sheet
+     is actually visible on (Home/You/any pushed detail; Map has #sheet at
+     display:none so it doesn't render regardless). CSS cascades per
+     property, not per rule, though: that override only ever touched
+     `transform` — will-change was never mentioned, so it kept applying
+     unconditionally, forever, on the ONE element sticky positioning in this
+     sheet actually depends on. See CLAUDE.md's "neutralise every property"
+     note — this is that bug, found by reading the cascade, not guessing at
+     it. Desktop's own #sheet.collapsed (further down, @media min-width:768px)
+     is a separate rule with its own transform and never had a will-change
+     hint from here or anywhere else — nothing to preserve for it. */
   #sheet {
     position: fixed; left: 0; right: 0; bottom: 0;
     max-height: 62vh;
-    transform: translateY(0);
-    transition: transform .38s cubic-bezier(.32,1.15,.5,1);
-    will-change: transform;
   }
   /* collapsed = slid down, leaving the handle + chip row visible */
   #sheet.collapsed {
