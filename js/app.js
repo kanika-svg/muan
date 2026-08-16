@@ -343,26 +343,17 @@ async function boot() {
     placeChips();
     window.addEventListener('resize', placeChips);
     initDebugTapTrigger();  // 5 taps on the logo within 3s — see DEBUG_GEO above
-    const [vRes, eRes, picks, weather] = await Promise.all([
+    const [vRes, eRes, picks] = await Promise.all([
       fetch('/api/venues'),
       fetch('data/events.json'),
       fetch('data/picks.json')
         .then(r => r.ok ? r.json() : Promise.reject(new Error('picks fetch failed: ' + r.status)))
         .catch(e => { console.warn('[muan] picks unavailable', e); return null; }),
-      // same "never block, never surface a failure" contract as picks above —
-      // weatherWidgetHtml() below treats anything but {ok:true} as "render
-      // nothing", so a rejected promise and a well-formed {ok:false} body
-      // both just collapse to null here
-      fetch('/api/weather')
-        .then(r => r.ok ? r.json() : Promise.reject(new Error('weather fetch failed: ' + r.status)))
-        .then(d => (d?.ok ? d : null))
-        .catch(e => { console.warn('[muan] weather unavailable', e); return null; }),
     ]);
     const vData = await vRes.json();
     state.venues = vData.venues;
     state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
     state.picks = picks;
-    state.weather = weather;
 
     initTheme();
     document.querySelector('.brand-mark').innerHTML = logoMark(17, 'var(--ink2)');
@@ -383,6 +374,39 @@ async function boot() {
     }).catch(() => {});
     initMap();
     renderHomeSheet();
+
+    // fire-and-forget, not in the Promise.all above with venues/events/picks
+    // — weather is decoration (see weatherWidgetHtml()), not content the
+    // Home screen needs to be usable, so it must never be able to delay the
+    // first paint the way a slow/stalled venues or events response would be
+    // right to. Same "never surface a failure" contract as picks: a
+    // rejected promise and a well-formed {ok:false} body both collapse to
+    // null, and weatherWidgetHtml() already treats null as "render
+    // nothing". Deliberately does NOT call renderHomeSheet() to show it —
+    // that would replace #sheetInner's whole innerHTML and restart the
+    // entrance animation on every card on screen just to reveal one 96px
+    // corner icon. Instead it inserts the widget's own markup directly, so
+    // arriving late only pops in the card itself, nothing else — and since
+    // .weather-card-wrap is zero-height/out-of-flow (see style.css), that
+    // insertion can never shift anything already on screen either way.
+    // Guarded the same as requestLocation() below (still on Home), plus the
+    // filter check since the widget isn't shown on Bars/Cafes at all (see
+    // weatherWidgetHtml()'s comment) — and against a #sheetInner that's
+    // already been re-rendered since this fetch started (a filter switch,
+    // or requestLocation() below landing first), which would make
+    // "afterbegin" insert the card ahead of a *different* screen's content.
+    fetch('/api/weather')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('weather fetch failed: ' + r.status)))
+      .then(d => (d?.ok ? d : null))
+      .catch(e => { console.warn('[muan] weather unavailable', e); return null; })
+      .then(w => {
+        state.weather = w;
+        if (!w || state.sheetView.type !== 'home' || state.filter === 'bar' || state.filter === 'cafe') return;
+        const inner = document.getElementById('sheetInner');
+        if (inner && inner.querySelector('.s-title') && !inner.querySelector('.weather-card-wrap')) {
+          inner.insertAdjacentHTML('afterbegin', weatherWidgetHtml());
+        }
+      });
 
     // item 4: sorting now depends on state.userPos by default, so ask once,
     // quietly, on first load instead of waiting for a button tap (this IS
@@ -2559,10 +2583,15 @@ const WEATHER_LABELS = { clear: 'clear', 'partly-cloudy': 'partly cloudy', cloud
 // "8pm", not "20:00" or "8:00pm" — matches the one-line, glance-length copy
 // the card is built for
 const formatHour12 = h => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'pm' : 'am'}`;
-// state.weather is either a trimmed {ok:true, ...} body or null (boot()'s
-// fetch failed, or hasn't resolved yet) — either way, rendering nothing here
-// is the entire failure UI. No placeholder, no error text, no reserved
-// space: the float below only exists in the DOM when this returns non-empty.
+// state.weather is either a trimmed {ok:true, ...} body or null — boot()'s
+// fetch hasn't resolved yet, failed, or this is a screen it deliberately
+// isn't called from (see renderHomeSheet()'s f === 'bar'/'cafe' branch,
+// which never calls this at all: .surprise-btn there is full-width and
+// starts right after .s-sub, directly under where the card would sit — see
+// .weather-card-wrap in style.css). Either way, rendering nothing here is
+// the entire failure/absence UI. No placeholder, no error text, no reserved
+// space: .weather-card-wrap only exists in the DOM when this returns
+// non-empty, and it's zero-height even when it does.
 function weatherWidgetHtml() {
   const w = state.weather;
   if (!w) return '';
@@ -2579,11 +2608,11 @@ function weatherWidgetHtml() {
   const rainy = !alreadyWet && w.precip_chance >= 50 && w.precip_peak_hour != null;
   const label = rainy ? `rain likely ${formatHour12(w.precip_peak_hour)}` : (WEATHER_LABELS[cat] || 'cloudy');
   return `
-    <div class="weather-card">
+    <div class="weather-card-wrap"><div class="weather-card">
       <div class="weather-ico">${weatherIconHtml(cat, w.is_day, 30)}</div>
       <div class="weather-temp">${Math.round(w.temp_c)}&deg;</div>
       <div class="weather-label">${esc(label)}</div>
-    </div>`;
+    </div></div>`;
 }
 // Open-Meteo's terms ask for attribution wherever the data shows — same
 // small dim treatment as the OpenStreetMap routing credit (#routeAttribution
@@ -3453,7 +3482,6 @@ function renderHomeSheet() {
     const color = f === 'bar' ? 'flame' : 'teal';
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
-      ${weatherWidgetHtml()}
       <div class="s-title">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>
       ${surpriseMeHtml(f)}
@@ -3504,7 +3532,6 @@ function renderHomeSheet() {
         }
       }
     }
-    html += weatherAttributionHtml();
     setSheet(html);
     injectEmptyIcons();
     observeCollageCards();
