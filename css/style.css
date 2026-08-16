@@ -1256,11 +1256,29 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   #app[data-screen="you"] #sheetTopCover,
   #app.sheet-detail #sheetTopCover {
     display: block; position: sticky; z-index: 3;
+    /* top stays tied to the un-extended gap size — it pins the element's TOP
+       edge, which must stay exactly at y:0. Only height/margin-top grow (by
+       the same 1px, so the flow-cancelling math below still holds) to push
+       the BOTTOM edge 1px into #chipBar's territory instead of meeting it
+       exactly. */
     top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px));
-    height: calc(env(safe-area-inset-top, 0px) + 14px);
-    margin-top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px));
+    height: calc(env(safe-area-inset-top, 0px) + 14px + 1px);
+    margin-top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px + 1px));
     background: var(--ink2);
-    /* WebKit-reported flicker along the cover's bottom seam during scroll —
+    /* translateZ(0) (below) turned the original multi-line flicker into a
+       single line at the #chipBar boundary — real progress, but it confirmed
+       a seam rather than fixing it: #sheetTopCover and #chipBar are two
+       independent position:sticky elements, each resolving its own offset
+       against #sheet's padding edge on every scroll frame. During momentum
+       scroll those two independently-rounded offsets can land on different
+       fractional device pixels for a frame, and the 1px gap between them
+       (or overlap of the wrong sign) is what shimmered. The 1px overlap
+       above removes the seam itself rather than chasing the rounding: with
+       #sheetTopCover's bottom edge always 1px past #chipBar's top edge,
+       there's no boundary for the two elements' independent sub-pixel
+       jitter to expose — same background color on both sides either way, so
+       the extra 1px of overlap is not visible at rest.
+       WebKit-reported flicker along the cover's bottom seam during scroll —
        classic symptom of this element repainting every frame instead of
        compositing, since its sticky offset is recomputed against live scroll
        the same as #chipBar's independently. translateZ(0) forces its own
@@ -1271,10 +1289,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
        an ANCESTOR of other sticky descendants making it their containing
        block. #sheetTopCover has no sticky descendants of its own so that
        exact hazard doesn't apply here, but translateZ(0) gets the same
-       compositor promotion without reopening that question. First of three
-       candidate fixes (see the code review that added this comment) — only
-       reproduces on a real phone, so this needs Kar to confirm before
-       trying the next one. */
+       compositor promotion without reopening that question. */
     transform: translateZ(0);
   }
   /* leave room for the bottom nav only when it's actually showing beneath */
