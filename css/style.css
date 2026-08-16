@@ -1260,6 +1260,22 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     height: calc(env(safe-area-inset-top, 0px) + 14px);
     margin-top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px));
     background: var(--ink2);
+    /* WebKit-reported flicker along the cover's bottom seam during scroll —
+       classic symptom of this element repainting every frame instead of
+       compositing, since its sticky offset is recomputed against live scroll
+       the same as #chipBar's independently. translateZ(0) forces its own
+       GPU layer so it stops repainting against the moving content beneath
+       it. NOT will-change:transform — this codebase already has one entry
+       for "will-change on the sheet scroll container broke sticky in
+       WebKit" (see git history); that specific failure was will-change on
+       an ANCESTOR of other sticky descendants making it their containing
+       block. #sheetTopCover has no sticky descendants of its own so that
+       exact hazard doesn't apply here, but translateZ(0) gets the same
+       compositor promotion without reopening that question. First of three
+       candidate fixes (see the code review that added this comment) — only
+       reproduces on a real phone, so this needs Kar to confirm before
+       trying the next one. */
+    transform: translateZ(0);
   }
   /* leave room for the bottom nav only when it's actually showing beneath */
   #app[data-screen="home"]:not(.sheet-detail) #sheet,
