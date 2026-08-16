@@ -278,6 +278,35 @@ body {
 .s-sub   { font-size: 12px; color: var(--mute); margin-top: 2px; }
 .lao     { font-family: 'Noto Sans Lao', sans-serif; }
 
+/* weather widget (weatherWidgetHtml() in app.js) — floated right rather
+   than wrapping .s-title/.s-sub in a flex row alongside it, because several
+   rules elsewhere (.s-sub + .chip-bar, .s-sub + .sec-h) depend on .s-sub
+   staying a direct, immediate sibling of whatever follows the greeting —
+   wrapping it would silently detach those selectors. A leading float
+   achieves the same "text left, card right, top-aligned" layout without
+   moving .s-title/.s-sub out of their existing sibling chain; the only
+   side effect is #sheetInner.anim's nth-child stagger shifting by one slot
+   when the card is present, which is cosmetic. Renders nothing at all when
+   state.weather is null (fetch failed or hasn't resolved) — no placeholder,
+   so there's nothing here to float when it's absent.  */
+.weather-card {
+  float: right; width: 96px; height: 96px; margin-left: 12px;
+  border-radius: 16px; border: 1px solid var(--ink4);
+  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: var(--bone);
+}
+.weather-ico { display: flex; }
+.weather-temp { font-size: 20px; font-weight: 700; }
+.weather-label { font-size: 10px; color: var(--mute); text-align: center; line-height: 1.2; padding: 0 4px; }
+/* #chipSentinel is otherwise unstyled (0-height flow marker, see app.js) —
+   this only matters when .weather-card (above) is floated before it: without
+   a clear, #chipSentinel and anything short enough to fit beside the float
+   (notably #sheet .chip-bar, which is a flex container and would just get
+   narrower rather than wrapping) would render alongside the card's remaining
+   height instead of below it. */
+#chipSentinel { clear: both; }
+
 .tag { font-size: 10.5px; font-weight: 700; letter-spacing: 1px; }
 .tag.flame  { color: var(--flame); }
 .tag.violet { color: var(--violet); }

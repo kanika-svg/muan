@@ -64,6 +64,7 @@ const state = {
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
   geoAutoAttempted: false,  // boot()'s one silent location request — never retried automatically once this is true, see item 4 in the CLAUDE.md task this was written for
   avatarUrl: null,          // signed-in user's own uploaded profile picture ("<version>/<publicId>"), null = show the chibi instead — see applyAvatarUrl()
+  weather: null,            // trimmed /api/weather response, or null before it resolves / on failure — see weatherWidgetHtml()
 };
 
 const isMobile = () => window.innerWidth < 768;
@@ -342,17 +343,26 @@ async function boot() {
     placeChips();
     window.addEventListener('resize', placeChips);
     initDebugTapTrigger();  // 5 taps on the logo within 3s — see DEBUG_GEO above
-    const [vRes, eRes, picks] = await Promise.all([
+    const [vRes, eRes, picks, weather] = await Promise.all([
       fetch('/api/venues'),
       fetch('data/events.json'),
       fetch('data/picks.json')
         .then(r => r.ok ? r.json() : Promise.reject(new Error('picks fetch failed: ' + r.status)))
         .catch(e => { console.warn('[muan] picks unavailable', e); return null; }),
+      // same "never block, never surface a failure" contract as picks above —
+      // weatherWidgetHtml() below treats anything but {ok:true} as "render
+      // nothing", so a rejected promise and a well-formed {ok:false} body
+      // both just collapse to null here
+      fetch('/api/weather')
+        .then(r => r.ok ? r.json() : Promise.reject(new Error('weather fetch failed: ' + r.status)))
+        .then(d => (d?.ok ? d : null))
+        .catch(e => { console.warn('[muan] weather unavailable', e); return null; }),
     ]);
     const vData = await vRes.json();
     state.venues = vData.venues;
     state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
     state.picks = picks;
+    state.weather = weather;
 
     initTheme();
     document.querySelector('.brand-mark').innerHTML = logoMark(17, 'var(--ink2)');
@@ -2497,6 +2507,92 @@ function icoMoon(size) {
     stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
     <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/></svg>`;
 }
+// weather widget glyphs (weatherWidgetHtml() below) — same stroke-icon style
+// as icoSun/icoMoon above, not emoji. Five categories only (see
+// weatherCategory()): clear reuses icoSun/icoMoon picked by is_day, these
+// four cover partly-cloudy/cloudy/rain/thunder.
+function icoPartlyCloudy(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="8" cy="8" r="3"/>
+    <path d="M8 2.5v1.4M13 5.5l-1 1M3 5.5l1 1" stroke-linecap="round"/>
+    <path d="M9 19h9a3.5 3.5 0 0 0 .4-6.98A5 5 0 0 0 8.6 10.2 3.5 3.5 0 0 0 9 19Z"/></svg>`;
+}
+function icoCloud(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.1 4 4 0 0 0 7 18Z"/></svg>`;
+}
+function icoRain(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M7 14h9a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 5.1 4 4 0 0 0 7 14Z"/>
+    <path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/></svg>`;
+}
+function icoThunder(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M7 13h9a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 4.1 4 4 0 0 0 7 13Z"/>
+    <path d="M13 13l-3 5h3l-2 4"/></svg>`;
+}
+// WMO weather_code (https://open-meteo.com/en/docs, "WMO Weather interpretation
+// codes") collapsed to the five glyphs above — a code-per-glyph table isn't
+// worth it here, this is decoration for a 96px card, not a forecast app.
+// Snow codes fall into 'rain' too: Vientiane's forecast is never going to
+// return one, and if Open-Meteo's model ever did something is more wrong
+// than which icon shows.
+function weatherCategory(code) {
+  if (code === 0) return 'clear';
+  if (code === 1 || code === 2) return 'partly-cloudy';
+  if (code === 3 || code === 45 || code === 48) return 'cloudy';
+  if (code === 95 || code === 96 || code === 99) return 'thunder';
+  return 'rain';
+}
+function weatherIconHtml(cat, isDay, size) {
+  if (cat === 'clear') return isDay ? icoSun(size) : icoMoon(size);
+  if (cat === 'partly-cloudy') return icoPartlyCloudy(size);
+  if (cat === 'cloudy') return icoCloud(size);
+  if (cat === 'thunder') return icoThunder(size);
+  return icoRain(size);
+}
+const WEATHER_LABELS = { clear: 'clear', 'partly-cloudy': 'partly cloudy', cloudy: 'cloudy', rain: 'rain', thunder: 'storms' };
+// "8pm", not "20:00" or "8:00pm" — matches the one-line, glance-length copy
+// the card is built for
+const formatHour12 = h => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'pm' : 'am'}`;
+// state.weather is either a trimmed {ok:true, ...} body or null (boot()'s
+// fetch failed, or hasn't resolved yet) — either way, rendering nothing here
+// is the entire failure UI. No placeholder, no error text, no reserved
+// space: the float below only exists in the DOM when this returns non-empty.
+function weatherWidgetHtml() {
+  const w = state.weather;
+  if (!w) return '';
+  const cat = weatherCategory(w.code);
+  // "rain likely <hour>" is a forecast hedge for conditions that AREN'T
+  // rain/thunder right now — if it already is (cat is 'rain' or 'thunder'),
+  // that's what's actually happening, and pairing a thunder icon with "rain
+  // likely 9pm" text would just contradict itself. 50% is a judgment call,
+  // not a value Open-Meteo hands back pre-labeled — picked as "more likely
+  // than not" for a one-line hedge that still has to say "likely", never
+  // "will" (see CLAUDE.md's data-integrity rules: this is exactly the kind
+  // of claim that must stay a probability, not a fact).
+  const alreadyWet = cat === 'rain' || cat === 'thunder';
+  const rainy = !alreadyWet && w.precip_chance >= 50 && w.precip_peak_hour != null;
+  const label = rainy ? `rain likely ${formatHour12(w.precip_peak_hour)}` : (WEATHER_LABELS[cat] || 'cloudy');
+  return `
+    <div class="weather-card">
+      <div class="weather-ico">${weatherIconHtml(cat, w.is_day, 30)}</div>
+      <div class="weather-temp">${Math.round(w.temp_c)}&deg;</div>
+      <div class="weather-label">${esc(label)}</div>
+    </div>`;
+}
+// Open-Meteo's terms ask for attribution wherever the data shows — same
+// small dim treatment as the OpenStreetMap routing credit (#routeAttribution
+// in openVenue()/showRoute()), just on Home instead of venue detail, so
+// there's no single shared element to reuse across the two screens. Tied to
+// the same state.weather check as the widget itself: crediting a source for
+// data that isn't currently on screen would be worse than not crediting it.
+const weatherAttributionHtml = () =>
+  state.weather ? '<div class="hint">weather &middot; Open-Meteo</div>' : '';
 
 /* mobile bottom nav — same stroke-icon style as icoLocate/icoSun/icoMoon
    above (24x24 viewBox, stroke-width 2, currentColor) rather than emoji,
@@ -3357,6 +3453,7 @@ function renderHomeSheet() {
     const color = f === 'bar' ? 'flame' : 'teal';
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
+      ${weatherWidgetHtml()}
       <div class="s-title">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>
       ${surpriseMeHtml(f)}
@@ -3407,6 +3504,7 @@ function renderHomeSheet() {
         }
       }
     }
+    html += weatherAttributionHtml();
     setSheet(html);
     injectEmptyIcons();
     observeCollageCards();
@@ -3417,6 +3515,7 @@ function renderHomeSheet() {
   }
 
   let html = `
+    ${weatherWidgetHtml()}
     <div class="s-title">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">${sub}</div>
     <div id="chipSentinel"></div>
@@ -3532,6 +3631,7 @@ function renderHomeSheet() {
     html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
   }
 
+  html += weatherAttributionHtml();
   setSheet(html);
   injectEmptyIcons();
   history.replaceState(null, '', location.pathname);
