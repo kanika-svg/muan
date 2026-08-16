@@ -1264,6 +1264,18 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px));
     height: calc(env(safe-area-inset-top, 0px) + 14px + 1px);
     margin-top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px + 1px));
+    /* #chipBar is full-bleed (margin: 0 -16px ...) but the cover, with no
+       side margins of its own, stopped at #sheet's 16px content inset — so
+       the vertical overlap above only closed the seam across the width the
+       cover actually covered. In the two side gutters (x:0-16 and
+       right-16:right) #chipBar's own top edge met #sheet's plain background
+       directly, unmasked, with the same independent-sticky-offset jitter as
+       before — the "fixed" seam was still there, just no longer spanning
+       the full width. Same fix, other axis: overlap past the padding edge
+       (16px) by the same 1px margin used vertically, so the cover is full-
+       bleed-plus-one on both sides too, past #chipBar's own edge everywhere
+       chipBar exists. */
+    margin-left: -17px; margin-right: -17px;
     background: var(--ink2);
     /* translateZ(0) (below) turned the original multi-line flicker into a
        single line at the #chipBar boundary — real progress, but it confirmed
