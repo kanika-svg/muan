@@ -1197,8 +1197,22 @@ body {
 body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 
 @media (max-width: 767px) {
-  #sheetToggle { display: none; }   /* phone uses the handle + map tap */
-  #sheetHandle { cursor: pointer; padding: 14px 0 10px; touch-action: none; }
+  #sheetToggle { display: none; }   /* phone uses map tap to expand/collapse */
+  /* canDrag() in initSheetDrag() (app.js) already returns false unconditionally
+     below the 768px breakpoint, so the vertical drag this handle exists for has
+     had no effect on phone since Home/You/detail went full-screen (#sheet's own
+     transform:none beats #sheet.collapsed there — see the comment above this
+     media query). The bar was still tappable though: the click delegate at
+     app.js's `e.target.closest('#sheetHandle')` fires toggleSheet() on tap
+     regardless of width, which is invisible here (same transform-none override)
+     but still flips #sheet.collapsed + the psd-sheet-collapsed localStorage
+     flag — a real state change with no on-screen feedback, and one that would
+     surface unexpectedly if the same session is later resized past 768px,
+     where .collapsed does mean something again. display:none removes it from
+     hit-testing entirely, so neither the dead drag nor the state-leaking tap
+     can fire. Desktop keeps the base #sheetHandle rule (display:block, drag
+     still live there) — this override is scoped to the phone breakpoint only. */
+  #sheetHandle { display: none; }
   .s-title, .s-sub { touch-action: none; }
   #sheet.collapsed { cursor: pointer; touch-action: none; }
   #sheet.dragging { overflow: hidden; }  /* internal list can't move */
@@ -1224,6 +1238,28 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     display: block; position: fixed; inset: 0; transform: none;
     max-height: none; border-radius: 0;
     padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+  }
+  /* #sheet's own padding-top (above) is not a scroll-proof margin — overflow:auto
+     sizes the scrollport to the padding box, so once you scroll past the first
+     screenful, whatever card is nearest the top paints (and hit-tests) straight
+     through that top strip. Confirmed live: elementFromPoint() in that strip
+     returned a scrolled card's <img>, which carries the app's data-open-venue
+     click handler — an invisible tap target that opens a random venue.
+     #sheetTopCover is a real element instead of padding, so it stays covering
+     that exact strip at every scroll position, not just scrollTop:0. It has to
+     be #sheet's first child (top:-<gap> resolves against #sheet's padding edge
+     regardless of DOM depth, but the negative margin-top that cancels its own
+     flow height only lands at y:0 if nothing precedes it) — see CLAUDE.md's
+     "sticky top vs sheet padding" note; this is that class of bug again, one
+     layer up from the chip bar's own sticky fix. */
+  #app[data-screen="home"] #sheetTopCover,
+  #app[data-screen="you"] #sheetTopCover,
+  #app.sheet-detail #sheetTopCover {
+    display: block; position: sticky; z-index: 3;
+    top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px));
+    height: calc(env(safe-area-inset-top, 0px) + 14px);
+    margin-top: calc(-1 * (env(safe-area-inset-top, 0px) + 14px));
+    background: var(--ink2);
   }
   /* leave room for the bottom nav only when it's actually showing beneath */
   #app[data-screen="home"]:not(.sheet-detail) #sheet,

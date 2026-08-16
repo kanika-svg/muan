@@ -311,7 +311,19 @@ function placeChips() {
   const chipsOnTopbar = !isMobile() || (state.screen === 'map' && !detailOpen);
   if (chipsOnTopbar) {
     if (!topbar.contains(chipBarEl)) topbar.appendChild(chipBarEl);
-  } else if (chipBarEl.isConnected) {
+  } else if (chipBarEl.isConnected && !chipBarEl.closest('#sheetInner')) {
+    // mobile Home nests chipBarEl inside #sheetInner's own content via
+    // chipSlot.replaceWith() (see renderHomeSheet()) rather than through this
+    // function — that placement is correct and must survive placeChips()
+    // being re-run for an unrelated reason. Without this guard, any resize
+    // event (window.addEventListener('resize', placeChips) below) ran this
+    // branch, saw chipBarEl.isConnected (true, it's sitting in #sheetInner)
+    // and chipsOnTopbar false (mobile, not map), and removed it anyway —
+    // confirmed live: a resize fired seconds after boot, on Home, with no
+    // window ever hitting the desktop breakpoint, and it yanked the bar out
+    // for good (no source re-adds it outside a full renderHomeSheet() call).
+    // Real phones fire resize for a lot more than a width change — address
+    // bar collapse, keyboard open/close, orientation — so this wasn't rare.
     chipBarEl.remove();
   }
 }
