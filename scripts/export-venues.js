@@ -32,12 +32,15 @@ const SCHEMA_NOTES =
   "'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. " +
   "See cloudinaryUrl() in js/app.js, the only place that turns this into a " +
   "delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, " +
-  "not in the stored value).";
+  "not in the stored value). " +
+  "vibe: 0-4 tags from a fixed vocabulary (quiet, lively, alone-ok, cheap — " +
+  "see VIBE_TAGS in functions/api/_venue-validation.js), Kar-set only. " +
+  "Omitted/null = not yet tagged.";
 
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a
 // multi-line value doesn't survive that quoting intact
-const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status FROM venues ORDER BY rowid;";
+const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status, vibe FROM venues ORDER BY rowid;";
 
 // mirrors functions/api/venues.js's row -> JSON reassembly exactly; if that
 // shape ever changes, change it there and here together
@@ -65,6 +68,7 @@ function rowToVenue(r) {
   if (r.parking !== null) v.parking = JSON.parse(r.parking);
   if (r.status !== null) v.status = r.status;
   if (r.signature !== null) v.signature = JSON.parse(r.signature);
+  if (r.vibe !== null) v.vibe = JSON.parse(r.vibe);
   return v;
 }
 

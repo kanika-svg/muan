@@ -3418,6 +3418,151 @@ function collageCardHtml(v) {
     </div>`;
 }
 
+/* ---------- Cafes tab: vibe chooser + result popup ---------- */
+// display copy for the fixed vocabulary in functions/api/_venue-validation.js
+// VIBE_TAGS — kept as a separate array (not imported, this is a plain
+// script with no module system) since it pairs each key with the label/Lao
+// shown here; the allowed-values list itself lives server-side and is
+// re-derived from whatever data actually shows up in state.venues, not
+// hardcoded here, so a key mismatch would just show a 0-count tag rather
+// than silently misbehave.
+const VIBE_TAGS = [
+  { key: 'quiet', label: 'Quiet', lao: 'ງຽບ' },
+  { key: 'lively', label: 'Lively', lao: 'ຄຶກຄື້ນ' },
+  { key: 'alone-ok', label: 'Alone OK', lao: 'ໄປຄົນດຽວໄດ້' },
+  { key: 'cheap', label: 'Cheap', lao: 'ລາຄາເປັນມິດ' },
+];
+
+// row of tag buttons above Recommended/All cafés — a 0-match tag stays
+// visible but disabled (native [disabled], so it's inert without an extra
+// click guard) rather than being hidden, per the spec this was built for:
+// counts are all 0 on the day this ships, since vibe is Kar-filled by hand
+// and starts empty on every venue.
+function vibeChooserHtml(cafes) {
+  const tagBtn = (t) => {
+    const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
+    return `<button type="button" class="vibe-tag" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
+      ${esc(t.label)} · ${count}
+    </button>`;
+  };
+  return `
+    <div class="vibe-chooser">
+      <div class="vibe-chooser-h">What are you after? <span class="lao">ຢາກໄດ້ແບບໃດ?</span></div>
+      <div class="vibe-tags">
+        ${VIBE_TAGS.map(tagBtn).join('')}
+        <button type="button" class="vibe-tag vibe-tag-any" data-vibe-tag="any">Anything <span class="lao">ອັນໃດກໍໄດ້</span></button>
+      </div>
+    </div>`;
+}
+
+// { ov, sheetEl } while open, else null — a fresh overlay element created
+// per open and fully removed on close (same lifecycle as openLightbox()/
+// closeLightbox()), not a permanent hidden DOM node, so there's nothing
+// left behind for elementFromPoint to snag on once ov.remove() has run.
+let vibePop = null;
+let vibePopObserver = null;
+
+function vibePopKeydown(e) {
+  if (e.key === 'Escape') closeVibePop();
+}
+
+function closeVibePop() {
+  if (!vibePop) return;
+  const { ov, sheetEl } = vibePop;
+  document.removeEventListener('keydown', vibePopKeydown);
+  vibePopObserver?.disconnect();
+  vibePopObserver = null;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  ov.classList.remove('show');
+  // hard reset regardless of how far a drag-to-dismiss got — touchcancel
+  // included (wired below), so no inline transform can survive a close
+  sheetEl.style.transition = '';
+  sheetEl.style.transform = '';
+  vibePop = null;
+  setTimeout(() => ov.remove(), reduced ? 0 : 280);
+}
+
+// tagKey: one of VIBE_TAGS' keys, or 'any' for the unfiltered café list
+function openVibePop(tagKey) {
+  closeVibePop(); // guard against a stray double-open, same as openLightbox()
+  const cafes = sortForDisplay(state.venues.filter(v => v.type === 'cafe'));
+  const matches = tagKey === 'any' ? cafes : cafes.filter(v => (v.vibe || []).includes(tagKey));
+  const def = VIBE_TAGS.find(t => t.key === tagKey);
+  const title = def ? def.label : 'Anything';
+
+  const ov = document.createElement('div');
+  ov.className = 'vibe-pop';
+  ov.innerHTML = `
+    <div class="vibe-pop-sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="vibe-pop-grip"></div>
+      <div class="vibe-pop-head">
+        <span class="vibe-pop-title">${esc(title)} <span class="vibe-pop-count">· ${matches.length}</span></span>
+        <button type="button" class="vibe-pop-close" aria-label="Close">✕</button>
+      </div>
+      <div class="vibe-pop-body">
+        ${matches.length
+          ? matches.map(v => collageCardHtml(v)).join('')
+          : `<div class="sec-empty">Nothing here right now.</div>`}
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  const sheetEl = ov.querySelector('.vibe-pop-sheet');
+  const bodyEl = ov.querySelector('.vibe-pop-body');
+  vibePop = { ov, sheetEl };
+  requestAnimationFrame(() => ov.classList.add('show'));
+
+  ov.addEventListener('click', (e) => { if (e.target === ov) closeVibePop(); });
+  ov.querySelector('.vibe-pop-close').addEventListener('click', closeVibePop);
+  // tapping a card closes the popup and opens that venue, same order as
+  // every other [data-open-venue] tap elsewhere in the app expects
+  bodyEl.querySelectorAll('[data-open-venue]').forEach(el =>
+    el.addEventListener('click', () => { closeVibePop(); openVenue(el.dataset.openVenue); }));
+  document.addEventListener('keydown', vibePopKeydown);
+
+  // scoped to bodyEl, NOT #sheet — this popup lives outside #sheet entirely,
+  // and an IntersectionObserver's root must be an ancestor of what it
+  // observes or it never fires; see observeCollageCards() for the #sheet-
+  // rooted twin this mirrors for the Recommended tab
+  vibePopObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      vibePopObserver.unobserve(entry.target);
+      const v = venueById(entry.target.dataset.openVenue);
+      if (v) loadCollageCardPhotos(entry.target, v);
+    }
+  }, { root: bodyEl, rootMargin: '200px' });
+  bodyEl.querySelectorAll('.collage-card').forEach(card => vibePopObserver.observe(card));
+
+  // drag-to-dismiss from the grip only — the body scrolls its own card
+  // list, so a swipe starting there must stay a scroll, not a close
+  let dragStartY = null, dragDy = 0, dragging = false;
+  const grip = ov.querySelector('.vibe-pop-grip');
+  const dragReset = () => {
+    dragging = false; dragDy = 0;
+    sheetEl.style.transition = '';
+    sheetEl.style.transform = '';
+  };
+  grip.addEventListener('touchstart', (e) => {
+    dragStartY = e.touches[0].clientY; dragging = true;
+    sheetEl.style.transition = 'none';
+  }, { passive: true });
+  grip.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    dragDy = Math.max(0, e.touches[0].clientY - dragStartY);
+    sheetEl.style.transform = `translateY(${dragDy}px)`;
+  }, { passive: true });
+  grip.addEventListener('touchend', () => {
+    if (!dragging) return;
+    sheetEl.style.transition = '';
+    if (dragDy > 70) closeVibePop();
+    else sheetEl.style.transform = '';
+    dragging = false; dragDy = 0;
+  });
+  // treated as a hard reset, not a settle — see CLAUDE.md's history of
+  // stray inline transforms surviving an interrupted gesture in this app
+  grip.addEventListener('touchcancel', dragReset);
+}
+
 // funnel for any "go to home" action that isn't an explicit back/close —
 // a sticky routed venue (state.routeVenueId) wins over an incidental
 // re-render, per clearRoute()'s comment on when a route is allowed to die
@@ -3492,6 +3637,7 @@ function renderHomeSheet() {
 
     const cafeTab = state.cafeTab || 'recommended';
     if (f === 'cafe') {
+      html += vibeChooserHtml(state.venues.filter(v => v.type === 'cafe'));
       html += `
         <div class="seg" role="tablist">
           <button class="seg-btn ${cafeTab === 'recommended' ? 'on' : ''}" data-cafe-tab="recommended" role="tab" aria-selected="${cafeTab === 'recommended'}">Recommended</button>
@@ -4477,6 +4623,7 @@ function toggleSheet(force) {
 }
 
 function setSheet(html) {
+  closeVibePop(); // every render path routes through here — never leave a stale popup over fresh content
   const sheet = document.getElementById('sheet');
   sheet.classList.toggle('expanded', html.includes('data-venue-detail'));
   // #sheetHandle is a persistent sibling of #sheetInner (see index.html) —
@@ -4515,6 +4662,8 @@ function setSheet(html) {
       state.cafeTab = el.dataset.cafeTab;
       renderHomeSheet();
     }));
+  inner.querySelectorAll('[data-vibe-tag]').forEach(el =>
+    el.addEventListener('click', () => openVibePop(el.dataset.vibeTag)));
   inner.querySelectorAll('[data-surprise-me]').forEach(el =>
     el.addEventListener('click', () => quickSurpriseMe(state.filter)));
   inner.querySelectorAll('[data-home]').forEach(el =>

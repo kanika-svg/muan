@@ -1,0 +1,11 @@
+-- vibe: 0-4 tags from a fixed vocabulary (quiet, lively, alone-ok, cheap —
+-- see VIBE_TAGS in functions/api/_venue-validation.js) powering the "What
+-- are you after?" chooser on the Cafes tab (js/app.js vibeChooserHtml()).
+-- Kar-only: deliberately NOT added to SIMPLE_FIELDS, so neither the owner
+-- submission POST nor the owner PATCH (functions/api/venues.js,
+-- functions/api/venues/[id].js) ever accepts it from a request body — Kar
+-- sets it directly against D1, same as any other Kar-only edit today (no
+-- admin write endpoint exists for arbitrary venue fields yet, only the
+-- pending-review approve/reject actions). NULL = not yet tagged; every
+-- existing row stays NULL until Kar fills it in by hand.
+ALTER TABLE venues ADD COLUMN vibe TEXT;

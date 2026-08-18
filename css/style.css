@@ -232,6 +232,70 @@ body {
 }
 .seg-btn.on { background: var(--ink3); color: var(--bone); }
 
+/* Cafes tab, above the Recommended/All cafés .seg above — chip-styled
+   (pill, filled) so it reads as "pick one of these" rather than the .seg
+   track's "switch view" framing. A 0-match tag is [disabled] rather than
+   hidden (see vibeChooserHtml() in js/app.js), so it needs its own dimmed
+   state distinct from an ordinary unpressed chip. */
+.vibe-chooser { margin: 14px 0 2px; }
+.vibe-chooser-h { font-size: 12px; font-weight: 700; color: var(--mute); }
+.vibe-chooser-h .lao { font-weight: 400; }
+.vibe-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.vibe-tag {
+  font-family: var(--font); font-size: 12px; font-weight: 700;
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--ink4);
+  background: var(--ink); color: var(--bone); cursor: pointer;
+}
+.vibe-tag:active { transform: scale(.96); }
+.vibe-tag:disabled { opacity: .4; cursor: default; color: var(--mute); }
+.vibe-tag:disabled:active { transform: none; }
+.vibe-tag-any { background: var(--ink3); border-color: var(--ink3); }
+.vibe-tag-any .lao { font-weight: 400; opacity: .8; }
+@media (prefers-reduced-motion: reduce) { .vibe-tag { transition: none; } .vibe-tag:active { transform: none; } }
+
+/* result popup for a tapped vibe tag — a fresh overlay element per open,
+   fully removed on close (see openVibePop()/closeVibePop() in js/app.js),
+   same lifecycle as .lightbox below. Deliberately NOT nested inside #sheet
+   or #sheetInner: no position:sticky here, and none of #sheet's own swipe/
+   collapse transform machinery applies to it, so the two can't fight each
+   other the way past sheet-area bugs in this app have (see CLAUDE.md). */
+.vibe-pop {
+  position: fixed; inset: 0; z-index: 58; display: flex;
+  align-items: flex-end; justify-content: center;
+  background: rgba(10,8,14,0); transition: background .28s ease-out;
+}
+.vibe-pop.show { background: rgba(10,8,14,.72); }
+.vibe-pop-sheet {
+  width: 100%; max-width: 480px; max-height: 82vh;
+  background: var(--ink2); border-radius: 22px 22px 0 0;
+  box-shadow: 0 -12px 40px rgba(0,0,0,.4);
+  display: flex; flex-direction: column; overflow: hidden;
+  transform: translateY(100%); transition: transform .28s ease-out;
+}
+.vibe-pop.show .vibe-pop-sheet { transform: translateY(0); }
+.vibe-pop-grip {
+  width: 44px; height: 5px; background: var(--ink4); border-radius: 3px;
+  margin: 10px auto 4px; flex-shrink: 0; touch-action: none;
+}
+.vibe-pop-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 6px 18px 12px; border-bottom: 1px solid var(--ink3); flex-shrink: 0;
+}
+.vibe-pop-title { font-size: 15px; font-weight: 700; color: var(--bone); }
+.vibe-pop-count { font-weight: 400; color: var(--mute); }
+.vibe-pop-close {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none;
+  background: var(--ink3); color: var(--mute); font-size: 14px; cursor: pointer;
+}
+.vibe-pop-body {
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 4px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vibe-pop, .vibe-pop-sheet { transition: none; }
+  .vibe-pop-sheet { transform: none; }
+}
+
 /* .pill glass is hardcoded dark; var(--mute) text flips dark in light theme and
    would go invisible against it, so give the glass a light-theme counterpart */
 [data-theme="light"] .pill { background: rgba(245,239,223,.82); }

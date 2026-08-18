@@ -45,7 +45,7 @@ async function handleGet(context) {
     const rows = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
               description, photos, hours, hours_note, contact, parking, links,
-              verified, status, source, signature, pin_status
+              verified, status, source, signature, pin_status, vibe
        FROM venues WHERE pin_status != 'rejected' ORDER BY rowid`
     ).all();
 
@@ -75,6 +75,7 @@ async function handleGet(context) {
       if (r.parking !== null) v.parking = JSON.parse(r.parking);
       if (r.status !== null) v.status = r.status;
       if (r.signature !== null) v.signature = JSON.parse(r.signature);
+      if (r.vibe !== null) v.vibe = JSON.parse(r.vibe);
       return v;
     });
 
