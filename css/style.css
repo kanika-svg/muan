@@ -277,63 +277,34 @@ body {
 .s-title { font-size: 17px; font-weight: 700; }
 .s-sub   { font-size: 12px; color: var(--mute); margin-top: 2px; }
 .lao     { font-family: 'Noto Sans Lao', sans-serif; }
-/* .weather-card is an out-of-flow overlay (see .weather-card-wrap below) —
-   nothing makes .s-title/.s-sub wrap around it the way normal flow content
-   wraps around a float. Checked against the longest realistic greeting
-   ("Wednesday night, Vientiane") at 360px: without this, its last letters
-   render straight under the card, hidden behind its opaque background.
-   108px = the card's 96px width + the 12px gap the old float's margin-left
-   used to provide — reserving it only when the card is actually in the DOM
-   (:has(), already used elsewhere in this file for body:has(#sheet.collapsed))
-   keeps every other screen at full width; only forces an earlier wrap on
-   the rare day the greeting is long AND weather loaded in time to render. */
-#sheetInner:has(> .weather-card-wrap) > .s-title,
-#sheetInner:has(> .weather-card-wrap) > .s-sub {
-  padding-right: 108px;
-}
 
-/* weather widget (weatherWidgetHtml() in app.js) — was float:right, which
-   worked but forced #chipSentinel to `clear: both` the float's full 96px
-   instead of the ~43px greeting block actually next to it, pushing the
-   first section header down by the difference (measured: ~54px, on top of
-   an already-crowded 280px). A float has to be cleared by something, or
-   later content renders alongside its leftover height instead of below it
-   — there's no way to float only past the greeting's real height.
-   .weather-card-wrap fixes that by taking the float out of the question
-   entirely: it's a zero-height, full-width block (so it costs nothing in
-   flow — nothing after it needs to clear anything, because it was never
-   in anyone's way) that becomes the positioning context for .weather-card,
-   which sits inside it at top:0/right:0 — the same visual spot the float
-   held, but purely as an overlay with zero layout cost. Deliberately NOT
-   done by giving #sheetInner position:relative instead of adding this
-   wrapper: #sheetInner is the containing block for every existing
-   position:absolute element already inside Home's rendered content (status
-   pills, etc.) — repurposing it as *this* card's anchor too would be a
-   much larger blast radius for the same result this dedicated, single-
-   purpose wrapper gets with none of that risk.
-   Being pure overlay (no flow, no float-avoidance) means it can't push
-   anything down, but it also can't be flowed around — the greeting text
-   goes right through where the card sits if it wraps to two lines. Checked
-   against the longest realistic greeting ("Wednesday night, Vientiane") at
-   320px: still one line, doesn't reach the card's left edge. Not rendered
-   at all on the Bars/Cafes filter (see weatherWidgetHtml()'s call sites in
-   app.js) for the same reason: .surprise-btn there is width:100% and
-   starts high enough (right after .s-sub) to run directly under the card's
-   96px footprint on its right edge — a collision the "all"/"events" screen
-   never has, since nothing there is full-width until the chip row, itself
-   below where the card sits.  */
-.weather-card-wrap { position: relative; height: 0; }
-.weather-card {
-  position: absolute; top: 0; right: 0;
-  width: 96px; height: 96px;
-  border-radius: 16px; border: 1px solid var(--ink4);
+/* weather widget (weatherWidgetHtml() in app.js) — a normal in-flow bar,
+   rendered after the chip bar and before the first section header (both
+   render branches in renderHomeSheet() end their template with
+   #chipSlot/#chipSentinel then ${weatherWidgetHtml()}, so it lands right
+   after the actual chip-bar element once #chipSlot is replaced — see
+   setSheet()). Used to be an absolutely-positioned 96px square pinned
+   beside the greeting (float, then an overlay wrapper); moved into flow
+   because the chip bar's own full-bleed sticky background (#sheet
+   .chip-bar, further down) painted over it once pinned, and it was
+   suppressed on Bars/Cafes to avoid colliding with .surprise-btn there —
+   both problems only existed because the widget sat outside normal flow.
+   In flow, it just pushes the section header down by its own height, same
+   as any other block; no reserved space when state.weather is null, since
+   weatherWidgetHtml() returns '' and contributes nothing to the template. */
+.weather-bar {
+  display: flex; align-items: center; gap: 12px;
+  height: 56px; margin-top: 12px; padding: 0 14px;
+  border-radius: 14px; border: 1px solid var(--ink4);
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   color: var(--bone);
 }
-.weather-ico { display: flex; }
-.weather-temp { font-size: 20px; font-weight: 700; }
-.weather-label { font-size: 10px; color: var(--mute); text-align: center; line-height: 1.2; padding: 0 4px; }
+.weather-ico { display: flex; flex-shrink: 0; }
+.weather-temp { font-size: 20px; font-weight: 700; flex-shrink: 0; }
+.weather-label {
+  font-size: 12px; color: var(--mute);
+  padding-left: 12px; border-left: 1px solid var(--ink4);
+}
 
 .tag { font-size: 10.5px; font-weight: 700; letter-spacing: 1px; }
 .tag.flame  { color: var(--flame); }
