@@ -58,7 +58,6 @@ const state = {
   theme: null,
   tracking: null,
   trackWatchId: null,
-  cafeTab: 'recommended', // 'recommended' | 'all' — sub-tab inside the Cafes filter
   screen: 'home',           // mobile only: 'home' | 'map' | 'you' — see setMobileScreen()
   screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
@@ -3271,7 +3270,8 @@ function watchCollageCard(cardEl, v) {
 // swaps a card's tiles from their placeholder monogram src to their real
 // (already width-rewritten, see cloudinaryUrl()) photo URL, then arms
 // the load/error/timeout fallback for those real requests — called once per
-// card, when observeCollageCards() decides it's actually time to load it
+// card, when the mood popup's IntersectionObserver (vibePopObserver, set up
+// in openVibePop()) decides it's actually time to load it
 function loadCollageCardPhotos(cardEl, v) {
   cardEl.querySelectorAll('img[data-src]').forEach(img => {
     img.src = img.dataset.src;
@@ -3283,25 +3283,13 @@ function loadCollageCardPhotos(cardEl, v) {
   watchCollageCard(cardEl, v);
 }
 
-// ~15 photo requests firing at once across five collage cards blew past the
-// browser's per-host connection limit and most just sat at complete=false
-// indefinitely (see the MEASURED note this was written for). Each card's
-// <img> starts on a monogram placeholder with the real URL parked in
-// data-src (see collagePhotosHtml()); this loads a card's real photos only
-// once it's within ~200px of becoming visible. root must be #sheet, not the
-// window — #sheet is the element that actually scrolls (see its overflow-y
-// in style.css), so viewport-rooted intersection would report every card as
-// always "visible". IntersectionObserver fires immediately for whatever's
-// already in range when observe() is called, so the first card (or few,
-// depending on sheet height) loads right away with no special-casing.
 // pinned-state affordance for the sticky chip bar (see #sheet .chip-bar in
 // style.css) — an IntersectionObserver on a 1px-tall sentinel placed just
 // above it, rather than a scroll listener: no per-scroll-frame handler on
-// exactly the phones this bar's pinning bug was reported on, and the same
-// pattern collageObserver below already uses against this same #sheet
-// root. When the sentinel scrolls out of view the bar has stuck; toggling
-// .pinned adds the hairline that makes the stuck state read as intentional
-// rather than a rendering glitch.
+// exactly the phones this bar's pinning bug was reported on. When the
+// sentinel scrolls out of view the bar has stuck; toggling .pinned adds the
+// hairline that makes the stuck state read as intentional rather than a
+// rendering glitch.
 let chipPinObserver = null;
 function observeChipPin() {
   chipPinObserver?.disconnect();
@@ -3313,21 +3301,7 @@ function observeChipPin() {
   chipPinObserver.observe(sentinel);
 }
 
-let collageObserver = null;
-function observeCollageCards() {
-  collageObserver?.disconnect();
-  collageObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      collageObserver.unobserve(entry.target);
-      const v = venueById(entry.target.dataset.openVenue);
-      if (v) loadCollageCardPhotos(entry.target, v);
-    }
-  }, { root: document.getElementById('sheet'), rootMargin: '200px' });
-  document.querySelectorAll('.collage-card').forEach(card => collageObserver.observe(card));
-}
-
-/* ---------- Recommended cafés: photo-collage cards ---------- */
+/* ---------- Mood popup result cards: photo-collage cards ---------- */
 // "closed" already says so on its own (openStatus() covers "closed today" /
 // "closed" / "hours unconfirmed" / a venue's own hours_note); only the
 // not-yet-open case ("opens 10 am") needs a "closed ·" prefix to read
@@ -3337,9 +3311,9 @@ function collageStatusLine(v) {
   const statusPart = (st.open || /^closed/.test(st.label) || !v.hours)
     ? st.label
     : `closed · ${st.label}`;
-  // reachable in principle even though the Recommended tab already filters
-  // pending venues out (see renderHomeSheet()) — same null-coordinate guard
-  // as venueLine()
+  // reachable in principle even for a pending venue (no confirmed lat/lng —
+  // see CLAUDE.md's pin_status rule) reached via openVibePop()'s unfiltered
+  // café list — same null-coordinate guard as venueLine()
   return (state.userPos && v.lat != null && v.lng != null)
     ? `${statusPart} · ${fmtDist(haversine(state.userPos, v))}`
     : statusPart;
@@ -3360,9 +3334,10 @@ function collageDescLine(v) {
 //
 // every tile starts on the venue's monogram as its actual src (a data URI —
 // no request fires) with the real, size-rewritten photo URL parked in
-// data-src; observeCollageCards() swaps it in once the card is about to
-// scroll into view (see loadCollageCardPhotos()), rather than all three
-// tiles across every card requesting a photo the moment the tab opens.
+// data-src; vibePopObserver (see openVibePop()) swaps it in once the card
+// is about to scroll into view (see loadCollageCardPhotos()), rather than
+// all three tiles across every card requesting a photo the moment the
+// popup opens.
 function collagePhotosHtml(v, altName) {
   const photos = v.photos || [];
   const phBig = venueTileUri(v.short_name || v.name, v.type, true);
@@ -3392,9 +3367,9 @@ function collagePhotosHtml(v, altName) {
   return html;
 }
 
-// whole-card-tappable collage card for the Cafes › Recommended tab — an
-// ordinary sheet element (no fixed positioning, no gesture handlers); reuses
-// setSheet()'s [data-open-venue] delegation like every other card
+// whole-card-tappable collage card for the mood popup's result list (see
+// openVibePop()) — [data-open-venue] click handling is wired there, not
+// through setSheet()'s delegation, since this card never lives in #sheet
 function collageCardHtml(v) {
   const photos = v.photos || [];
   const descLine = collageDescLine(v);
@@ -3434,11 +3409,17 @@ const VIBE_TAGS = [
   { key: 'settle-in', label: 'Settle in for a while', label_lo: null }, // TODO(Kar): Lao label
 ];
 
-// mood cards above Recommended/All cafés — a 0-match card stays visible but
-// disabled (native [disabled], so it's inert without an extra click guard)
-// rather than being hidden, per the spec this was built for: counts are all
-// 0 on the day this ships, since vibe is Kar-filled by hand and starts empty
-// on every venue.
+// the only chooser on the Cafes tab now (see renderHomeSheet()) — four mood
+// cards plus "Show me anything" underneath, which opens the full unfiltered
+// café list through the same popup as any mood card (see openVibePop()). A
+// single 0-match card stays visible but disabled (native [disabled], so
+// it's inert without an extra click guard) rather than hidden. But while
+// vibe is Kar-filled by hand and starts empty on every venue, EVERY card
+// reads 0 on day one — a wall of four dead cards under an eager question
+// looks broken, not just quiet — so that all-zero case hides the whole grid
+// behind a "moods coming soon" line instead; the moment any café has a
+// vibe tag at all, the real grid comes back (individual cards can still be
+// disabled from there on, same as always).
 function vibeChooserHtml(cafes) {
   const cardBtn = (t) => {
     const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
@@ -3447,15 +3428,16 @@ function vibeChooserHtml(cafes) {
       <span class="vibe-card-count">· ${count}</span>
     </button>`;
   };
+  const anyTagged = cafes.some(v => (v.vibe || []).length > 0);
   return `
     <div class="vibe-chooser">
       <div class="vibe-chooser-h">
         <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
         <div class="vibe-chooser-sub">what are you after?</div>
       </div>
-      <div class="vibe-cards">
-        ${VIBE_TAGS.map(cardBtn).join('')}
-      </div>
+      ${anyTagged
+        ? `<div class="vibe-cards">${VIBE_TAGS.map(cardBtn).join('')}</div>`
+        : `<div class="vibe-soon">moods coming soon</div>`}
       <button type="button" class="vibe-any" data-vibe-tag="any">Show me anything · <span class="lao">ອັນໃດກໍໄດ້</span></button>
     </div>`;
 }
@@ -3526,8 +3508,7 @@ function openVibePop(tagKey) {
 
   // scoped to bodyEl, NOT #sheet — this popup lives outside #sheet entirely,
   // and an IntersectionObserver's root must be an ancestor of what it
-  // observes or it never fires; see observeCollageCards() for the #sheet-
-  // rooted twin this mirrors for the Recommended tab
+  // observes or it never fires
   vibePopObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
@@ -3614,7 +3595,7 @@ function renderHomeSheet() {
   const late = state.venues.filter(v => opensLate(v) && matchType(v) && v.status !== 'opening-soon');
   // On fire / Busy spots are editorial (Kar's picks, state.picks.*) — a
   // pending venue (no confirmed location yet) is excluded even if it
-  // somehow ended up in picks.json, same as Recommended below
+  // somehow ended up in picks.json
   const notPending = v => v.pin_status !== 'pending';
   const pickVenues = (state.picks?.venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(notPending);
   const busyVenues = (state.picks?.busy_venue_ids || []).map(venueById).filter(Boolean).filter(matchType).filter(notPending);
@@ -3633,35 +3614,21 @@ function renderHomeSheet() {
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
-      <div class="s-sub lao">${sub}</div>
+      ${f === 'cafe' ? '' : `<div class="s-sub lao">${sub}</div>`}
       ${surpriseMeHtml(f)}
       <div id="chipSentinel"></div>
       <div id="chipSlot"></div>
       ${weatherWidgetHtml()}`;
     html += secH(color, label);
 
-    const cafeTab = state.cafeTab || 'recommended';
     if (f === 'cafe') {
+      // the mood chooser is the only chooser on this tab — "Show me
+      // anything" (vibeChooserHtml()'s data-vibe-tag="any") opens the full,
+      // unfiltered café list through openVibePop(), the same popup every
+      // mood card uses, so there's no separate inline list to render here
+      // (the old Recommended/All cafés seg and its cafeGallery branch are
+      // gone — see git history if that list is ever needed again).
       html += vibeChooserHtml(state.venues.filter(v => v.type === 'cafe'));
-      html += `
-        <div class="seg" role="tablist">
-          <button class="seg-btn ${cafeTab === 'recommended' ? 'on' : ''}" data-cafe-tab="recommended" role="tab" aria-selected="${cafeTab === 'recommended'}">Recommended</button>
-          <button class="seg-btn ${cafeTab === 'all' ? 'on' : ''}" data-cafe-tab="all" role="tab" aria-selected="${cafeTab === 'all'}">All cafés</button>
-        </div>`;
-    }
-
-    if (f === 'cafe' && cafeTab === 'recommended') {
-      // cafés with enough photos for a collage card to be worth showing —
-      // pending venues excluded, same as On fire/Busy spots above
-      const cafeGallery = sortForDisplay(state.venues
-        .filter(v => v.type === 'cafe' && v.pin_status !== 'pending' && (v.photos?.length || 0) >= 2)
-        .sort((a, b) => (b.photos.length - a.photos.length) ||
-          (a.short_name || a.name).localeCompare(b.short_name || b.name)));
-      if (!cafeGallery.length) {
-        html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
-      } else {
-        html += cafeGallery.map(v => collageCardHtml(v)).join('');
-      }
     } else {
       const typeVenues = sortForDisplay(state.venues.filter(v => v.type === f)
         .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name)));
@@ -3686,7 +3653,6 @@ function renderHomeSheet() {
     }
     setSheet(html);
     injectEmptyIcons();
-    observeCollageCards();
     history.replaceState(null, '', location.pathname);
     const sh = document.getElementById('sheet');
     sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
@@ -4662,11 +4628,6 @@ function setSheet(html) {
   inner.classList.add('anim');
   inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
-  inner.querySelectorAll('[data-cafe-tab]').forEach(el =>
-    el.addEventListener('click', () => {
-      state.cafeTab = el.dataset.cafeTab;
-      renderHomeSheet();
-    }));
   inner.querySelectorAll('[data-vibe-tag]').forEach(el =>
     el.addEventListener('click', () => openVibePop(el.dataset.vibeTag)));
   inner.querySelectorAll('[data-surprise-me]').forEach(el =>

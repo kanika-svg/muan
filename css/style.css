@@ -232,16 +232,19 @@ body {
 }
 .seg-btn.on { background: var(--ink3); color: var(--bone); }
 
-/* Cafes tab, above the Recommended/All cafés .seg above — a mood question
-   ("ຢາກໄປໃສດີ?") over a 2x2 grid of cards, each showing its label and match
-   count. A 0-match card is [disabled] rather than hidden (see
-   vibeChooserHtml() in js/app.js), so it needs its own dimmed state. The
-   "Show me anything" option sits underneath, deliberately quieter than the
-   four cards — a plain text button, not another card. */
+/* Cafes tab — the only chooser on the tab (see renderHomeSheet() in
+   js/app.js): a mood question ("ຢາກໄປໃສດີ?") over a 2x2 grid of cards, each
+   showing its label and match count. A 0-match card is [disabled] rather
+   than hidden, so it needs its own dimmed state. The "Show me anything"
+   option sits underneath, deliberately quieter than the four cards — a
+   plain text button, not another card; it opens the full café list, same
+   as "All cafés" used to. .vibe-soon replaces the whole grid while every
+   card would read 0 (see vibeChooserHtml()'s anyTagged check). */
 .vibe-chooser { margin: 14px 0 2px; }
 .vibe-chooser-title { font-size: 16px; font-weight: 700; color: var(--bone); }
 .vibe-chooser-sub { font-size: 12px; font-weight: 400; color: var(--mute); margin-top: 2px; }
 .vibe-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.vibe-soon { font-size: 12px; color: var(--mute); margin-top: 10px; }
 .vibe-card {
   font-family: var(--font); text-align: left; cursor: pointer;
   display: flex; flex-direction: column; gap: 3px;
