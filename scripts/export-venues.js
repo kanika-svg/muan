@@ -33,9 +33,9 @@ const SCHEMA_NOTES =
   "See cloudinaryUrl() in js/app.js, the only place that turns this into a " +
   "delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, " +
   "not in the stored value). " +
-  "vibe: 0-4 tags from a fixed vocabulary (quiet, lively, alone-ok, cheap — " +
-  "see VIBE_TAGS in functions/api/_venue-validation.js), Kar-set only. " +
-  "Omitted/null = not yet tagged.";
+  "vibe: 0-4 tags from a fixed vocabulary (under-trees, tucked-away, " +
+  "for-coffee, settle-in — see VIBE_TAGS in functions/api/_venue-validation.js), " +
+  "Kar-set only. Omitted/null = not yet tagged.";
 
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a

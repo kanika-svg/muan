@@ -3421,37 +3421,42 @@ function collageCardHtml(v) {
 /* ---------- Cafes tab: vibe chooser + result popup ---------- */
 // display copy for the fixed vocabulary in functions/api/_venue-validation.js
 // VIBE_TAGS — kept as a separate array (not imported, this is a plain
-// script with no module system) since it pairs each key with the label/Lao
+// script with no module system) since it pairs each key with the label
 // shown here; the allowed-values list itself lives server-side and is
 // re-derived from whatever data actually shows up in state.venues, not
 // hardcoded here, so a key mismatch would just show a 0-count tag rather
-// than silently misbehave.
+// than silently misbehave. label_lo stays null until Kar writes it himself —
+// do not machine-translate (see CLAUDE.md).
 const VIBE_TAGS = [
-  { key: 'quiet', label: 'Quiet', lao: 'ງຽບ' },
-  { key: 'lively', label: 'Lively', lao: 'ຄຶກຄື້ນ' },
-  { key: 'alone-ok', label: 'Alone OK', lao: 'ໄປຄົນດຽວໄດ້' },
-  { key: 'cheap', label: 'Cheap', lao: 'ລາຄາເປັນມິດ' },
+  { key: 'under-trees', label: 'Under the trees', label_lo: null }, // TODO(Kar): Lao label
+  { key: 'tucked-away', label: 'Tucked away', label_lo: null }, // TODO(Kar): Lao label
+  { key: 'for-coffee', label: 'For the coffee', label_lo: null }, // TODO(Kar): Lao label
+  { key: 'settle-in', label: 'Settle in for a while', label_lo: null }, // TODO(Kar): Lao label
 ];
 
-// row of tag buttons above Recommended/All cafés — a 0-match tag stays
-// visible but disabled (native [disabled], so it's inert without an extra
-// click guard) rather than being hidden, per the spec this was built for:
-// counts are all 0 on the day this ships, since vibe is Kar-filled by hand
-// and starts empty on every venue.
+// mood cards above Recommended/All cafés — a 0-match card stays visible but
+// disabled (native [disabled], so it's inert without an extra click guard)
+// rather than being hidden, per the spec this was built for: counts are all
+// 0 on the day this ships, since vibe is Kar-filled by hand and starts empty
+// on every venue.
 function vibeChooserHtml(cafes) {
-  const tagBtn = (t) => {
+  const cardBtn = (t) => {
     const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
-    return `<button type="button" class="vibe-tag" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
-      ${esc(t.label)} · ${count}
+    return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
+      <span class="vibe-card-label">${esc(t.label)}</span>
+      <span class="vibe-card-count">· ${count}</span>
     </button>`;
   };
   return `
     <div class="vibe-chooser">
-      <div class="vibe-chooser-h">What are you after? <span class="lao">ຢາກໄດ້ແບບໃດ?</span></div>
-      <div class="vibe-tags">
-        ${VIBE_TAGS.map(tagBtn).join('')}
-        <button type="button" class="vibe-tag vibe-tag-any" data-vibe-tag="any">Anything <span class="lao">ອັນໃດກໍໄດ້</span></button>
+      <div class="vibe-chooser-h">
+        <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
+        <div class="vibe-chooser-sub">what are you after?</div>
       </div>
+      <div class="vibe-cards">
+        ${VIBE_TAGS.map(cardBtn).join('')}
+      </div>
+      <button type="button" class="vibe-any" data-vibe-tag="any">Show me anything · <span class="lao">ອັນໃດກໍໄດ້</span></button>
     </div>`;
 }
 

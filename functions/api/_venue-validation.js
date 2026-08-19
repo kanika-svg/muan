@@ -14,10 +14,10 @@ export const SIMPLE_FIELDS = ['name', 'short_name', 'name_lo', 'type', 'area', '
 export const REQUIRED_SIMPLE_FIELDS = new Set(['name', 'area']);
 export const VENUE_TYPES = ['bar', 'cafe', 'venue'];
 // fixed vocabulary for the Cafes tab's vibe chooser (js/app.js
-// vibeChooserHtml()) — quiet/lively are mutually exclusive (see
-// validateVibe below). Deliberately not in SIMPLE_FIELDS: vibe is set by
-// Kar directly against D1, never by an owner — see migrations/013_vibe.sql.
-export const VIBE_TAGS = ['quiet', 'lively', 'alone-ok', 'cheap'];
+// vibeChooserHtml()) — all four can coexist on one venue, still capped at 4
+// (see validateVibe below). Deliberately not in SIMPLE_FIELDS: vibe is set
+// by Kar directly against D1, never by an owner — see migrations/013_vibe.sql.
+export const VIBE_TAGS = ['under-trees', 'tucked-away', 'for-coffee', 'settle-in'];
 export const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500, hours_note: 80 };
 export const MAX_PARKING_NOTE = 60;
@@ -64,8 +64,8 @@ export function validateHours(hours, errors) {
 
 // no write path calls this today (see VIBE_TAGS above) — kept alongside the
 // other field validators so a future Kar-only admin endpoint has the same
-// vocabulary/exclusivity check the export script and app.js both assume,
-// rather than reinventing it once one exists
+// vocabulary check the export script and app.js both assume, rather than
+// reinventing it once one exists
 export function validateVibe(vibe, errors) {
   if (vibe === null) return null;
   if (!Array.isArray(vibe)) {
@@ -75,10 +75,6 @@ export function validateVibe(vibe, errors) {
   const out = [...new Set(vibe)];
   if (out.length > 4 || out.some((t) => !VIBE_TAGS.includes(t))) {
     errors.vibe = `must be 0-4 of: ${VIBE_TAGS.join(', ')}`;
-    return undefined;
-  }
-  if (out.includes('quiet') && out.includes('lively')) {
-    errors.vibe = 'quiet and lively are mutually exclusive';
     return undefined;
   }
   return out.length ? out : null;

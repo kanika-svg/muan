@@ -1,6 +1,7 @@
--- vibe: 0-4 tags from a fixed vocabulary (quiet, lively, alone-ok, cheap —
--- see VIBE_TAGS in functions/api/_venue-validation.js) powering the "What
--- are you after?" chooser on the Cafes tab (js/app.js vibeChooserHtml()).
+-- vibe: 0-4 tags from a fixed vocabulary (under-trees, tucked-away,
+-- for-coffee, settle-in — see VIBE_TAGS in functions/api/_venue-validation.js)
+-- powering the "ຢາກໄປໃສດີ?" mood chooser on the Cafes tab (js/app.js
+-- vibeChooserHtml()).
 -- Kar-only: deliberately NOT added to SIMPLE_FIELDS, so neither the owner
 -- submission POST nor the owner PATCH (functions/api/venues.js,
 -- functions/api/venues/[id].js) ever accepts it from a request body — Kar
