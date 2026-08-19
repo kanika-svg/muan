@@ -396,12 +396,14 @@ body {
    both problems only existed because the widget sat outside normal flow.
    In flow, it just pushes the section header down by its own height, same
    as any other block; no reserved space when state.weather is null, since
-   weatherWidgetHtml() returns '' and contributes nothing to the template. */
+   weatherWidgetHtml() returns '' and contributes nothing to the template.
+   No card surface (background/border/radius/shadow) or side padding — it's
+   context for the venues below, not an item alongside them, so it sits
+   directly on the sheet's own background, flush with the greeting and
+   section headers' left edge rather than looking like a smaller card. */
 .weather-bar {
   display: flex; align-items: center; gap: 12px;
-  height: 56px; margin-top: 12px; padding: 0 14px;
-  border-radius: 14px; border: 1px solid var(--ink4);
-  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  height: 40px; margin-top: 12px;
   color: var(--bone);
 }
 .weather-ico { display: flex; flex-shrink: 0; }
@@ -455,6 +457,14 @@ body {
   border: 1px solid var(--ink4);
   border-radius: 14px; padding: 11px 12px; margin-top: 10px; cursor: pointer;
 }
+/* the first card under a header sits closer to its header than to the next
+   card below it — that gap difference (smaller here than .card's own
+   margin-top, whether that's 10px on desktop or the 12px mobile sets
+   further down) is what makes a header read as heading its own group
+   instead of floating with equal space on both sides. Specificity (two
+   classes) beats both the desktop and mobile .card rules regardless of
+   source order, so one rule covers both. */
+.sec-h + .card { margin-top: 10px; }
 .card .row { display: flex; justify-content: space-between; align-items: center; }
 .t-name { font-size: 15.5px; font-weight: 700; margin-top: 4px; }
 .t-sub  { font-size: 12px; color: var(--mute); margin-top: 2px; line-height: 1.45; }
@@ -730,20 +740,17 @@ body {
 .marker.label-crowded .m-sub { display: none; }
 .marker.label-crowded.selected .m-label { display: block; }
 
-/* section headers + coming-soon slot */
+/* section headers + coming-soon slot — hierarchy from spacing alone, no
+   divider line: 32px above (clearly more than any other gap on the screen,
+   so a header reads as belonging to what follows, not floating between two
+   equal gaps) and nothing else added below — see .sec-h + .card further
+   down for why the header-to-first-card gap needs its own, smaller rule. */
 .sec-h {
   display: flex; align-items: baseline; gap: 7px;
   font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
   color: var(--mute); text-transform: uppercase;
-  margin-top: 22px; padding-top: 18px;
-  border-top: 1px solid var(--ink3);
+  margin-top: 32px;
 }
-/* .surprise-btn (the Surprise me button) sits between .s-sub and the first
-   .sec-h in the DOM on every screen width — it's only hidden via display:none
-   on desktop, and a hidden element still breaks a "+" adjacent-sibling
-   match, so both selectors are needed here or desktop would grow a
-   suddenly-unwanted divider above its first section */
-.s-sub + .sec-h, .surprise-btn + .sec-h { border-top: none; padding-top: 0; margin-top: 20px; }
 .sec-h .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; align-self: center; }
 .sec-h .mini-flame { align-self: center; margin: -4px 0; }
 .sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--dim); margin-left: auto; }
@@ -1295,16 +1302,23 @@ body {
      rendering glitch in testing, the hairline is what makes it read as a
      deliberate "you're now looking at a pinned bar" state */
   #sheet .chip-bar.pinned { box-shadow: 0 1px 0 var(--ink4); }
-  /* All/Events (renderHomeSheet() in app.js): no Surprise me button before
-     the chip bar any more (see the task this was scoped for — it's Bars/
-     Cafes only now), so .chip-bar sits directly after .s-sub instead of
-     after the button's own 52px+margins. Without this, the gap between the
-     subtitle and the chips collapses to just the chip bar's own 8px top
-     padding — same 28px .s-sub already gets before a section header
-     elsewhere on this screen (see .s-sub + .sec-h below), reused here so
-     the two "nothing else between them" cases read the same. Specificity
-     needs the #sheet prefix to beat the margin-top:0 above.  */
-  #sheet .s-sub + .chip-bar { margin-top: 28px; }
+  /* 24px between the greeting and the chips below — a title needs more air
+     after it than before it (vs. .s-sub's own 2px margin-top above the
+     subtitle). Deliberately on #chipSentinel, NOT .chip-bar's own
+     margin-top: .chip-bar is position:sticky, and this file already has a
+     documented history of sticky-offset bugs from exactly this kind of
+     change (see the comment above on `top` having to be a bare 0) — margin
+     on a sticky element can shift where it actually lands once stuck, not
+     just its resting position. Pushing the gap via the sentinel instead
+     (0 gap between sentinel and chip-bar, unchanged) moves both together
+     as an ordinary block, so the sentinel's position relative to the bar —
+     what observeChipPin()'s pin-timing depends on — never changes. Was
+     "#sheet .s-sub + .chip-bar { margin-top: 28px }", meant to add this gap
+     back for All/Events; it never matched, since renderHomeSheet()'s
+     markup always puts #chipSentinel between .s-sub and .chip-bar (every
+     filter, not just All/Events), breaking "+" adjacency — the gap
+     silently fell back to 0 the whole time. */
+  #chipSentinel { margin-top: 24px; }
 }
 
 @media (min-width: 768px) {
@@ -1488,12 +1502,6 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      the same mobile media query as the rest of the screen shell. */
   #app:not([data-screen="map"]) #routeBar,
   #app:not([data-screen="map"]) #trackChip { display: none; }
-}
-
-/* double-line section dividers */
-.sec-h {
-  border-top: 1px solid var(--ink3);
-  box-shadow: 0 -4px 0 -3px var(--ink3);   /* second hairline above */
 }
 
 /* ============ venue owner edit form (openVenueEditor() in app.js) ============
@@ -1711,10 +1719,9 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 
   /* ---- section headers: 15px/600 sentence case, quieter dot ---- */
   .sec-h {
-    margin-top: 28px; padding-top: 18px;
+    margin-top: 32px;
     font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none;
   }
-  .s-sub + .sec-h, .surprise-btn + .sec-h { margin-top: 28px; }
   .sec-h .dot { width: 5px; height: 5px; opacity: .55; }
 
   /* ---- cards: raised surface, 16px radius, 12px rhythm ---- */
