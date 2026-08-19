@@ -3090,7 +3090,7 @@ function mixHex(fromHex, toHex, amount) {
   return `#${chan(0)}${chan(2)}${chan(4)}`;
 }
 
-function venueTileUri(name, type, wide) {
+function venueTileUri(name, type, wide, showLetter = true) {
   const letter = (name || '?').charAt(0).toUpperCase();
   const glyphKey = type === 'cafe' ? 'cafe' : type === 'bar' ? 'bar' : 'venue';
   const fgVar = type === 'cafe' ? '--teal' : type === 'bar' ? '--flame' : '--violet';
@@ -3111,7 +3111,7 @@ function venueTileUri(name, type, wide) {
     `<rect width="${w}" height="${h}" fill="url(#g)"/>` +
     `<g transform="translate(${gx} ${gy})" fill="${fg}" fill-opacity="0.18" stroke-opacity="0.18" color="${fg}">` +
     `<svg width="${size}" height="${size}" viewBox="0 0 24 24">${TILE_GLYPHS[glyphKey]}</svg></g>` +
-    `<text x="${lx}" y="${ly}" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="${fontSize}" fill="${fg}">${esc(letter)}</text>` +
+    (showLetter ? `<text x="${lx}" y="${ly}" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="${fontSize}" fill="${fg}">${esc(letter)}</text>` : '') +
     `</svg>`;
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 }
@@ -3340,7 +3340,18 @@ function collageDescLine(v) {
 // popup opens.
 function collagePhotosHtml(v, altName) {
   const photos = v.photos || [];
-  const phBig = venueTileUri(v.short_name || v.name, v.type, true);
+  // showLetter:false — this placeholder fills the whole "solo" tile
+  // (object-fit:cover, no fixed aspect match), and object-fit:cover on a
+  // wide 160:90 SVG crops/rescales the corner letter to wherever a given
+  // card's actual rendered aspect puts it; at the popup's short card height
+  // that lands the letter right on top of the real .collage-name/.collage-
+  // status text below it (MEASURED: on Farsai/Drip 1920s, both photo-less).
+  // The real venue name is already shown as text over this image, so the
+  // decorative letter is redundant here — dropping it removes the collision
+  // outright instead of chasing a safe position that only holds for one
+  // specific card height. Every other venueTileUri() call site is
+  // unaffected (showLetter defaults to true).
+  const phBig = venueTileUri(v.short_name || v.name, v.type, true, false);
   if (!photos.length) {
     return `<div class="collage-photos"><div class="collage-tile collage-tile-big solo">
       <img src="${phBig}" alt="${esc(altName)}"></div></div>`;

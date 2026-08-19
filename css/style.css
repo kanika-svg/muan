@@ -312,6 +312,12 @@ body {
   overflow-y: auto; -webkit-overflow-scrolling: touch;
   padding: 4px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
 }
+/* shrinks the shared .collage-card (base height: 300px, further up) so
+   ~4 results are visible at once instead of ~2 — this is a "here are your
+   options" moment, not a detail view, so it needs to read as a scannable
+   set. Scoped to the popup only: .collage-card's default size is untouched
+   for any other future caller. */
+.vibe-pop-body .collage-card { height: 150px; }
 /* result cards stagger in on open, 60ms apart — a fresh .vibe-pop-body
    element every time openVibePop() runs (see js/app.js), so the animation
    just plays on insert; no retrigger class needed the way #sheetInner.anim
@@ -1163,10 +1169,12 @@ body {
 .gal-thumb:active { transform: scale(.93); }
 .gal-thumb.sel { opacity: 1; border-color: var(--flame); }
 
-/* Cafes › Recommended: photo-collage cards as ordinary sheet content — no
-   overlay, no fixed positioning, no gesture handlers. Deliberately not
-   sharing classes with #sheet's own .gal photo strip (venue detail) so
-   neither's styles bleed into the other. */
+/* Mood popup result cards (see openVibePop() in js/app.js) — this base rule
+   is the card's default size; the popup itself shrinks it further (see the
+   .vibe-pop-body override near the mood popup rules below) so more results
+   fit on screen at once without scrolling. Deliberately not sharing classes
+   with #sheet's own .gal photo strip (venue detail) so neither's styles
+   bleed into the other. */
 .collage-card {
   position: relative; height: 300px; margin-top: 10px;
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
