@@ -303,7 +303,11 @@
       },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11",
-      "pin_status": "placed"
+      "pin_status": "placed",
+      "vibe": [
+        "tucked-away",
+        "for-coffee"
+      ]
     },
     {
       "id": "tree-town",
@@ -397,7 +401,11 @@
       },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11",
-      "pin_status": "placed"
+      "pin_status": "placed",
+      "vibe": [
+        "tucked-away",
+        "settle-in"
+      ]
     },
     {
       "id": "maomao-matcha",
@@ -427,7 +435,10 @@
       },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11",
-      "pin_status": "placed"
+      "pin_status": "placed",
+      "vibe": [
+        "for-coffee"
+      ]
     },
     {
       "id": "vte-night-market",
@@ -511,7 +522,11 @@
       },
       "verified": true,
       "source": "Google Maps listing, 2026-07-13",
-      "pin_status": "placed"
+      "pin_status": "placed",
+      "vibe": [
+        "under-trees",
+        "settle-in"
+      ]
     },
     {
       "id": "corebeer",
@@ -832,7 +847,11 @@
       "contact": {
         "phone": "+8562056265662",
         "phone_display": "020 56 265 662"
-      }
+      },
+      "vibe": [
+        "for-coffee",
+        "settle-in"
+      ]
     },
     {
       "id": "anthophile",
@@ -874,7 +893,11 @@
       "contact": {
         "phone": "+8562052281119",
         "phone_display": "020 52 281 119"
-      }
+      },
+      "vibe": [
+        "under-trees",
+        "settle-in"
+      ]
     },
     {
       "id": "sunin-restaurant-cafe",
