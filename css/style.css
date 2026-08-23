@@ -1757,3 +1757,15 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      nothing to change there) */
   .fl-badge, .fl-item, .fl-manage-item { border-radius: 16px; }
 }
+
+@media (min-width: 768px) {
+  /* desktop card-to-card rhythm, same fix as the mobile Pass 2 rule above:
+     .card's base margin-top is 10px, same as .sec-h + .card's 10px
+     header-to-first-card gap, so every gap on the panel read as equal.
+     Bumping it here (like mobile's 12px) makes the three gaps — 32px above
+     a header, 10px header-to-first-card, 12px card-to-card — distinct
+     again. .sec-h + .card's two-class selector still beats this for the
+     first card regardless of source order (see the comment on that rule),
+     so only card-to-card actually changes. */
+  .card { margin-top: 12px; }
+}
