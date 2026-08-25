@@ -956,6 +956,43 @@
           "price": 5500
         }
       ]
+    },
+    {
+      "id": "chocola-bar",
+      "name": "Chocola.Bar",
+      "short_name": "Chocola.Bar",
+      "name_lo": "ຊັອກໂກລາ ບາ",
+      "type": "cafe",
+      "lat": 17.9468208,
+      "lng": 102.6198446,
+      "area": "South of the centre, off Thadeua",
+      "short": "Vientiane's first chocolate specialist — tiny, and worth it",
+      "description": "The city's first chocolate specialty café — bars, truffles and chocolate drinks made on site, and the quality is the reason people rave about it. Small room with only a few seats, so it's a stop rather than a sit-down, and prices are higher than a normal café. Come for the chocolate, not the afternoon.",
+      "photos": [],
+      "hours": {
+        "mon": "09:00-18:00",
+        "tue": "09:00-18:00",
+        "wed": "09:00-18:00",
+        "thu": "09:00-18:00",
+        "fri": "09:00-18:00",
+        "sat": "09:00-18:00",
+        "sun": "09:00-18:00"
+      },
+      "hours_note": null,
+      "links": {
+        "facebook": "",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9468208,102.6198446"
+      },
+      "verified": true,
+      "source": "Google Maps listing, 2026-09-01",
+      "pin_status": "placed",
+      "contact": {
+        "phone": "+8562096622349",
+        "phone_display": "020 96 622 349"
+      },
+      "vibe": [
+        "tucked-away"
+      ]
     }
   ]
 }
