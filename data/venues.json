@@ -319,7 +319,7 @@
       "lng": 102.6021906,
       "area": "Chao Anou Rd",
       "short": "Photo-friendly decor, bingsu and cotton-candy lattes",
-      "description": "The photo-spot café — seasonal decor, cotton-candy-topped lattes, beanbags upstairs and well-known bingsu. Tucked in a small soi off Chao Anou. Closed Mondays.",
+      "description": "A calm, tucked-away spot down a small soi off Chao Anou — a well-known photo stop that still doesn't feel busy. Bingsu is the draw; seasonal decor, cotton-candy-topped lattes and beanbags upstairs round out the visit. Closed Mondays.",
       "photos": [
         "v1787658195/treetown1.1_hyrzvz",
         "v1787658196/treetown2_bcw8gu",
@@ -341,12 +341,16 @@
       },
       "hours_note": null,
       "links": {
-        "facebook": "",
+        "facebook": "https://www.facebook.com/TreeTownCafeVientiane",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9650688,102.6021906"
       },
       "verified": true,
       "source": "Google Maps listing, 2026-07-11",
-      "pin_status": "placed"
+      "pin_status": "placed",
+      "vibe": [
+        "tucked-away",
+        "settle-in"
+      ]
     },
     {
       "id": "common-grounds",
@@ -392,7 +396,7 @@
       "lng": 102.6052324,
       "area": "Khun Bu Lom Rd",
       "short": "Vintage 1920s-theme café, open late Thu–Sun",
-      "description": "Retro café styled to the 1920s — gramophone music, vintage decor, drip coffee blends — inside a hostel garden. Unusually for a Vientiane café, it stays open until midnight Thursday to Sunday.",
+      "description": "Retro café styled to the 1920s — gramophone music, vintage decor, drip coffee blends — inside a hostel garden. It's a coffee stop rather than a place to eat: come for the drinks, not the menu. Unusually for a Vientiane café, it stays open until midnight Thursday to Sunday.",
       "photos": [
         "v1787658197/drip1920front_bdz1fi",
         "v1787658197/drip1920.1_td5jwz",
@@ -411,7 +415,7 @@
       },
       "hours_note": null,
       "links": {
-        "facebook": "",
+        "facebook": "https://www.facebook.com/drip1920s",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9695095,102.6052324"
       },
       "verified": true,
@@ -455,7 +459,7 @@
       },
       "hours_note": null,
       "links": {
-        "facebook": "",
+        "facebook": "https://www.facebook.com/profile.php?id=61578789909100",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9737332,102.6338178"
       },
       "verified": true,
@@ -529,7 +533,7 @@
       "lng": 102.6436896,
       "area": "National Library compound",
       "short": "Cafe-restaurant with garden seating, hosts meetups",
-      "description": "Cafe and restaurant inside the National Library compound with a spacious interior and outdoor garden seating. Fresh, well-priced food — and an occasional venue for community meetups and tech events.",
+      "description": "Cafe and restaurant inside the National Library compound with a spacious interior and outdoor garden seating — nicer in the evening than at lunch. Fresh, well-priced food — and an occasional venue for community meetups and tech events.",
       "photos": [
         "v1787658201/farsai1_xtlbgs",
         "v1787658198/farsai5_l7cbhx",
@@ -552,7 +556,7 @@
       },
       "hours_note": null,
       "links": {
-        "facebook": "",
+        "facebook": "https://www.facebook.com/profile.php?id=61581960205224",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=18.0083709,102.6436896"
       },
       "verified": true,
@@ -1023,7 +1027,7 @@
       },
       "hours_note": null,
       "links": {
-        "facebook": "https://www.facebook.com/Chocola.Bar.LA/",
+        "facebook": "https://www.facebook.com/Chocola.Bar.LA",
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9468208,102.6198446",
         "website": "https://sites.google.com/view/chocola-bar/home"
       },
