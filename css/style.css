@@ -232,19 +232,16 @@ body {
 }
 .seg-btn.on { background: var(--ink3); color: var(--bone); }
 
-/* Cafes tab — the only chooser on the tab (see renderHomeSheet() in
-   js/app.js): a mood question ("ຢາກໄປໃສດີ?") over a 2x2 grid of cards, each
-   showing its label and match count. A 0-match card is [disabled] rather
-   than hidden, so it needs its own dimmed state. The "Show me anything"
-   option sits underneath, deliberately quieter than the four cards — a
-   plain text button, not another card; it opens the full café list, same
-   as "All cafés" used to. .vibe-soon replaces the whole grid while every
-   card would read 0 (see vibeChooserHtml()'s anyTagged check). */
+/* Mood chooser card grid — no longer a Cafes-tab fixture (that tab is back
+   to the Recommended/All cafés .seg above); now the content of the
+   full-screen first-open greeting (.mood-intro below, see showMoodIntro()
+   in js/app.js). A mood question ("ຢາກໄປໃສດີ?") over a 2x2 grid of cards,
+   each showing its label and match count. A 0-match card is [disabled]
+   rather than hidden, so it needs its own dimmed state. */
 .vibe-chooser { margin: 14px 0 2px; }
 .vibe-chooser-title { font-size: 16px; font-weight: 700; color: var(--bone); }
 .vibe-chooser-sub { font-size: 12px; font-weight: 400; color: var(--mute); margin-top: 2px; }
 .vibe-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.vibe-soon { font-size: 12px; color: var(--mute); margin-top: 10px; }
 .vibe-card {
   font-family: var(--font); text-align: left; cursor: pointer;
   display: flex; flex-direction: column; gap: 3px;
@@ -257,6 +254,8 @@ body {
 .vibe-card:active { transform: scale(.97); }
 .vibe-card:disabled { opacity: .4; cursor: default; }
 .vibe-card:disabled:active { transform: none; }
+/* "Just show me around" — deliberately quieter than the four cards above:
+   a plain text button, not another card (see showMoodIntro()) */
 .vibe-any {
   display: block; width: 100%; margin-top: 10px; padding: 8px 4px;
   font-family: var(--font); font-size: 12px; font-weight: 600;
@@ -266,6 +265,36 @@ body {
 .vibe-any .lao { font-weight: 400; opacity: .8; }
 .vibe-any:active { opacity: .6; }
 @media (prefers-reduced-motion: reduce) { .vibe-card { transition: none; } .vibe-card:active { transform: none; } }
+
+/* full-screen first-open greeting (see showMoodIntro() in js/app.js) — a
+   solid takeover, not a scrim over the map/sheet like .vibe-pop below, so
+   it reads as its own moment rather than a popup over Home. Reuses
+   .vibe-chooser and its children verbatim for the actual question + card
+   grid, just centred and enlarged inside .mood-intro-inner, so this and
+   the mood popup look like one feature rather than two. */
+.mood-intro {
+  position: fixed; inset: 0; z-index: 900;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ink); opacity: 0; transition: opacity .3s ease;
+  padding: 24px;
+}
+.mood-intro.show { opacity: 1; }
+.mood-intro-inner { width: 100%; max-width: 340px; text-align: center; }
+.mood-intro-inner .vibe-chooser-title { font-size: 22px; }
+.mood-intro-inner .vibe-cards { text-align: left; margin-top: 20px; }
+@media (prefers-reduced-motion: reduce) { .mood-intro { transition: none; } }
+
+/* quiet route back to the mood chooser once the one-time greeting above has
+   been dismissed for good (see moodRelinkHtml() in js/app.js) — plain text
+   below the last card, not a button or header control, findable but not
+   prominent */
+.mood-relink {
+  display: block; width: 100%; margin: 18px 0 4px; padding: 6px;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  color: var(--mute); background: none; border: none; cursor: pointer;
+  text-align: center;
+}
+.mood-relink:active { opacity: .6; }
 
 /* result popup for a tapped vibe tag — a fresh overlay element per open,
    fully removed on close (see openVibePop()/closeVibePop() in js/app.js),

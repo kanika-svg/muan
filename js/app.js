@@ -58,6 +58,7 @@ const state = {
   theme: null,
   tracking: null,
   trackWatchId: null,
+  cafeTab: 'recommended', // 'recommended' | 'all' — sub-tab inside the Cafes filter
   screen: 'home',           // mobile only: 'home' | 'map' | 'you' — see setMobileScreen()
   screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
@@ -363,14 +364,15 @@ async function boot() {
     bindTheme();
     refreshAvatarBtn();
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
-    // fire-and-forget: the only reason to learn avatar_url this early is
-    // the top-right button — everywhere else it's read straight off /api/me
-    // when the You screen itself opens. Doesn't block or delay anything
-    // else in boot(); a signed-out visitor just gets signed_out:true back
-    // and the button stays on the chibi/emoji fallback it already shows.
-    fetch('/api/me').then(r => r.json()).then(me => {
+    // kept as a promise (not fire-and-forget) since shouldShowMoodIntro()
+    // further down needs its result too — the avatar use below still
+    // doesn't block or delay anything else in boot(); a signed-out visitor
+    // just gets signed_out:true back and the button stays on the chibi/
+    // emoji fallback it already shows.
+    const mePromise = fetch('/api/me').then(r => r.json()).catch(() => ({ ok: false }));
+    mePromise.then(me => {
       if (me?.ok && !me.signed_out) applyAvatarUrl(me.avatar_url || null);
-    }).catch(() => {});
+    });
     initMap();
     renderHomeSheet();
 
@@ -522,6 +524,14 @@ async function boot() {
       ]);
       if (mapTimedOut) showMapWarning();
     }
+
+    // one-time first-open "ຢາກໄປໃສດີ?" moment — mounted here, right before
+    // the finally block's dismissSplash(), so it's the first thing revealed
+    // as the splash fades rather than Home. mePromise has almost certainly
+    // resolved by now (it started alongside the venues/events/picks fetch,
+    // well before this 8s-capped map wait), so this await costs ~nothing.
+    const me = await mePromise;
+    if (shouldShowMoodIntro(me)) showMoodIntro();
   } catch (err) {
     console.error('[muan] boot failed', err);
   } finally {
@@ -3270,8 +3280,9 @@ function watchCollageCard(cardEl, v) {
 // swaps a card's tiles from their placeholder monogram src to their real
 // (already width-rewritten, see cloudinaryUrl()) photo URL, then arms
 // the load/error/timeout fallback for those real requests — called once per
-// card, when the mood popup's IntersectionObserver (vibePopObserver, set up
-// in openVibePop()) decides it's actually time to load it
+// card, when that card's IntersectionObserver decides it's actually time to
+// load it (observeCollageCards() for the Recommended café list, vibePopObserver
+// in openVibePop() for the mood popup)
 function loadCollageCardPhotos(cardEl, v) {
   cardEl.querySelectorAll('img[data-src]').forEach(img => {
     img.src = img.dataset.src;
@@ -3301,7 +3312,36 @@ function observeChipPin() {
   chipPinObserver.observe(sentinel);
 }
 
-/* ---------- Mood popup result cards: photo-collage cards ---------- */
+// ~15 photo requests firing at once across five collage cards blew past the
+// browser's per-host connection limit and most just sat at complete=false
+// indefinitely (see the MEASURED note this was written for). Each card's
+// <img> starts on a monogram placeholder with the real URL parked in
+// data-src (see collagePhotosHtml()); this loads a card's real photos only
+// once it's within ~200px of becoming visible. root must be #sheet, not the
+// window — #sheet is the element that actually scrolls (see its overflow-y
+// in style.css), so viewport-rooted intersection would report every card as
+// always "visible". IntersectionObserver fires immediately for whatever's
+// already in range when observe() is called, so the first card (or few,
+// depending on sheet height) loads right away with no special-casing.
+// Scoped to #sheet .collage-card, not every .collage-card in the document —
+// the mood popup's own cards (vibePopObserver, see openVibePop()) live in
+// document.body, outside #sheet, so an unscoped query here would also
+// (harmlessly, since #sheet isn't their ancestor) try to observe those.
+let collageObserver = null;
+function observeCollageCards() {
+  collageObserver?.disconnect();
+  collageObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      collageObserver.unobserve(entry.target);
+      const v = venueById(entry.target.dataset.openVenue);
+      if (v) loadCollageCardPhotos(entry.target, v);
+    }
+  }, { root: document.getElementById('sheet'), rootMargin: '200px' });
+  document.querySelectorAll('#sheet .collage-card').forEach(card => collageObserver.observe(card));
+}
+
+/* ---------- Photo-collage cards: shared by the Recommended café list and the mood popup ---------- */
 // "closed" already says so on its own (openStatus() covers "closed today" /
 // "closed" / "hours unconfirmed" / a venue's own hours_note); only the
 // not-yet-open case ("opens 10 am") needs a "closed ·" prefix to read
@@ -3334,10 +3374,11 @@ function collageDescLine(v) {
 //
 // every tile starts on the venue's monogram as its actual src (a data URI —
 // no request fires) with the real, size-rewritten photo URL parked in
-// data-src; vibePopObserver (see openVibePop()) swaps it in once the card
-// is about to scroll into view (see loadCollageCardPhotos()), rather than
-// all three tiles across every card requesting a photo the moment the
-// popup opens.
+// data-src; whichever IntersectionObserver owns this card (observeCollageCards()
+// for the Recommended tab, vibePopObserver for the mood popup) swaps it in
+// once the card is about to scroll into view (see loadCollageCardPhotos()),
+// rather than every tile across every card requesting a photo the moment
+// the list or popup opens.
 function collagePhotosHtml(v, altName) {
   const photos = v.photos || [];
   // showLetter:false — this placeholder fills the whole "solo" tile
@@ -3378,9 +3419,11 @@ function collagePhotosHtml(v, altName) {
   return html;
 }
 
-// whole-card-tappable collage card for the mood popup's result list (see
-// openVibePop()) — [data-open-venue] click handling is wired there, not
-// through setSheet()'s delegation, since this card never lives in #sheet
+// whole-card-tappable collage card, shared by the Cafes › Recommended tab
+// and the mood popup's result list (see openVibePop()) — on the Recommended
+// tab this is ordinary #sheet content, so [data-open-venue] just works via
+// setSheet()'s delegation; the popup lives outside #sheet entirely, so
+// openVibePop() wires that same attribute's click handling itself
 function collageCardHtml(v) {
   const photos = v.photos || [];
   const descLine = collageDescLine(v);
@@ -3404,7 +3447,7 @@ function collageCardHtml(v) {
     </div>`;
 }
 
-/* ---------- Cafes tab: vibe chooser + result popup ---------- */
+/* ---------- Mood chooser: first-open greeting + result popup ---------- */
 // display copy for the fixed vocabulary in functions/api/_venue-validation.js
 // VIBE_TAGS — kept as a separate array (not imported, this is a plain
 // script with no module system) since it pairs each key with the label
@@ -3420,37 +3463,101 @@ const VIBE_TAGS = [
   { key: 'settle-in', label: 'Settle in for a while', label_lo: null }, // TODO(Kar): Lao label
 ];
 
-// the only chooser on the Cafes tab now (see renderHomeSheet()) — four mood
-// cards plus "Show me anything" underneath, which opens the full unfiltered
-// café list through the same popup as any mood card (see openVibePop()). A
-// single 0-match card stays visible but disabled (native [disabled], so
-// it's inert without an extra click guard) rather than hidden. But while
-// vibe is Kar-filled by hand and starts empty on every venue, EVERY card
-// reads 0 on day one — a wall of four dead cards under an eager question
-// looks broken, not just quiet — so that all-zero case hides the whole grid
-// behind a "moods coming soon" line instead; the moment any café has a
-// vibe tag at all, the real grid comes back (individual cards can still be
-// disabled from there on, same as always).
-function vibeChooserHtml(cafes) {
-  const cardBtn = (t) => {
-    const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
-    return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
-      <span class="vibe-card-label">${esc(t.label)}</span>
-      <span class="vibe-card-count">· ${count}</span>
-    </button>`;
-  };
-  const anyTagged = cafes.some(v => (v.vibe || []).length > 0);
-  return `
-    <div class="vibe-chooser">
-      <div class="vibe-chooser-h">
-        <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
-        <div class="vibe-chooser-sub">what are you after?</div>
+// one card in the mood grid — shared by showMoodIntro() below. A 0-match
+// card stays visible but disabled (native [disabled], so it's inert
+// without an extra click guard) rather than hidden.
+function vibeCardHtml(t, cafes) {
+  const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
+  return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
+    <span class="vibe-card-label">${esc(t.label)}</span>
+    <span class="vibe-card-count">· ${count}</span>
+  </button>`;
+}
+
+// true once any venue at all has a vibe tag — Kar fills these in by hand
+// (see migrations/013_vibe.sql), so a fresh deploy starts with none. Gates
+// both showMoodIntro() (no point greeting someone into a wall of 0-count
+// disabled cards) and moodRelinkHtml()'s bottom-of-list link.
+function anyVibeTagged() {
+  return state.venues.some(v => (v.vibe || []).length > 0);
+}
+
+const MOOD_INTRO_KEY = 'psd-mood-intro-seen';
+
+// gates the automatic first-open call in boot() to exactly once ever —
+// mirrors users.intro_seen (migrations/004_intro_seen.sql) for the flame
+// explainer, but with a localStorage fallback: most first-time visitors
+// have no account yet, so there's no users row to check, and MOOD_INTRO_KEY
+// is the only flag that can persist for them. Checked local-first so a
+// visitor who dismissed it before signing in isn't shown it again just
+// because the server flag hasn't caught up yet.
+function shouldShowMoodIntro(me) {
+  if (!anyVibeTagged()) return false;
+  try { if (localStorage.getItem(MOOD_INTRO_KEY) === '1') return false; } catch (e) {}
+  if (me?.ok && !me.signed_out && me.mood_intro_seen) return false;
+  return true;
+}
+
+// best-effort, same philosophy as renderFlameIntro()'s "Got it" handler —
+// an intro that reappears once (a failed POST) is milder than one that
+// gets stuck. localStorage is written unconditionally, since it's what
+// actually stops a repeat for the anonymous majority; the server call only
+// changes anything for a signed-in visitor and 401s harmlessly for anyone
+// else (see functions/api/mood-intro-seen.js).
+function markMoodIntroSeen() {
+  try { localStorage.setItem(MOOD_INTRO_KEY, '1'); } catch (e) {}
+  fetch('/api/mood-intro-seen', { method: 'POST' }).catch(() => {});
+}
+
+// full-screen "ຢາກໄປໃສດີ?" moment — shown automatically once, right as the
+// splash fades (see boot()), gated by shouldShowMoodIntro(). Also reachable
+// any time after via the quiet text link at the bottom of the Cafes list
+// (see moodRelinkHtml()), which calls this same function directly — an
+// explicit tap always shows it, seen-flag or not. Picking a mood marks it
+// seen and opens the normal results popup (openVibePop()), same as a mood
+// card anywhere else; "Just show me around" marks it seen and just closes,
+// leaving whatever screen was already underneath (Home on first open, the
+// Cafes tab on a manual reopen).
+function showMoodIntro() {
+  const cafes = state.venues.filter(v => v.type === 'cafe');
+  const ov = document.createElement('div');
+  ov.className = 'mood-intro';
+  ov.innerHTML = `
+    <div class="mood-intro-inner">
+      <div class="vibe-chooser">
+        <div class="vibe-chooser-h">
+          <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
+          <div class="vibe-chooser-sub">what are you after?</div>
+        </div>
+        <div class="vibe-cards">${VIBE_TAGS.map(t => vibeCardHtml(t, cafes)).join('')}</div>
+        <button type="button" class="vibe-any" data-mood-intro-skip>Just show me around</button>
       </div>
-      ${anyTagged
-        ? `<div class="vibe-cards">${VIBE_TAGS.map(cardBtn).join('')}</div>`
-        : `<div class="vibe-soon">moods coming soon</div>`}
-      <button type="button" class="vibe-any" data-vibe-tag="any">Show me anything · <span class="lao">ອັນໃດກໍໄດ້</span></button>
     </div>`;
+  document.body.appendChild(ov);
+  requestAnimationFrame(() => ov.classList.add('show'));
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const dismiss = () => {
+    ov.classList.remove('show');
+    setTimeout(() => ov.remove(), reduced ? 0 : 280);
+  };
+  ov.querySelectorAll('[data-vibe-tag]').forEach(el => el.addEventListener('click', () => {
+    markMoodIntroSeen();
+    dismiss();
+    openVibePop(el.dataset.vibeTag);
+  }));
+  ov.querySelector('[data-mood-intro-skip]').addEventListener('click', () => {
+    markMoodIntroSeen();
+    dismiss();
+  });
+}
+
+// quiet route back to the mood chooser once it's been dismissed for good —
+// plain text, not a card or button, deliberately easy to miss unless
+// someone's looking for it
+function moodRelinkHtml() {
+  if (!anyVibeTagged()) return '';
+  return `<button type="button" class="mood-relink lao" data-mood-relink>ຢາກໄປໃສດີ?</button>`;
 }
 
 // { ov, sheetEl } while open, else null — a fresh overlay element created
@@ -3625,21 +3732,34 @@ function renderHomeSheet() {
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
       <div class="s-title">${dayGreeting()}, Vientiane</div>
-      ${f === 'cafe' ? '' : `<div class="s-sub lao">${sub}</div>`}
+      <div class="s-sub lao">${sub}</div>
       ${surpriseMeHtml(f)}
       <div id="chipSentinel"></div>
       <div id="chipSlot"></div>
       ${weatherWidgetHtml()}`;
     html += secH(color, label);
 
+    const cafeTab = state.cafeTab || 'recommended';
     if (f === 'cafe') {
-      // the mood chooser is the only chooser on this tab — "Show me
-      // anything" (vibeChooserHtml()'s data-vibe-tag="any") opens the full,
-      // unfiltered café list through openVibePop(), the same popup every
-      // mood card uses, so there's no separate inline list to render here
-      // (the old Recommended/All cafés seg and its cafeGallery branch are
-      // gone — see git history if that list is ever needed again).
-      html += vibeChooserHtml(state.venues.filter(v => v.type === 'cafe'));
+      html += `
+        <div class="seg" role="tablist">
+          <button class="seg-btn ${cafeTab === 'recommended' ? 'on' : ''}" data-cafe-tab="recommended" role="tab" aria-selected="${cafeTab === 'recommended'}">Recommended</button>
+          <button class="seg-btn ${cafeTab === 'all' ? 'on' : ''}" data-cafe-tab="all" role="tab" aria-selected="${cafeTab === 'all'}">All cafés</button>
+        </div>`;
+    }
+
+    if (f === 'cafe' && cafeTab === 'recommended') {
+      // cafés with enough photos for a collage card to be worth showing —
+      // pending venues excluded, same as On fire/Busy spots above
+      const cafeGallery = sortForDisplay(state.venues
+        .filter(v => v.type === 'cafe' && v.pin_status !== 'pending' && (v.photos?.length || 0) >= 2)
+        .sort((a, b) => (b.photos.length - a.photos.length) ||
+          (a.short_name || a.name).localeCompare(b.short_name || b.name)));
+      if (!cafeGallery.length) {
+        html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
+      } else {
+        html += cafeGallery.map(v => collageCardHtml(v)).join('');
+      }
     } else {
       const typeVenues = sortForDisplay(state.venues.filter(v => v.type === f)
         .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name)));
@@ -3662,8 +3782,10 @@ function renderHomeSheet() {
         }
       }
     }
+    if (f === 'cafe') html += moodRelinkHtml();
     setSheet(html);
     injectEmptyIcons();
+    observeCollageCards();
     history.replaceState(null, '', location.pathname);
     const sh = document.getElementById('sheet');
     sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
@@ -4639,8 +4761,13 @@ function setSheet(html) {
   inner.classList.add('anim');
   inner.querySelectorAll('[data-open-venue]').forEach(el =>
     el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
-  inner.querySelectorAll('[data-vibe-tag]').forEach(el =>
-    el.addEventListener('click', () => openVibePop(el.dataset.vibeTag)));
+  inner.querySelectorAll('[data-cafe-tab]').forEach(el =>
+    el.addEventListener('click', () => {
+      state.cafeTab = el.dataset.cafeTab;
+      renderHomeSheet();
+    }));
+  inner.querySelectorAll('[data-mood-relink]').forEach(el =>
+    el.addEventListener('click', showMoodIntro));
   inner.querySelectorAll('[data-surprise-me]').forEach(el =>
     el.addEventListener('click', () => quickSurpriseMe(state.filter)));
   inner.querySelectorAll('[data-home]').forEach(el =>

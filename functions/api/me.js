@@ -45,6 +45,10 @@ export async function onRequest(context) {
     return Response.json({
       ok: true,
       show_intro: showIntro,
+      // one-time first-open mood chooser (see showMoodIntro() in js/app.js)
+      // — read only when this user is signed in; an anonymous visitor is
+      // gated by localStorage instead (see migrations/014_mood_intro_seen.sql)
+      mood_intro_seen: !!user.mood_intro_seen,
       // display-only — every admin write re-checks this same isAdmin() call
       // against the session's own user id server-side (see functions/api/
       // venues/[id]/approve.js, reject.js); a client can't grant itself
