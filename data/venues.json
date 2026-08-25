@@ -965,9 +965,9 @@
       "type": "cafe",
       "lat": 17.9468208,
       "lng": 102.6198446,
-      "area": "South of the centre, off Thadeua",
-      "short": "Vientiane's first chocolate specialist — tiny, and worth it",
-      "description": "The city's first chocolate specialty café — bars, truffles and chocolate drinks made on site, and the quality is the reason people rave about it. Small room with only a few seats, so it's a stop rather than a sit-down, and prices are higher than a normal café. Come for the chocolate, not the afternoon.",
+      "area": "Beung Kha-nyong, Sisattanak",
+      "short": "Cacao made on site — nama, frappés, freeze-dried fruit bars",
+      "description": "Vientiane's first chocolate specialty café, opened June 2026 — their own line is \"endless taste of cacao creation\". Nama chocolate in two bitterness levels, a 100% dark chocolate frappé with no added sugar, and freeze-dried strawberry bars. Small room with a few seats, so it's a stop rather than a sit-down, and prices are higher than a normal café.",
       "photos": [],
       "hours": {
         "mon": "09:00-18:00",
@@ -980,11 +980,12 @@
       },
       "hours_note": null,
       "links": {
-        "facebook": "",
-        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9468208,102.6198446"
+        "facebook": "https://www.facebook.com/Chocola.Bar.LA/",
+        "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9468208,102.6198446",
+        "website": "https://sites.google.com/view/chocola-bar/home"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-09-01",
+      "source": "Facebook page + Google Maps listing, opened 16 June 2026, checked 2026-09-01",
       "pin_status": "placed",
       "contact": {
         "phone": "+8562096622349",
