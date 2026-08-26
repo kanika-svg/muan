@@ -3509,6 +3509,19 @@ function markMoodIntroSeen() {
   fetch('/api/mood-intro-seen', { method: 'POST' }).catch(() => {});
 }
 
+// fire-and-forget log of one mood-chooser tap (migrations/015_mood_picks.sql,
+// functions/api/mood-pick.js) — tag is the vibe key, or 'dismissed' for
+// "Just show me around". Never awaited and never blocks opening the
+// results: a failed log must not delay the thing the person actually
+// tapped for.
+function logMoodPick(tag) {
+  fetch('/api/mood-pick', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tag }),
+  }).catch(() => {});
+}
+
 // full-screen "ຢາກໄປໃສດີ?" moment — shown automatically once, right as the
 // splash fades (see boot()), gated by shouldShowMoodIntro(). Also reachable
 // any time after via the quiet text link at the bottom of the Cafes list
@@ -3542,11 +3555,13 @@ function showMoodIntro() {
     setTimeout(() => ov.remove(), reduced ? 0 : 280);
   };
   ov.querySelectorAll('[data-vibe-tag]').forEach(el => el.addEventListener('click', () => {
+    logMoodPick(el.dataset.vibeTag);
     markMoodIntroSeen();
     dismiss();
     openVibePop(el.dataset.vibeTag);
   }));
   ov.querySelector('[data-mood-intro-skip]').addEventListener('click', () => {
+    logMoodPick('dismissed');
     markMoodIntroSeen();
     dismiss();
   });
