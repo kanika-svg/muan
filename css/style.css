@@ -243,14 +243,22 @@ body {
 .vibe-chooser-sub { font-size: 12px; font-weight: 400; color: var(--mute); margin-top: 2px; }
 .vibe-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .vibe-card {
+  position: relative; overflow: hidden; display: block;
   font-family: var(--font); text-align: left; cursor: pointer;
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 12px 14px; border-radius: 14px; border: 1px solid var(--ink4);
+  aspect-ratio: 1 / 1; padding: 0;
+  border-radius: 14px; border: 1px solid var(--ink4);
   background: var(--ink); color: var(--bone);
   transition: transform .1s ease-out;
 }
-.vibe-card-label { font-size: 13px; font-weight: 700; }
-.vibe-card-count { font-size: 11px; font-weight: 400; color: var(--mute); }
+.vibe-card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* bottom-anchored scrim so the white label/count stay legible over any
+   photo without needing per-photo contrast checks */
+.vibe-card-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(19,16,25,.88) 0%, rgba(19,16,25,.2) 55%, rgba(19,16,25,0) 80%);
+}
+.vibe-card-label { position: absolute; left: 12px; right: 12px; bottom: 26px; font-size: 16px; font-weight: 600; color: #F5F1E8; }
+.vibe-card-count { position: absolute; left: 12px; bottom: 8px; font-size: 11px; font-weight: 400; color: rgba(245,241,232,.75); }
 .vibe-card:active { transform: scale(.97); }
 .vibe-card:disabled { opacity: .4; cursor: default; }
 .vibe-card:disabled:active { transform: none; }
@@ -280,8 +288,13 @@ body {
 }
 .mood-intro.show { opacity: 1; }
 .mood-intro-inner { width: 100%; max-width: 340px; text-align: center; }
-.mood-intro-inner .vibe-chooser-title { font-size: 22px; }
+/* small and quiet — this is the first thing anyone sees, so it should say
+   whose app it is without competing with the question below it */
+.mood-intro-brand { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 22px; opacity: .55; }
+.mood-intro-brand-word { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--mute); }
+.mood-intro-inner .vibe-chooser-title { font-size: 26px; }
 .mood-intro-inner .vibe-cards { text-align: left; margin-top: 20px; }
+@media (min-width: 768px) { .mood-intro-inner { max-width: 400px; } }
 @media (prefers-reduced-motion: reduce) { .mood-intro { transition: none; } }
 
 /* quiet route back to the mood chooser once the one-time greeting above has

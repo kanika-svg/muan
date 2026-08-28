@@ -3467,12 +3467,22 @@ const VIBE_TAGS = [
 
 // one card in the mood grid — shared by showMoodIntro() below. A 0-match
 // card stays visible but disabled (native [disabled], so it's inert
-// without an extra click guard) rather than hidden.
+// without an extra click guard) rather than hidden. Background is the first
+// photo of the first matching venue (real load failures fall back through
+// watchImgLoad(), wired by the caller); a mood with no matching venue that
+// has photos at all falls back straight to the type-colour gradient the
+// monogram tiles use (showLetter:false — the card already carries the mood
+// label, a letter on top would just be noise).
 function vibeCardHtml(t, cafes) {
-  const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
-  return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
+  const matches = cafes.filter(v => (v.vibe || []).includes(t.key));
+  const count = matches.length;
+  const withPhoto = matches.find(v => v.photos && v.photos.length);
+  const imgSrc = withPhoto ? cloudinaryUrl(withPhoto.photos[0], 300) : venueTileUri(t.label, 'cafe', false, false);
+  return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''} ${withPhoto ? `data-vibe-venue="${withPhoto.id}"` : ''}>
+    <img class="vibe-card-img" src="${esc(imgSrc)}" alt="" loading="lazy">
+    <span class="vibe-card-scrim" aria-hidden="true"></span>
     <span class="vibe-card-label">${esc(t.label)}</span>
-    <span class="vibe-card-count">· ${count}</span>
+    <span class="vibe-card-count">${count} place${count === 1 ? '' : 's'}</span>
   </button>`;
 }
 
@@ -3539,6 +3549,7 @@ function showMoodIntro() {
   ov.className = 'mood-intro';
   ov.innerHTML = `
     <div class="mood-intro-inner">
+      <div class="mood-intro-brand" aria-hidden="true">${logoMark(20, 'var(--ink)')}<span class="mood-intro-brand-word">PAISAIDEE</span></div>
       <div class="vibe-chooser">
         <div class="vibe-chooser-h">
           <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
@@ -3549,6 +3560,14 @@ function showMoodIntro() {
       </div>
     </div>`;
   document.body.appendChild(ov);
+  // arm the real-photo fallback (see watchImgLoad()) for every card that got
+  // a real venue photo — vibeCardHtml() already handled the "no photo at
+  // all" case with a gradient src, this only covers that photo failing to load
+  ov.querySelectorAll('.vibe-card[data-vibe-venue]').forEach(btn => {
+    const v = cafes.find(c => String(c.id) === btn.dataset.vibeVenue);
+    const img = btn.querySelector('.vibe-card-img');
+    if (v && img) watchImgLoad(img, v);
+  });
   // single rAF isn't enough here — the append and the class add can still
   // land in the same style/layout pass, so the transition starts from
   // partway through instead of from the true opacity:0 starting style and
