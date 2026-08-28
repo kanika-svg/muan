@@ -3207,7 +3207,9 @@ function openLightbox(photos, index) {
   document.body.appendChild(ov);
   lightbox = { photos, index, ov };
   lightboxRender();
-  requestAnimationFrame(() => ov.classList.add('show'));
+  // double rAF — see showMoodIntro()'s comment; single rAF let this same
+  // append+show sequence get stuck mid-transition
+  requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('show')));
 
   // tap outside the image (the backdrop itself) closes, same as ×
   ov.addEventListener('click', (e) => { if (e.target === ov) closeLightbox(); });
@@ -3547,7 +3549,12 @@ function showMoodIntro() {
       </div>
     </div>`;
   document.body.appendChild(ov);
-  requestAnimationFrame(() => ov.classList.add('show'));
+  // single rAF isn't enough here — the append and the class add can still
+  // land in the same style/layout pass, so the transition starts from
+  // partway through instead of from the true opacity:0 starting style and
+  // gets stuck (observed: computed opacity 0.136, never reaching 1). A
+  // second rAF forces the starting style to actually commit/paint first.
+  requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('show')));
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const dismiss = () => {
@@ -3629,7 +3636,9 @@ function openVibePop(tagKey) {
   const sheetEl = ov.querySelector('.vibe-pop-sheet');
   const bodyEl = ov.querySelector('.vibe-pop-body');
   vibePop = { ov, sheetEl };
-  requestAnimationFrame(() => ov.classList.add('show'));
+  // double rAF — see showMoodIntro()'s comment; single rAF let this same
+  // append+show sequence get stuck mid-transition
+  requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('show')));
 
   ov.addEventListener('click', (e) => { if (e.target === ov) closeVibePop(); });
   ov.querySelector('.vibe-pop-close').addEventListener('click', closeVibePop);
