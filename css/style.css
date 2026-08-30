@@ -15,6 +15,13 @@
   --pin-bar:   #FF5A3C;
   --pin-cafe:  #1FBF9C;
   --pin-venue: #7C5CE0;
+  /* mood-card illustrations only (see vibeCardHtml() in js/app.js) — a
+     literal coffee brown and a warm doorway-glow amber. Not --gold: that
+     token is reserved for rewards/badges (see the design-tokens section
+     below), so a separate pair avoids drifting its meaning by reusing it
+     for an unrelated warm-accent illustration. */
+  --mc-coffee: #C4835A;
+  --mc-glow:   #E8A054;
   /* one step lighter/darker than whatever's behind a card — resolves
      against each theme's own --ink3 below, so it only needs setting once */
   --surface: var(--ink3);
@@ -49,6 +56,8 @@
   --pin-bar:   #D93A1F;
   --pin-cafe:  #0F7A60;
   --pin-venue: #5B3DB0;
+  --mc-coffee: #8B5A3C;
+  --mc-glow:   #C97C2E;
   /* a bright top edge (dark theme's --card-edge) is invisible on cream, so
      this inverts: a soft shadow beneath instead, and a slightly deeper
      bottom edge rather than a bright top one */
@@ -242,26 +251,116 @@ body {
 .vibe-chooser-title { font-size: 16px; font-weight: 700; color: var(--bone); }
 .vibe-chooser-sub { font-size: 12px; font-weight: 400; color: var(--mute); margin-top: 2px; }
 .vibe-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+/* illustration fills the top ~60%, label+count sit beneath it on the
+   card's own surface (not overlaid on a photo with a scrim any more —
+   see vibeCardHtml() in js/app.js, which now draws a flat inline SVG per
+   mood instead of using a venue photo). */
 .vibe-card {
-  position: relative; overflow: hidden; display: block;
+  display: flex; flex-direction: column; overflow: hidden;
   font-family: var(--font); text-align: left; cursor: pointer;
   aspect-ratio: 1 / 1; padding: 0;
   border-radius: 14px; border: 1px solid var(--ink4);
-  background: var(--ink); color: var(--bone);
+  background: var(--ink3); color: var(--bone);
   transition: transform .1s ease-out;
 }
-.vibe-card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-/* bottom-anchored scrim so the white label/count stay legible over any
-   photo without needing per-photo contrast checks */
-.vibe-card-scrim {
-  position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(19,16,25,.88) 0%, rgba(19,16,25,.2) 55%, rgba(19,16,25,0) 80%);
-}
-.vibe-card-label { position: absolute; left: 12px; right: 12px; bottom: 26px; font-size: 16px; font-weight: 600; color: #F5F1E8; }
-.vibe-card-count { position: absolute; left: 12px; bottom: 8px; font-size: 11px; font-weight: 400; color: rgba(245,241,232,.75); }
-.vibe-card:active { transform: scale(.97); }
+.vibe-card-illus { flex: 0 0 60%; display: flex; padding: 12px 14px 0; }
+.mc-illus { width: 100%; height: 100%; display: block; overflow: visible; }
+.vibe-card-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 2px 12px 10px; }
+.vibe-card-label { font-size: 13px; font-weight: 600; color: var(--bone); line-height: 1.25; }
+.vibe-card-count { font-size: 11px; font-weight: 400; color: var(--mute); margin-top: 2px; }
+/* item 3: press feedback only — scale .96, 100ms, nothing else */
+.vibe-card:active { transform: scale(.96); }
 .vibe-card:disabled { opacity: .4; cursor: default; }
 .vibe-card:disabled:active { transform: none; }
+
+/* --- mood illustrations: flat fills only, every colour a CSS variable
+   (see the --mc-* tokens and .mi-slide-mood's token re-declaration at the
+   top of this file — nothing here is a hardcoded hex, so it tracks the
+   real theme). Two exceptions to "no outlines": for-coffee's steam curls
+   are stroked paths, not filled shapes — a filled blob doesn't read as a
+   wisp of steam the way a thin curved line does, so this is one flat
+   colour used as a line rather than a border drawn around a shape, which
+   is what "no outlines" is really about (see the tucked-away sign's rod,
+   drawn as a thin filled rect instead, for the shape where a fill worked
+   fine). --- */
+.mc-canopy { fill: var(--pin-cafe); }
+.mc-canopy-1 { opacity: .55; }
+.mc-canopy-2 { opacity: .75; }
+.mc-trunk { fill: var(--ink4); }
+.mc-dapple { fill: var(--pin-cafe); opacity: .25; }
+
+.mc-building { fill: var(--mc-coffee); }
+.mc-glow, .mc-sign { fill: var(--mc-glow); }
+.mc-sign-rod { fill: var(--mc-coffee); }
+
+.mc-steam { fill: none; stroke: var(--bone); stroke-width: 3; stroke-linecap: round; opacity: .8; }
+.mc-saucer { fill: var(--mc-coffee); opacity: .55; }
+.mc-cup { fill: var(--mc-coffee); }
+
+.mc-chair { fill: var(--pin-venue); }
+.mc-book { fill: var(--bone); }
+.mc-book-2 { opacity: .85; }
+.mc-book-3 { opacity: .7; }
+
+/* item 2: entry animation only, never a loop — see showMoodIntro(), which
+   adds .mc-enter to .vibe-cards each time the mood slide becomes visible
+   (removing and re-adding it to restart, since a class that's already
+   present won't re-trigger a CSS animation on its own). Every keyframe
+   set is a self-contained from/to (same reasoning as .mood-intro's own
+   show/hide animations elsewhere in this file): each element's normal,
+   non-animated style already IS its correct resting appearance, so the
+   animation is a purely additive entrance on top of it, not something
+   the element depends on to reach its final look. transform-box:fill-box
+   makes scale/translate on the SVG groups relative to their own drawn
+   bounds instead of the SVG viewport's origin — without it the canopies
+   would scale from the top-left corner of the icon, not their own centre. */
+.vibe-cards.mc-enter .vibe-card {
+  animation: mc-card-in .42s cubic-bezier(.16,.8,.3,1) both;
+}
+.vibe-cards.mc-enter .vibe-card:nth-child(1) { animation-delay: 0ms; }
+.vibe-cards.mc-enter .vibe-card:nth-child(2) { animation-delay: 80ms; }
+.vibe-cards.mc-enter .vibe-card:nth-child(3) { animation-delay: 160ms; }
+.vibe-cards.mc-enter .vibe-card:nth-child(4) { animation-delay: 240ms; }
+@keyframes mc-card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+.mc-canopy-group, .mc-books { transform-box: fill-box; transform-origin: center; }
+.mc-steam { transform-box: fill-box; }
+
+.vibe-cards.mc-enter [data-vibe-tag="under-trees"] .mc-canopy-group {
+  animation: mc-canopy-in .5s ease-out both; animation-delay: 150ms;
+}
+@keyframes mc-canopy-in { from { transform: scale(.9); } to { transform: scale(1); } }
+
+.vibe-cards.mc-enter [data-vibe-tag="tucked-away"] .mc-glow {
+  animation: mc-glow-in .6s ease-out both; animation-delay: 230ms;
+}
+@keyframes mc-glow-in { from { opacity: 0; } to { opacity: 1; } }
+
+.vibe-cards.mc-enter [data-vibe-tag="for-coffee"] .mc-steam {
+  animation: mc-steam-in .6s ease-out both; animation-delay: 310ms;
+}
+@keyframes mc-steam-in { from { opacity: 0; transform: translateY(6px); } to { opacity: .8; transform: translateY(0); } }
+
+.vibe-cards.mc-enter [data-vibe-tag="settle-in"] .mc-books {
+  animation: mc-book-in .5s ease-out both; animation-delay: 390ms;
+}
+@keyframes mc-book-in { from { transform: translateX(20px); } to { transform: translateX(0); } }
+
+/* specificity must match the [data-vibe-tag="..."]-scoped rules above, not
+   just the bare .mc-canopy-group/.mc-glow/etc — a lower-specificity
+   override here loses the cascade regardless of source order or the media
+   query, and the reduced-motion user still gets the animation (caught by
+   testing: computed animation-name was still mc-canopy-in under
+   prefers-reduced-motion until this was fixed to match). */
+@media (prefers-reduced-motion: reduce) {
+  .vibe-cards.mc-enter .vibe-card { animation: none; }
+  .vibe-cards.mc-enter [data-vibe-tag="under-trees"] .mc-canopy-group,
+  .vibe-cards.mc-enter [data-vibe-tag="tucked-away"] .mc-glow,
+  .vibe-cards.mc-enter [data-vibe-tag="for-coffee"] .mc-steam,
+  .vibe-cards.mc-enter [data-vibe-tag="settle-in"] .mc-books {
+    animation: none;
+  }
+}
 /* "Just show me around" — deliberately quieter than the four cards above:
    a plain text button, not another card (see showMoodIntro()) */
 .vibe-any {
@@ -403,8 +502,29 @@ body {
 .mi-sub { font-size: 13px; font-weight: 400; color: var(--mute); margin-top: 8px; line-height: 1.5; max-width: 320px; }
 
 /* the mood question, last slide — centred like a screen of its own rather
-   than the upper-55%-illustration layout above, since it has no photo */
-.mi-slide-mood { align-items: center; justify-content: center; padding: 24px; }
+   than the upper-55%-illustration layout above, since it has no photo.
+   Also the one slide that un-shadows .mood-intro's forced-dark palette:
+   that override exists for the first 3 slides' dark night-scene photos,
+   but this slide's own content (heading, the 4 illustrated cards below)
+   has no such reason to stay dark-locked, and the cards specifically need
+   to read correctly in both themes. Re-declaring the exact same tokens
+   :root/[data-theme="light"] already define, scoped one level deeper than
+   .mood-intro's own override, wins the cascade for everything in this
+   slide's subtree without touching the other 3 slides at all. Needs its
+   own background too — .mood-intro paints its (still dark-locked)
+   background at the overlay level, an ancestor of this rule, so without
+   repainting here this slide would show real-theme text over a
+   still-forced-dark backdrop. */
+.mi-slide-mood {
+  --ink: #131019; --ink2: #1C1726; --ink3: #241E31; --ink4: #2E2740;
+  --bone: #F5F1E8; --mute: #8A8494; --flame: #FF5A3C;
+  align-items: center; justify-content: center; padding: 24px;
+  background: var(--ink);
+}
+[data-theme="light"] .mi-slide-mood {
+  --ink: #FFFCF5; --ink2: #FBF6E9; --ink3: #F2EAD8; --ink4: #DDD2BA;
+  --bone: #2A2419; --mute: #6B6151; --flame: #E8462A;
+}
 .mood-intro-inner { width: 100%; max-width: 340px; text-align: center; }
 /* small and quiet — by this slide the flow has already introduced itself,
    so the brand mark just quietly confirms whose app it is */

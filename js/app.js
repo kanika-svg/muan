@@ -3472,32 +3472,73 @@ const VIBE_TAGS = [
   { key: 'settle-in', label: 'Settle in for a while', label_lo: null }, // TODO(Kar): Lao label
 ];
 
+// one flat, no-outline SVG per mood tag — every fill is a CSS custom
+// property (see .mc-canopy/.mc-building/etc. in style.css and the --mc-*
+// tokens near the top of that file), never a hardcoded hex, so these track
+// the real theme correctly (see .mi-slide-mood's own token re-declaration,
+// which un-shadows .mood-intro's forced-dark palette for just this slide).
+// Grouped elements (.mc-canopy-group, .mc-books) exist purely so their
+// one-time entry animation (see the .mc-enter rules in style.css) can
+// move/scale the whole cluster together rather than each shape animating
+// from its own separate origin. Two stroked paths (the steam curls) are
+// the only non-fill shapes here — see the CSS comment on why that's not
+// the "no outlines" a flat icon border would be.
+const MOOD_ILLUS = {
+  'under-trees': `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
+    <ellipse class="mc-dapple" cx="30" cy="54" rx="10" ry="3"/>
+    <ellipse class="mc-dapple" cx="55" cy="56" rx="14" ry="3"/>
+    <ellipse class="mc-dapple" cx="75" cy="53" rx="9" ry="2.5"/>
+    <rect class="mc-trunk" x="27" y="34" width="3" height="20"/>
+    <rect class="mc-trunk" x="52" y="30" width="3" height="24"/>
+    <rect class="mc-trunk" x="72" y="36" width="3" height="18"/>
+    <g class="mc-canopy-group">
+      <circle class="mc-canopy mc-canopy-1" cx="73" cy="26" r="17"/>
+      <circle class="mc-canopy mc-canopy-2" cx="28" cy="24" r="18"/>
+      <circle class="mc-canopy" cx="52" cy="18" r="20"/>
+    </g>
+  </svg>`,
+  'tucked-away': `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
+    <rect class="mc-building" x="0" y="0" width="38" height="60"/>
+    <rect class="mc-building" x="62" y="0" width="38" height="60"/>
+    <rect class="mc-glow" x="42" y="34" width="16" height="26"/>
+    <rect class="mc-sign-rod" x="44" y="15" width="12" height="1.6"/>
+    <rect class="mc-sign" x="45" y="16.6" width="10" height="7"/>
+  </svg>`,
+  'for-coffee': `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
+    <path class="mc-steam" d="M40 26 C36 22 44 18 40 14 C37 11 43 8 41 5"/>
+    <path class="mc-steam" d="M50 24 C46 20 54 16 50 12 C47 9 53 6 51 3"/>
+    <path class="mc-steam" d="M60 26 C56 22 64 18 60 14 C57 11 63 8 61 5"/>
+    <ellipse class="mc-saucer" cx="50" cy="50" rx="30" ry="6"/>
+    <path class="mc-cup" d="M28 30 H72 L65 48 Q50 55 35 48 Z"/>
+    <path class="mc-cup" d="M71 33 Q86 33 86 40 Q86 47 71 44 Z"/>
+  </svg>`,
+  'settle-in': `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
+    <g class="mc-books">
+      <rect class="mc-book" x="72" y="46" width="24" height="6"/>
+      <rect class="mc-book mc-book-2" x="75" y="40" width="19" height="6"/>
+      <rect class="mc-book mc-book-3" x="73" y="34" width="21" height="6"/>
+    </g>
+    <path class="mc-chair" d="M10 14 H46 V50 H10 Z"/>
+    <path class="mc-chair" d="M10 34 H58 V50 H10 Z"/>
+    <path class="mc-chair" d="M46 24 Q58 24 58 34 V50 H46 Z"/>
+    <rect class="mc-chair" x="6" y="46" width="56" height="6" rx="2"/>
+  </svg>`,
+};
+
 // one card in the mood grid — shared by showMoodIntro() below. A 0-match
 // card stays visible but disabled (native [disabled], so it's inert
-// without an extra click guard) rather than hidden. Background is the first
-// photo of the first matching venue (real load failures fall back through
-// watchImgLoad(), wired by the caller); a mood with no matching venue that
-// has photos at all falls back straight to the type-colour gradient the
-// monogram tiles use (showLetter:false — the card already carries the mood
-// label, a letter on top would just be noise).
+// without an extra click guard) rather than hidden. The illustration is
+// fixed per mood tag (MOOD_ILLUS above), not per matching venue, so unlike
+// the old photo-backed cards there's no per-venue lookup or photo-load
+// fallback needed here any more.
 function vibeCardHtml(t, cafes) {
-  const matches = cafes.filter(v => (v.vibe || []).includes(t.key));
-  const count = matches.length;
-  const withPhoto = matches.find(v => v.photos && v.photos.length);
-  const imgSrc = withPhoto ? cloudinaryUrl(withPhoto.photos[0], 300) : venueTileUri(t.label, 'cafe', false, false);
-  // eager, not lazy: these cards live on showMoodIntro()'s last carousel
-  // slide, which starts scrolled off-screen inside .mi-viewport on a fresh
-  // open — a browser's lazy-load intersection heuristic never counts that
-  // as "near viewport" the way it would for ordinary below-the-fold
-  // content, so `loading="lazy"` here just meant the photo never requested
-  // at all (observed: naturalWidth 0, complete:false, even after swiping
-  // there). Only 4 images in a modal that's about to be fully seen anyway —
-  // nothing to defer.
-  return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''} ${withPhoto ? `data-vibe-venue="${withPhoto.id}"` : ''}>
-    <img class="vibe-card-img" src="${esc(imgSrc)}" alt="" loading="eager">
-    <span class="vibe-card-scrim" aria-hidden="true"></span>
-    <span class="vibe-card-label">${esc(t.label)}</span>
-    <span class="vibe-card-count">${count} place${count === 1 ? '' : 's'}</span>
+  const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
+  return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
+    <span class="vibe-card-illus">${MOOD_ILLUS[t.key]}</span>
+    <span class="vibe-card-body">
+      <span class="vibe-card-label">${esc(t.label)}</span>
+      <span class="vibe-card-count">${count} place${count === 1 ? '' : 's'}</span>
+    </span>
   </button>`;
 }
 
@@ -3651,19 +3692,20 @@ function showMoodIntro({ startAtMood = false } = {}) {
     </div>`;
   document.body.appendChild(ov);
 
-  // arm the real-photo fallback (see watchImgLoad()) for every card that got
-  // a real venue photo — vibeCardHtml() already handled the "no photo at
-  // all" case with a gradient src, this only covers that photo failing to load
-  ov.querySelectorAll('.vibe-card[data-vibe-venue]').forEach(btn => {
-    const v = cafes.find(c => String(c.id) === btn.dataset.vibeVenue);
-    const img = btn.querySelector('.vibe-card-img');
-    if (v && img) watchImgLoad(img, v);
-  });
-
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const viewport = ov.querySelector('[data-mi-viewport]');
   const dots = [...ov.querySelectorAll('.mi-dot')];
   const nextBtn = ov.querySelector('[data-mi-next]');
+  const cardsEl = ov.querySelector('.vibe-cards');
+  // the 4 cards' one-time entry animation (see .mc-enter in style.css) —
+  // triggered here rather than unconditionally on mount, since on a fresh
+  // open (startAtMood:false) the mood slide isn't the visible one yet; the
+  // scroll listener below re-triggers it (remove+reflow+re-add, since
+  // adding a class that's already present doesn't restart a CSS animation
+  // on its own) each time the mood slide actually comes into view, swipe
+  // or chevron alike — "on entry", not "only the very first time ever".
+  let wasOnMood = startIndex === moodIndex;
+  if (wasOnMood) cardsEl.classList.add('mc-enter');
   if (startIndex > 0) viewport.scrollLeft = startIndex * viewport.clientWidth;
   // scroll-snap does the paging itself (native touch handling — no manual
   // touchmove math, so there's no inline transform this needs to clean up
@@ -3679,6 +3721,13 @@ function showMoodIntro({ startAtMood = false } = {}) {
       const idx = Math.round(viewport.scrollLeft / viewport.clientWidth);
       dots.forEach((d, i) => d.classList.toggle('on', i === idx));
       nextBtn.classList.toggle('mi-hidden', idx === moodIndex);
+      const onMood = idx === moodIndex;
+      if (onMood && !wasOnMood) {
+        cardsEl.classList.remove('mc-enter');
+        void cardsEl.offsetWidth; // force reflow so re-adding the class restarts the animation
+        cardsEl.classList.add('mc-enter');
+      }
+      wasOnMood = onMood;
     });
   }, { passive: true });
 
