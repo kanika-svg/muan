@@ -249,7 +249,14 @@ body {
    rather than hidden, so it needs its own dimmed state. */
 .vibe-chooser { margin: 14px 0 2px; }
 .vibe-chooser-title { font-size: 16px; font-weight: 700; color: var(--bone); }
-.vibe-chooser-sub { font-size: 12px; font-weight: 400; color: var(--mute); margin-top: 2px; }
+.vibe-chooser-sub { font-size: 12px; font-weight: 400; color: var(--mute); margin-top: 2px; line-height: 1.45; }
+/* the honest-scoping line (see showMoodIntro()) — smaller and dimmer than
+   .vibe-chooser-sub above it, sitting directly over the grid it's scoping
+   rather than being buried in the paragraph. --dim is one step past --mute
+   in this app's ink scale and isn't shadowed by .mood-intro or re-declared
+   by .mi-slide-mood, so it already tracks the real theme here same as
+   everything else on this slide. */
+.vibe-chooser-scope { font-size: 11px; font-weight: 500; color: var(--dim); margin-top: 14px; }
 .vibe-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 /* illustration fills the top ~60%, label+count sit beneath it on the
    card's own surface (not overlaid on a photo with a scrim any more —
@@ -362,12 +369,16 @@ body {
   }
 }
 /* "Just show me around" — deliberately quieter than the four cards above:
-   a plain text button, not another card (see showMoodIntro()) */
+   a bordered pill, not another card, but with enough presence (a visible
+   border) to read as tappable rather than a bare line of text someone
+   could mistake for a caption (see showMoodIntro()). Sized to its own
+   content and centred, not a full-width bar, so it stays secondary to the
+   grid above it. */
 .vibe-any {
-  display: block; width: 100%; margin-top: 10px; padding: 8px 4px;
+  display: block; width: fit-content; margin: 14px auto 0; padding: 8px 18px;
   font-family: var(--font); font-size: 12px; font-weight: 600;
-  color: var(--mute); background: none; border: none; cursor: pointer;
-  text-align: center;
+  color: var(--mute); background: none; border: 1px solid var(--ink4); border-radius: 999px;
+  cursor: pointer; text-align: center;
 }
 .vibe-any .lao { font-weight: 400; opacity: .8; }
 .vibe-any:active { opacity: .6; }
@@ -532,6 +543,7 @@ body {
 .mood-intro-brand-word { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--mute); }
 .mood-intro-inner .vibe-chooser-title { font-size: 26px; }
 .mood-intro-inner .vibe-cards { text-align: left; margin-top: 20px; }
+.mood-intro-inner .vibe-chooser-scope { text-align: left; }
 @media (min-width: 768px) { .mood-intro-inner { max-width: 400px; } }
 
 /* quiet route back to the mood chooser once the one-time greeting above has

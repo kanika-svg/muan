@@ -3514,14 +3514,15 @@ const MOOD_ILLUS = {
   </svg>`,
   'settle-in': `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
     <g class="mc-books">
-      <rect class="mc-book" x="72" y="46" width="24" height="6"/>
-      <rect class="mc-book mc-book-2" x="75" y="40" width="19" height="6"/>
-      <rect class="mc-book mc-book-3" x="73" y="34" width="21" height="6"/>
+      <rect class="mc-book" x="76" y="46" width="20" height="6"/>
+      <rect class="mc-book mc-book-2" x="78" y="40" width="16" height="6"/>
+      <rect class="mc-book mc-book-3" x="77" y="34" width="18" height="6"/>
     </g>
-    <path class="mc-chair" d="M10 14 H46 V50 H10 Z"/>
-    <path class="mc-chair" d="M10 34 H58 V50 H10 Z"/>
-    <path class="mc-chair" d="M46 24 Q58 24 58 34 V50 H46 Z"/>
-    <rect class="mc-chair" x="6" y="46" width="56" height="6" rx="2"/>
+    <rect class="mc-chair" x="16" y="8" width="22" height="38" rx="9" transform="rotate(-7 27 27)"/>
+    <rect class="mc-chair" x="14" y="36" width="48" height="14" rx="6"/>
+    <rect class="mc-chair" x="54" y="22" width="14" height="26" rx="7"/>
+    <rect class="mc-chair" x="18" y="48" width="4" height="6" rx="1"/>
+    <rect class="mc-chair" x="58" y="48" width="4" height="6" rx="1"/>
   </svg>`,
 };
 
@@ -3674,8 +3675,9 @@ function showMoodIntro({ startAtMood = false } = {}) {
           <div class="vibe-chooser">
             <div class="vibe-chooser-h">
               <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
-              <div class="vibe-chooser-sub">what are you after?</div>
+              <div class="vibe-chooser-sub">Bars, cafés and places to go in Vientiane — with real hours, photos and how far away they are.</div>
             </div>
+            <div class="vibe-chooser-scope">Start with a café · <span class="lao">ເລີ່ມຈາກຄາເຟ</span></div>
             <div class="vibe-cards">${VIBE_TAGS.map(t => vibeCardHtml(t, cafes)).join('')}</div>
             <button type="button" class="vibe-any" data-mood-intro-skip>Just show me around</button>
           </div>
