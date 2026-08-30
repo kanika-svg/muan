@@ -306,21 +306,42 @@ body {
   .mood-intro.hide { animation: none; opacity: 0; }
 }
 
-/* dots + Skip share one bottom bar, not two separately-positioned controls.
-   Skip used to float top-right just below the image, but once the heading/
-   body moved down into the lower third (see .mi-gap below) that left it
-   isolated over a stretch of empty background with nothing else nearby.
-   Grouping it with the dots keeps all of the carousel's chrome in one
-   place; a 3-column grid holds the dots dead-centre regardless of Skip's
-   own width, rather than the dots drifting off-centre to make room for it. */
+/* dots + chevron + Skip share one bottom bar — nothing floats loose in the
+   slide itself any more. The chevron used to live in a flexible spacer
+   between image and text (.mi-gap, since removed): that spacer was meant
+   to hold the empty space the shorter image left over, but once the text
+   was also pinned to the bottom of the slide it turned into a genuinely
+   huge void (measured: ~500px at 400x939) with the chevron floating alone
+   in the middle of it, colliding with nothing but not sitting near
+   anything either. Putting it in the controls bar removes the question of
+   where the "empty space" is entirely — the chevron just lives beside the
+   dots, wherever that ends up. A 3-column grid holds the dots+chevron
+   group dead-centre regardless of Skip's own width, rather than drifting
+   off-centre to make room for it. */
 .mi-controls {
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   padding: 6px 16px max(18px, env(safe-area-inset-bottom));
 }
-.mi-dots { grid-column: 2; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.mi-dots-row { grid-column: 2; display: flex; align-items: center; gap: 14px; }
+.mi-dots { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .mi-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); transition: background .2s, transform .2s; }
 .mi-dot.on { background: var(--flame); transform: scale(1.3); }
 @media (prefers-reduced-motion: reduce) { .mi-dot { transition: none; } }
+/* smaller than its old floating-in-the-gap size (40px) — inline next to
+   the dots it reads as one more piece of chrome, not its own destination.
+   Hidden (not just scrolled past) on the mood slide, since there's no
+   "next" from the last slide — see showMoodIntro()'s scroll listener,
+   which toggles .mi-hidden. A bare [hidden] attribute won't reliably beat
+   this rule's own `display: flex` (see CLAUDE.md's [hidden]-vs-display
+   note), so this uses a plain class instead. */
+.mi-next {
+  width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(245,241,232,.10); border: none; color: var(--bone);
+  font-size: 15px; line-height: 1; cursor: pointer;
+}
+.mi-next:active { background: rgba(245,241,232,.18); }
+.mi-next.mi-hidden { display: none; }
 .mi-skip {
   grid-column: 3; justify-self: end;
   font-family: var(--font); font-size: 13px; font-weight: 600;
@@ -354,38 +375,30 @@ body {
   flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always;
   display: flex; flex-direction: column; min-height: 0;
 }
-/* 3:2, matching the source illustrations' own 800x533 (1.501:1, effectively
-   exact) — the previous flex:0 0 55% sized this panel from leftover screen
-   space with no relation to the photos' actual shape, so object-fit:cover
-   was cropping close to a third off each side to force a 1.5:1 image into
-   a much narrower box (measured 360x444, a .81:1 box). Matching the box to
-   the image's own aspect leaves essentially nothing for cover to crop. */
-.mi-illus { width: 100%; aspect-ratio: 3 / 2; flex-shrink: 0; overflow: hidden; }
-.mi-illus img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-/* belt-and-braces alongside the column cap above — at the capped 440px
-   width, aspect-ratio 3/2 already works out to ~293px, under this, so it's
-   not normally the binding constraint; it just guarantees the panel can
-   never balloon past ~340px even if the column cap above ever changes. */
+/* height-driven, not aspect-ratio-driven — a fixed 3:2 box (the previous
+   approach) tops out around 260-270px on a typical phone regardless of how
+   tall the screen is, which is what left ~500px of dead space beneath the
+   text on a tall one (measured 400x939). 45vh instead scales with the
+   actual viewport, so a taller screen gets a taller panel rather than more
+   empty space below it. object-fit:contain, not cover, so nothing is ever
+   cropped to fill the new box — a landscape 1.5:1 photo in a taller box
+   letterboxes top/bottom instead, and since .mi-illus's own background is
+   the same --ink as the rest of the flow, those bars are invisible: they
+   just read as more of the dark panel, not as a visible letterbox frame. */
+.mi-illus { width: 100%; height: 45vh; flex-shrink: 0; overflow: hidden; background: var(--ink); }
+.mi-illus img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
+/* desktop cap (unchanged from before) — max, not a fixed height, so a
+   short desktop window is still free to end up under 340px rather than
+   being forced to it; only a tall one (45vh > 340px, true past ~756px
+   tall) gets clamped down. */
 @media (min-width: 768px) { .mi-illus { max-height: 340px; } }
-/* the flexible space between image and text (was flush-under-the-image
-   before, which read top-heavy with a single ~500px dead stretch beneath
-   it — moving the *space* here instead pushes heading+body down into the
-   lower third, right above .mi-controls, so the empty stretch ends up in
-   the middle instead). Also where the forward chevron (item 3) lives: a
-   spot picked specifically because it's guaranteed solid background, never
-   photo — see .mi-skip's comment above on a control landing on top of
-   image content unreadably (it already happened once, to Skip). */
-.mi-gap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: flex-end; padding: 0 20px; }
-.mi-next {
-  width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(245,241,232,.08); border: none; color: var(--bone);
-  font-size: 20px; line-height: 1; cursor: pointer;
-}
-.mi-next:active { background: rgba(245,241,232,.16); }
-/* no flex:1 any more — sized to its own content, sitting right above
-   .mi-controls at the bottom of the slide rather than stretching to fill it */
-.mi-copy { padding: 0 28px 28px; }
+/* ~32px below the image, then whatever's left over is genuinely empty —
+   no explicit spacer needed: .mi-copy is sized to its own content (no
+   flex:1), so with .mi-slide's default flex-start stacking it just sits
+   right under the image, and anything left of the slide's height stays
+   blank below it, in front of .mi-controls (a separate element outside
+   .mi-viewport entirely, always pinned to the very bottom). */
+.mi-copy { padding: 32px 28px 24px; }
 .mi-title { font-size: 30px; font-weight: 700; color: var(--bone); }
 .mi-sub { font-size: 13px; font-weight: 400; color: var(--mute); margin-top: 8px; line-height: 1.5; max-width: 320px; }
 

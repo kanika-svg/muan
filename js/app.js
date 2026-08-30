@@ -3533,14 +3533,9 @@ const WELCOME_SLIDES = [
   },
 ];
 
-// .mi-next (›) only appears on welcome slides, never on the mood slide
-// (mi-slide-mood, built separately in showMoodIntro()) — swiping past the
-// mood question would mean leaving the flow with no mood picked, which
-// isn't a "next" at all, so that slide correctly has no forward control.
 function welcomeSlideHtml(s, i) {
   return `<div class="mi-slide" data-mi-index="${i}">
     <div class="mi-illus"><img src="${esc(cloudinaryUrl(s.photo, 800))}" alt="" loading="eager"></div>
-    <div class="mi-gap"><button type="button" class="mi-next" data-mi-next aria-label="Next">›</button></div>
     <div class="mi-copy">
       <div class="mi-title${s.titleLao ? ' lao' : ''}">${esc(s.title)}</div>
       <div class="mi-sub">${esc(s.sub)}</div>
@@ -3647,8 +3642,11 @@ function showMoodIntro({ startAtMood = false } = {}) {
       </div>
     </div>
     <div class="mi-controls">
-      <div class="mi-dots" data-mi-dots>${Array.from({ length: totalSlides }, (_, i) =>
-        `<span class="mi-dot${i === startIndex ? ' on' : ''}"></span>`).join('')}</div>
+      <div class="mi-dots-row">
+        <div class="mi-dots" data-mi-dots>${Array.from({ length: totalSlides }, (_, i) =>
+          `<span class="mi-dot${i === startIndex ? ' on' : ''}"></span>`).join('')}</div>
+        <button type="button" class="mi-next${startIndex === moodIndex ? ' mi-hidden' : ''}" data-mi-next aria-label="Next">›</button>
+      </div>
       <button type="button" class="mi-skip" data-mi-skip>Skip</button>
     </div>`;
   document.body.appendChild(ov);
@@ -3665,11 +3663,14 @@ function showMoodIntro({ startAtMood = false } = {}) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const viewport = ov.querySelector('[data-mi-viewport]');
   const dots = [...ov.querySelectorAll('.mi-dot')];
+  const nextBtn = ov.querySelector('[data-mi-next]');
   if (startIndex > 0) viewport.scrollLeft = startIndex * viewport.clientWidth;
   // scroll-snap does the paging itself (native touch handling — no manual
   // touchmove math, so there's no inline transform this needs to clean up
   // on touchcancel, unlike the drag-to-dismiss below in openVibePop()); this
-  // listener only keeps the dots in sync with wherever the scroll lands.
+  // listener keeps the dots AND the forward chevron (hidden once the mood
+  // slide is reached — there's no "next" from the last slide) in sync with
+  // wherever the scroll lands.
   let dotRaf = null;
   viewport.addEventListener('scroll', () => {
     if (dotRaf) return;
@@ -3677,14 +3678,15 @@ function showMoodIntro({ startAtMood = false } = {}) {
       dotRaf = null;
       const idx = Math.round(viewport.scrollLeft / viewport.clientWidth);
       dots.forEach((d, i) => d.classList.toggle('on', i === idx));
+      nextBtn.classList.toggle('mi-hidden', idx === moodIndex);
     });
   }, { passive: true });
 
-  // the only forward affordance besides swiping itself (see welcomeSlideHtml())
-  ov.querySelectorAll('[data-mi-next]').forEach(el => el.addEventListener('click', () => {
+  // the only forward affordance besides swiping itself
+  nextBtn.addEventListener('click', () => {
     const idx = Math.round(viewport.scrollLeft / viewport.clientWidth);
     viewport.scrollTo({ left: (idx + 1) * viewport.clientWidth, behavior: reduced ? 'auto' : 'smooth' });
-  }));
+  });
 
   // .show/.hide run CSS *animations* (see the CSS), not transitions. A
   // transition needs the browser to snapshot the pre-change computed value
