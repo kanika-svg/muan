@@ -306,21 +306,25 @@ body {
   .mood-intro.hide { animation: none; opacity: 0; }
 }
 
-/* below the image, on the solid background — not floated over the photo.
-   A scrim pill was tried first, but the illustrations now keep effectively
-   their whole scene (see .mi-illus below), so there's no guarantee a given
-   photo has nothing important in the top-right corner: slide 1's "VIENTIANE
-   LAOS" shop sign sits right there, and the scrim still half-covered it.
-   top is pinned to the image panel's own bottom edge (66.6667vw = its
-   height, since .mi-illus is aspect-ratio:3/2 at full viewport width with
-   no padding above it) rather than a fixed px value, so this clears every
-   slide's photo the same way regardless of screen width, and lands at a
-   consistent, sensible position on slide 4 too even though it has no
-   photo of its own. */
+/* dots + Skip share one bottom bar, not two separately-positioned controls.
+   Skip used to float top-right just below the image, but once the heading/
+   body moved down into the lower third (see .mi-gap below) that left it
+   isolated over a stretch of empty background with nothing else nearby.
+   Grouping it with the dots keeps all of the carousel's chrome in one
+   place; a 3-column grid holds the dots dead-centre regardless of Skip's
+   own width, rather than the dots drifting off-centre to make room for it. */
+.mi-controls {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 6px 16px max(18px, env(safe-area-inset-bottom));
+}
+.mi-dots { grid-column: 2; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.mi-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); transition: background .2s, transform .2s; }
+.mi-dot.on { background: var(--flame); transform: scale(1.3); }
+@media (prefers-reduced-motion: reduce) { .mi-dot { transition: none; } }
 .mi-skip {
-  position: absolute; z-index: 2; top: calc(66.6667vw + 14px); right: 16px;
+  grid-column: 3; justify-self: end;
   font-family: var(--font); font-size: 13px; font-weight: 600;
-  color: var(--mute); background: none; border: none; cursor: pointer; padding: 8px 10px;
+  color: var(--mute); background: none; border: none; cursor: pointer; padding: 8px 4px;
 }
 .mi-skip:active { opacity: .6; }
 
@@ -346,13 +350,26 @@ body {
    the image's own aspect leaves essentially nothing for cover to crop. */
 .mi-illus { width: 100%; aspect-ratio: 3 / 2; flex-shrink: 0; overflow: hidden; }
 .mi-illus img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-/* image directly at top, heading+body right beneath it (24px gap, no more
-   centring the text block partway down the leftover space — that was the
-   ~200px dead gap), then flex:1 leaves whatever's left as empty space
-   above the dots (a sibling of .mi-viewport, pinned to the overlay's own
-   bottom — see .mi-dots) rather than needing its own bottom padding here. */
-.mi-copy { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 24px 28px 16px; }
-.mi-title { font-size: 22px; font-weight: 700; color: var(--bone); }
+/* the flexible space between image and text (was flush-under-the-image
+   before, which read top-heavy with a single ~500px dead stretch beneath
+   it — moving the *space* here instead pushes heading+body down into the
+   lower third, right above .mi-controls, so the empty stretch ends up in
+   the middle instead). Also where the forward chevron (item 3) lives: a
+   spot picked specifically because it's guaranteed solid background, never
+   photo — see .mi-skip's comment above on a control landing on top of
+   image content unreadably (it already happened once, to Skip). */
+.mi-gap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: flex-end; padding: 0 20px; }
+.mi-next {
+  width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(245,241,232,.08); border: none; color: var(--bone);
+  font-size: 20px; line-height: 1; cursor: pointer;
+}
+.mi-next:active { background: rgba(245,241,232,.16); }
+/* no flex:1 any more — sized to its own content, sitting right above
+   .mi-controls at the bottom of the slide rather than stretching to fill it */
+.mi-copy { padding: 0 28px 28px; }
+.mi-title { font-size: 30px; font-weight: 700; color: var(--bone); }
 .mi-sub { font-size: 13px; font-weight: 400; color: var(--mute); margin-top: 8px; line-height: 1.5; max-width: 320px; }
 
 /* the mood question, last slide — centred like a screen of its own rather
@@ -366,11 +383,6 @@ body {
 .mood-intro-inner .vibe-chooser-title { font-size: 26px; }
 .mood-intro-inner .vibe-cards { text-align: left; margin-top: 20px; }
 @media (min-width: 768px) { .mood-intro-inner { max-width: 400px; } }
-
-.mi-dots { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 0 max(18px, env(safe-area-inset-bottom)); }
-.mi-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); transition: background .2s, transform .2s; }
-.mi-dot.on { background: var(--flame); transform: scale(1.3); }
-@media (prefers-reduced-motion: reduce) { .mi-dot { transition: none; } }
 
 /* quiet route back to the mood chooser once the one-time greeting above has
    been dismissed for good (see moodRelinkHtml() in js/app.js) — plain text

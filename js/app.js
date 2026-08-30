@@ -3533,9 +3533,14 @@ const WELCOME_SLIDES = [
   },
 ];
 
+// .mi-next (›) only appears on welcome slides, never on the mood slide
+// (mi-slide-mood, built separately in showMoodIntro()) — swiping past the
+// mood question would mean leaving the flow with no mood picked, which
+// isn't a "next" at all, so that slide correctly has no forward control.
 function welcomeSlideHtml(s, i) {
   return `<div class="mi-slide" data-mi-index="${i}">
     <div class="mi-illus"><img src="${esc(cloudinaryUrl(s.photo, 800))}" alt="" loading="eager"></div>
+    <div class="mi-gap"><button type="button" class="mi-next" data-mi-next aria-label="Next">›</button></div>
     <div class="mi-copy">
       <div class="mi-title${s.titleLao ? ' lao' : ''}">${esc(s.title)}</div>
       <div class="mi-sub">${esc(s.sub)}</div>
@@ -3625,7 +3630,6 @@ function showMoodIntro({ startAtMood = false } = {}) {
   const ov = document.createElement('div');
   ov.className = 'mood-intro';
   ov.innerHTML = `
-    <button type="button" class="mi-skip" data-mi-skip>Skip</button>
     <div class="mi-viewport" data-mi-viewport>
       ${WELCOME_SLIDES.map(welcomeSlideHtml).join('')}
       <div class="mi-slide mi-slide-mood" data-mi-index="${moodIndex}">
@@ -3642,8 +3646,11 @@ function showMoodIntro({ startAtMood = false } = {}) {
         </div>
       </div>
     </div>
-    <div class="mi-dots" data-mi-dots>${Array.from({ length: totalSlides }, (_, i) =>
-      `<span class="mi-dot${i === startIndex ? ' on' : ''}"></span>`).join('')}</div>`;
+    <div class="mi-controls">
+      <div class="mi-dots" data-mi-dots>${Array.from({ length: totalSlides }, (_, i) =>
+        `<span class="mi-dot${i === startIndex ? ' on' : ''}"></span>`).join('')}</div>
+      <button type="button" class="mi-skip" data-mi-skip>Skip</button>
+    </div>`;
   document.body.appendChild(ov);
 
   // arm the real-photo fallback (see watchImgLoad()) for every card that got
@@ -3655,6 +3662,7 @@ function showMoodIntro({ startAtMood = false } = {}) {
     if (v && img) watchImgLoad(img, v);
   });
 
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const viewport = ov.querySelector('[data-mi-viewport]');
   const dots = [...ov.querySelectorAll('.mi-dot')];
   if (startIndex > 0) viewport.scrollLeft = startIndex * viewport.clientWidth;
@@ -3671,6 +3679,12 @@ function showMoodIntro({ startAtMood = false } = {}) {
       dots.forEach((d, i) => d.classList.toggle('on', i === idx));
     });
   }, { passive: true });
+
+  // the only forward affordance besides swiping itself (see welcomeSlideHtml())
+  ov.querySelectorAll('[data-mi-next]').forEach(el => el.addEventListener('click', () => {
+    const idx = Math.round(viewport.scrollLeft / viewport.clientWidth);
+    viewport.scrollTo({ left: (idx + 1) * viewport.clientWidth, behavior: reduced ? 'auto' : 'smooth' });
+  }));
 
   // .show/.hide run CSS *animations* (see the CSS), not transitions. A
   // transition needs the browser to snapshot the pre-change computed value
@@ -3689,7 +3703,6 @@ function showMoodIntro({ startAtMood = false } = {}) {
   // No rAF needed: adding the class synchronously is enough.
   ov.classList.add('show');
 
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const dismiss = () => {
     ov.classList.remove('show');
     ov.classList.add('hide');
