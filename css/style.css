@@ -337,6 +337,18 @@ body {
   scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .mi-viewport::-webkit-scrollbar { display: none; }
+/* desktop: without a ceiling, a full-bleed 3:2 image at, say, 1528px wide
+   renders ~1019px tall — taller than most desktop viewports — and pushes
+   the heading/body/chevron/dots/Skip that follow it off screen (measured:
+   only the dots+Skip bar remained visible at 1528x784). Cap the column to
+   a phone-shaped width instead of redesigning the layout for wide screens;
+   .mood-intro's own dark background still fills the rest of the viewport
+   on either side, so this still reads as a full-bleed dark takeover, just
+   with a narrower content column centred in it. Same breakpoint already
+   used for .mood-intro-inner below. */
+@media (min-width: 768px) {
+  .mi-viewport, .mi-controls { max-width: 440px; margin-left: auto; margin-right: auto; }
+}
 
 .mi-slide {
   flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always;
@@ -350,6 +362,11 @@ body {
    the image's own aspect leaves essentially nothing for cover to crop. */
 .mi-illus { width: 100%; aspect-ratio: 3 / 2; flex-shrink: 0; overflow: hidden; }
 .mi-illus img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+/* belt-and-braces alongside the column cap above — at the capped 440px
+   width, aspect-ratio 3/2 already works out to ~293px, under this, so it's
+   not normally the binding constraint; it just guarantees the panel can
+   never balloon past ~340px even if the column cap above ever changes. */
+@media (min-width: 768px) { .mi-illus { max-height: 340px; } }
 /* the flexible space between image and text (was flush-under-the-image
    before, which read top-heavy with a single ~500px dead stretch beneath
    it — moving the *space* here instead pushes heading+body down into the
