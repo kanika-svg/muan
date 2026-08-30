@@ -306,10 +306,21 @@ body {
   .mood-intro.hide { animation: none; opacity: 0; }
 }
 
+/* below the image, on the solid background — not floated over the photo.
+   A scrim pill was tried first, but the illustrations now keep effectively
+   their whole scene (see .mi-illus below), so there's no guarantee a given
+   photo has nothing important in the top-right corner: slide 1's "VIENTIANE
+   LAOS" shop sign sits right there, and the scrim still half-covered it.
+   top is pinned to the image panel's own bottom edge (66.6667vw = its
+   height, since .mi-illus is aspect-ratio:3/2 at full viewport width with
+   no padding above it) rather than a fixed px value, so this clears every
+   slide's photo the same way regardless of screen width, and lands at a
+   consistent, sensible position on slide 4 too even though it has no
+   photo of its own. */
 .mi-skip {
-  position: absolute; z-index: 2; top: max(14px, env(safe-area-inset-top)); right: 16px;
+  position: absolute; z-index: 2; top: calc(66.6667vw + 14px); right: 16px;
   font-family: var(--font); font-size: 13px; font-weight: 600;
-  color: var(--mute); background: none; border: none; cursor: pointer; padding: 10px;
+  color: var(--mute); background: none; border: none; cursor: pointer; padding: 8px 10px;
 }
 .mi-skip:active { opacity: .6; }
 
@@ -327,9 +338,20 @@ body {
   flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always;
   display: flex; flex-direction: column; min-height: 0;
 }
-.mi-illus { flex: 0 0 55%; min-height: 0; overflow: hidden; }
-.mi-illus img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.mi-copy { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 20px 28px 56px; }
+/* 3:2, matching the source illustrations' own 800x533 (1.501:1, effectively
+   exact) — the previous flex:0 0 55% sized this panel from leftover screen
+   space with no relation to the photos' actual shape, so object-fit:cover
+   was cropping close to a third off each side to force a 1.5:1 image into
+   a much narrower box (measured 360x444, a .81:1 box). Matching the box to
+   the image's own aspect leaves essentially nothing for cover to crop. */
+.mi-illus { width: 100%; aspect-ratio: 3 / 2; flex-shrink: 0; overflow: hidden; }
+.mi-illus img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+/* image directly at top, heading+body right beneath it (24px gap, no more
+   centring the text block partway down the leftover space — that was the
+   ~200px dead gap), then flex:1 leaves whatever's left as empty space
+   above the dots (a sibling of .mi-viewport, pinned to the overlay's own
+   bottom — see .mi-dots) rather than needing its own bottom padding here. */
+.mi-copy { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 24px 28px 16px; }
 .mi-title { font-size: 22px; font-weight: 700; color: var(--bone); }
 .mi-sub { font-size: 13px; font-weight: 400; color: var(--mute); margin-top: 8px; line-height: 1.5; max-width: 320px; }
 
