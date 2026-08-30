@@ -525,13 +525,20 @@ async function boot() {
       if (mapTimedOut) showMapWarning();
     }
 
-    // one-time first-open "ຢາກໄປໃສດີ?" moment — mounted here, right before
-    // the finally block's dismissSplash(), so it's the first thing revealed
-    // as the splash fades rather than Home. mePromise has almost certainly
+    // one-time first-open intro flow — mounted here, right before the
+    // finally block's dismissSplash(), so it's the first thing revealed as
+    // the splash fades rather than Home. mePromise has almost certainly
     // resolved by now (it started alongside the venues/events/picks fetch,
     // well before this 8s-capped map wait), so this await costs ~nothing.
+    // preloadWelcomeSlides() is awaited too (capped at 4s) so the carousel
+    // never opens mid-load — the splash's own loader stays up and covers
+    // for it (#splash is z-index 999, above .mood-intro's 900) rather than
+    // flashing Home before the intro pops in late.
     const me = await mePromise;
-    if (shouldShowMoodIntro(me)) showMoodIntro();
+    if (shouldShowMoodIntro(me)) {
+      await preloadWelcomeSlides();
+      showMoodIntro();
+    }
   } catch (err) {
     console.error('[muan] boot failed', err);
   } finally {
@@ -3494,6 +3501,58 @@ function anyVibeTagged() {
   return state.venues.some(v => (v.vibe || []).length > 0);
 }
 
+// the 3 welcome panels that now precede the mood question (see
+// showMoodIntro()) — Cloudinary public IDs only, same "v<digits>/<publicId>"
+// shape as venue/event photos, rendered through cloudinaryUrl() rather than
+// a hardcoded full URL (see CLAUDE.md). titleLao marks slide 1's heading as
+// Lao script (gets the .lao font-feature class); slides 2-3 don't have a
+// Lao heading yet — TODO(Kar): write and add one for each.
+const WELCOME_SLIDES = [
+  {
+    photo: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_31_59_PM_vivr57',
+    title: 'ໄປໃສດີ?', titleLao: true,
+    sub: "Somewhere to go in Vientiane — bars, cafés, and what's open right now.",
+  },
+  {
+    photo: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_37_27_PM_kvbxej',
+    title: "Places we've actually checked", titleLao: false,
+    sub: 'Real hours, real photos, kept up to date.',
+  },
+  {
+    photo: 'v1788009908/ChatGPT_Image_Aug_29_2026_06_38_56_PM_gmszju',
+    title: 'Find your way there', titleLao: false,
+    sub: "See what's near you and how to get there.",
+  },
+];
+
+function welcomeSlideHtml(s, i) {
+  return `<div class="mi-slide" data-mi-index="${i}">
+    <div class="mi-illus"><img src="${esc(cloudinaryUrl(s.photo, 800))}" alt="" loading="eager"></div>
+    <div class="mi-copy">
+      <div class="mi-title${s.titleLao ? ' lao' : ''}">${esc(s.title)}</div>
+      <div class="mi-sub">${esc(s.sub)}</div>
+    </div>
+  </div>`;
+}
+
+// awaited from boot() before showMoodIntro() ever mounts, so none of the 3
+// illustrations can pop in mid-swipe on a slow connection. Raced against a
+// timeout rather than awaited unconditionally — same philosophy as the map
+// load wait in boot() (see the MAPLIBRE HAZARD note there): past the cap the
+// carousel opens anyway and a still-loading <img> just fills in on its own,
+// because a slow image must not hold the splash hostage forever.
+function preloadWelcomeSlides() {
+  const loaders = WELCOME_SLIDES.map(s => new Promise(resolve => {
+    const img = new Image();
+    img.onload = img.onerror = resolve;
+    img.src = cloudinaryUrl(s.photo, 800);
+  }));
+  return Promise.race([
+    Promise.all(loaders),
+    new Promise(resolve => setTimeout(resolve, 4000)),
+  ]);
+}
+
 const MOOD_INTRO_KEY = 'psd-mood-intro-seen';
 
 // gates the automatic first-open call in boot() to exactly once ever —
@@ -3534,32 +3593,51 @@ function logMoodPick(tag) {
   }).catch(() => {});
 }
 
-// full-screen "ຢາກໄປໃສດີ?" moment — shown automatically once, right as the
-// splash fades (see boot()), gated by shouldShowMoodIntro(). Also reachable
-// any time after via the quiet text link at the bottom of the Cafes list
-// (see moodRelinkHtml()), which calls this same function directly — an
-// explicit tap always shows it, seen-flag or not. Picking a mood marks it
-// seen and opens the normal results popup (openVibePop()), same as a mood
-// card anywhere else; "Just show me around" marks it seen and just closes,
-// leaving whatever screen was already underneath (Home on first open, the
-// Cafes tab on a manual reopen).
-function showMoodIntro() {
+// full-screen intro flow — 3 welcome panels (WELCOME_SLIDES) followed by the
+// "ຢາກໄປໃສດີ?" mood question as its 4th and last slide, a single horizontal
+// swipe carousel (native scroll-snap, not a manual transform — see the
+// .mi-viewport CSS comment for why). Shown automatically once, right as the
+// splash fades (see boot(), which awaits preloadWelcomeSlides() first),
+// gated by shouldShowMoodIntro(). Also reachable any time after via the
+// quiet text link at the bottom of the Cafes list (see moodRelinkHtml()),
+// which calls this same function with startAtMood:true — a manual reopen is
+// someone who already knows what this is, so it jumps straight to the mood
+// slide instead of replaying the 3 panels (still swipeable back to, just
+// not shown by default). Picking a mood marks it seen and opens the normal
+// results popup (openVibePop()), same as a mood card anywhere else; "Just
+// show me around" (the last slide's own link, or the "Skip" link visible on
+// every slide) marks it seen and just closes, leaving whatever screen was
+// already underneath (Home on first open, the Cafes tab on a manual reopen).
+function showMoodIntro({ startAtMood = false } = {}) {
   const cafes = state.venues.filter(v => v.type === 'cafe');
+  const moodIndex = WELCOME_SLIDES.length; // last slide
+  const startIndex = startAtMood ? moodIndex : 0;
+  const totalSlides = moodIndex + 1;
+
   const ov = document.createElement('div');
   ov.className = 'mood-intro';
   ov.innerHTML = `
-    <div class="mood-intro-inner">
-      <div class="mood-intro-brand" aria-hidden="true">${logoMark(20, 'var(--ink)')}<span class="mood-intro-brand-word">PAISAIDEE</span></div>
-      <div class="vibe-chooser">
-        <div class="vibe-chooser-h">
-          <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
-          <div class="vibe-chooser-sub">what are you after?</div>
+    <button type="button" class="mi-skip" data-mi-skip>Skip</button>
+    <div class="mi-viewport" data-mi-viewport>
+      ${WELCOME_SLIDES.map(welcomeSlideHtml).join('')}
+      <div class="mi-slide mi-slide-mood" data-mi-index="${moodIndex}">
+        <div class="mood-intro-inner">
+          <div class="mood-intro-brand" aria-hidden="true">${logoMark(20, 'var(--ink)')}<span class="mood-intro-brand-word">PAISAIDEE</span></div>
+          <div class="vibe-chooser">
+            <div class="vibe-chooser-h">
+              <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
+              <div class="vibe-chooser-sub">what are you after?</div>
+            </div>
+            <div class="vibe-cards">${VIBE_TAGS.map(t => vibeCardHtml(t, cafes)).join('')}</div>
+            <button type="button" class="vibe-any" data-mood-intro-skip>Just show me around</button>
+          </div>
         </div>
-        <div class="vibe-cards">${VIBE_TAGS.map(t => vibeCardHtml(t, cafes)).join('')}</div>
-        <button type="button" class="vibe-any" data-mood-intro-skip>Just show me around</button>
       </div>
-    </div>`;
+    </div>
+    <div class="mi-dots" data-mi-dots>${Array.from({ length: totalSlides }, (_, i) =>
+      `<span class="mi-dot${i === startIndex ? ' on' : ''}"></span>`).join('')}</div>`;
   document.body.appendChild(ov);
+
   // arm the real-photo fallback (see watchImgLoad()) for every card that got
   // a real venue photo — vibeCardHtml() already handled the "no photo at
   // all" case with a gradient src, this only covers that photo failing to load
@@ -3568,6 +3646,24 @@ function showMoodIntro() {
     const img = btn.querySelector('.vibe-card-img');
     if (v && img) watchImgLoad(img, v);
   });
+
+  const viewport = ov.querySelector('[data-mi-viewport]');
+  const dots = [...ov.querySelectorAll('.mi-dot')];
+  if (startIndex > 0) viewport.scrollLeft = startIndex * viewport.clientWidth;
+  // scroll-snap does the paging itself (native touch handling — no manual
+  // touchmove math, so there's no inline transform this needs to clean up
+  // on touchcancel, unlike the drag-to-dismiss below in openVibePop()); this
+  // listener only keeps the dots in sync with wherever the scroll lands.
+  let dotRaf = null;
+  viewport.addEventListener('scroll', () => {
+    if (dotRaf) return;
+    dotRaf = requestAnimationFrame(() => {
+      dotRaf = null;
+      const idx = Math.round(viewport.scrollLeft / viewport.clientWidth);
+      dots.forEach((d, i) => d.classList.toggle('on', i === idx));
+    });
+  }, { passive: true });
+
   // single rAF isn't enough here — the append and the class add can still
   // land in the same style/layout pass, so the transition starts from
   // partway through instead of from the true opacity:0 starting style and
@@ -3586,11 +3682,11 @@ function showMoodIntro() {
     dismiss();
     openVibePop(el.dataset.vibeTag);
   }));
-  ov.querySelector('[data-mood-intro-skip]').addEventListener('click', () => {
+  ov.querySelectorAll('[data-mood-intro-skip], [data-mi-skip]').forEach(el => el.addEventListener('click', () => {
     logMoodPick('dismissed');
     markMoodIntroSeen();
     dismiss();
-  });
+  }));
 }
 
 // quiet route back to the mood chooser once it's been dismissed for good —
@@ -4810,7 +4906,7 @@ function setSheet(html) {
       renderHomeSheet();
     }));
   inner.querySelectorAll('[data-mood-relink]').forEach(el =>
-    el.addEventListener('click', showMoodIntro));
+    el.addEventListener('click', () => showMoodIntro({ startAtMood: true })));
   inner.querySelectorAll('[data-surprise-me]').forEach(el =>
     el.addEventListener('click', () => quickSurpriseMe(state.filter)));
   inner.querySelectorAll('[data-home]').forEach(el =>

@@ -274,28 +274,70 @@ body {
 .vibe-any:active { opacity: .6; }
 @media (prefers-reduced-motion: reduce) { .vibe-card { transition: none; } .vibe-card:active { transform: none; } }
 
-/* full-screen first-open greeting (see showMoodIntro() in js/app.js) — a
+/* full-screen first-open intro flow (see showMoodIntro() in js/app.js) — a
    solid takeover, not a scrim over the map/sheet like .vibe-pop below, so
-   it reads as its own moment rather than a popup over Home. Reuses
-   .vibe-chooser and its children verbatim for the actual question + card
-   grid, just centred and enlarged inside .mood-intro-inner, so this and
-   the mood popup look like one feature rather than two. */
+   it reads as its own moment rather than a popup over Home. 3 illustrated
+   welcome panels followed by the mood question as a 4th slide, one
+   horizontal swipe carousel. The illustrations are dark scenes, so this
+   whole flow is pinned to the dark palette regardless of the app's own
+   light/dark theme: these custom properties shadow the :root/[data-theme]
+   ones (see the top of this file) for every descendant — .vibe-chooser/
+   .vibe-card included — without needing a second copy of those rules, so
+   the mood slide still reads as "the same feature" as the mood popup
+   elsewhere in the app, just always in its dark colours here. */
 .mood-intro {
+  --ink: #131019; --ink2: #1C1726; --ink3: #241E31; --ink4: #2E2740;
+  --bone: #F5F1E8; --mute: #8A8494; --flame: #FF5A3C;
   position: fixed; inset: 0; z-index: 900;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column;
   background: var(--ink); opacity: 0; transition: opacity .3s ease;
-  padding: 24px;
 }
 .mood-intro.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .mood-intro { transition: none; } }
+
+.mi-skip {
+  position: absolute; z-index: 2; top: max(14px, env(safe-area-inset-top)); right: 16px;
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  color: var(--mute); background: none; border: none; cursor: pointer; padding: 10px;
+}
+.mi-skip:active { opacity: .6; }
+
+/* native horizontal scroll-snap, not a manually transformed track — swipe,
+   momentum and rubber-banding all come free from the browser, and there is
+   no inline transform for a touchcancel to leave stuck (see showMoodIntro()
+   comment; this app has already had that exact bug in openVibePop()). */
+.mi-viewport {
+  flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.mi-viewport::-webkit-scrollbar { display: none; }
+
+.mi-slide {
+  flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.mi-illus { flex: 0 0 55%; min-height: 0; overflow: hidden; }
+.mi-illus img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mi-copy { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 20px 28px 56px; }
+.mi-title { font-size: 22px; font-weight: 700; color: var(--bone); }
+.mi-sub { font-size: 13px; font-weight: 400; color: var(--mute); margin-top: 8px; line-height: 1.5; max-width: 320px; }
+
+/* the mood question, last slide — centred like a screen of its own rather
+   than the upper-55%-illustration layout above, since it has no photo */
+.mi-slide-mood { align-items: center; justify-content: center; padding: 24px; }
 .mood-intro-inner { width: 100%; max-width: 340px; text-align: center; }
-/* small and quiet — this is the first thing anyone sees, so it should say
-   whose app it is without competing with the question below it */
+/* small and quiet — by this slide the flow has already introduced itself,
+   so the brand mark just quietly confirms whose app it is */
 .mood-intro-brand { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 22px; opacity: .55; }
 .mood-intro-brand-word { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--mute); }
 .mood-intro-inner .vibe-chooser-title { font-size: 26px; }
 .mood-intro-inner .vibe-cards { text-align: left; margin-top: 20px; }
 @media (min-width: 768px) { .mood-intro-inner { max-width: 400px; } }
-@media (prefers-reduced-motion: reduce) { .mood-intro { transition: none; } }
+
+.mi-dots { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 0 max(18px, env(safe-area-inset-bottom)); }
+.mi-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); transition: background .2s, transform .2s; }
+.mi-dot.on { background: var(--flame); transform: scale(1.3); }
+@media (prefers-reduced-motion: reduce) { .mi-dot { transition: none; } }
 
 /* quiet route back to the mood chooser once the one-time greeting above has
    been dismissed for good (see moodRelinkHtml() in js/app.js) — plain text
