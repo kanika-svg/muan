@@ -290,10 +290,21 @@ body {
   --bone: #F5F1E8; --mute: #8A8494; --flame: #FF5A3C;
   position: fixed; inset: 0; z-index: 900;
   display: flex; flex-direction: column;
-  background: var(--ink); opacity: 0; transition: opacity .3s ease;
+  background: var(--ink); opacity: 0;
 }
-.mood-intro.show { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .mood-intro { transition: none; } }
+/* animations, not transitions — see the dedicated comment in
+   showMoodIntro() on why a transition kept getting stuck mid-fade. Each
+   keyframe set is self-contained (explicit from/to), so fill-mode:forwards
+   has an authoritative end state to hold regardless of whatever the
+   element's opacity happened to be when the animation started. */
+.mood-intro.show { animation: mood-in .3s ease forwards; }
+.mood-intro.hide { animation: mood-out .28s ease forwards; }
+@keyframes mood-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mood-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .mood-intro.show { animation: none; opacity: 1; }
+  .mood-intro.hide { animation: none; opacity: 0; }
+}
 
 .mi-skip {
   position: absolute; z-index: 2; top: max(14px, env(safe-area-inset-top)); right: 16px;

@@ -3485,8 +3485,16 @@ function vibeCardHtml(t, cafes) {
   const count = matches.length;
   const withPhoto = matches.find(v => v.photos && v.photos.length);
   const imgSrc = withPhoto ? cloudinaryUrl(withPhoto.photos[0], 300) : venueTileUri(t.label, 'cafe', false, false);
+  // eager, not lazy: these cards live on showMoodIntro()'s last carousel
+  // slide, which starts scrolled off-screen inside .mi-viewport on a fresh
+  // open — a browser's lazy-load intersection heuristic never counts that
+  // as "near viewport" the way it would for ordinary below-the-fold
+  // content, so `loading="lazy"` here just meant the photo never requested
+  // at all (observed: naturalWidth 0, complete:false, even after swiping
+  // there). Only 4 images in a modal that's about to be fully seen anyway —
+  // nothing to defer.
   return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''} ${withPhoto ? `data-vibe-venue="${withPhoto.id}"` : ''}>
-    <img class="vibe-card-img" src="${esc(imgSrc)}" alt="" loading="lazy">
+    <img class="vibe-card-img" src="${esc(imgSrc)}" alt="" loading="eager">
     <span class="vibe-card-scrim" aria-hidden="true"></span>
     <span class="vibe-card-label">${esc(t.label)}</span>
     <span class="vibe-card-count">${count} place${count === 1 ? '' : 's'}</span>
@@ -3664,16 +3672,27 @@ function showMoodIntro({ startAtMood = false } = {}) {
     });
   }, { passive: true });
 
-  // single rAF isn't enough here — the append and the class add can still
-  // land in the same style/layout pass, so the transition starts from
-  // partway through instead of from the true opacity:0 starting style and
-  // gets stuck (observed: computed opacity 0.136, never reaching 1). A
-  // second rAF forces the starting style to actually commit/paint first.
-  requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('show')));
+  // .show/.hide run CSS *animations* (see the CSS), not transitions. A
+  // transition needs the browser to snapshot the pre-change computed value
+  // as its start point in one style pass, then diff it against the
+  // post-change value in a later pass — if those two passes get coalesced
+  // (a real risk right after an appendChild this heavy: 3 preloaded photos
+  // + 4 more card images), the "before" snapshot can already be partway
+  // to the "after" value, and the transition starts from there instead of
+  // from true opacity:0 and gets stuck (observed, twice: 0.136, then 0.073
+  // with the carousel added — a double rAF here to force the two passes
+  // apart didn't survive the carousel making that recalc heavier still). A
+  // fill-mode:forwards animation doesn't diff against a prior snapshot at
+  // all — its 0% state is the element's own non-animated base style
+  // (opacity:0 on .mood-intro), authoritative from the instant the
+  // animation starts, so there's nothing an interrupted recalc can corrupt.
+  // No rAF needed: adding the class synchronously is enough.
+  ov.classList.add('show');
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const dismiss = () => {
     ov.classList.remove('show');
+    ov.classList.add('hide');
     setTimeout(() => ov.remove(), reduced ? 0 : 280);
   };
   ov.querySelectorAll('[data-vibe-tag]').forEach(el => el.addEventListener('click', () => {
