@@ -3532,12 +3532,14 @@ const MOOD_ILLUS = {
 // 2-column auto-fit (see .ms-type-cards in style.css), which lays 2 cards
 // out side by side and 4 as a 2x2 with no other change.
 //
-// moods:false means this type has no vibe vocabulary yet, so its step 2
-// would be four 0-count cards and a dead end. Picking such a type closes
-// the intro and drops the person into that type's own list instead — an
-// empty screen is worse than no screen. Flip it to true the moment Kar
-// starts tagging that type (migrations/013_vibe.sql) and the second step
-// starts appearing on its own, no other change needed.
+// moods:false means this type has no vibe vocabulary yet, so a mood grid
+// would be four 0-count cards and a dead end. Such a type gets the
+// editorial lists instead (TYPE_LISTS below) as its step 2 — same slide,
+// same card shell, same results popup. Only if those come back empty too
+// does picking the type close the intro and drop the person into that
+// type's own list, because an empty screen is worse than no screen. Flip
+// moods to true the moment Kar starts tagging that type
+// (migrations/013_vibe.sql) and the mood grid takes over on its own.
 //
 // label_lo here was written by Kar in the task that added this step, not
 // machine-translated — see CLAUDE.md, and VIBE_TAGS above, whose own Lao
@@ -3616,6 +3618,134 @@ function vibeCardHtml(t, venues) {
     <span class="vibe-card-body">
       <span class="vibe-card-label">${esc(t.label)}</span>
       <span class="vibe-card-count">${count} place${count === 1 ? '' : 's'}</span>
+    </span>
+  </button>`;
+}
+
+/* ---------- Step 2 for a type with no moods: editorial lists ---------- */
+// Bars are the case that forced this: not one bar carries a vibe tag, so
+// the mood grid would be four 0-count cards. These two lists take its
+// place in the same slide, same card shell, same results popup.
+//
+// "Our picks" is deliberately NOT called "Trending". Phase 1 has no
+// check-in volume, so a trending label would be a popularity claim with
+// nothing behind it (CLAUDE.md). It is the same hand-curated picks.json
+// list On Fire draws on, and the label says so.
+//
+// venues(type) returns the list already ordered, because the two orderings
+// differ: picks are editorial and keep Kar's order among the open venues
+// (sortEditorial(), same as On Fire), while newly-opened is a mechanical
+// date filter and sorts open-then-nearest like any other list
+// (sortForDisplay()).
+//
+// Pending venues: excluded from Our picks, which is editorial and covered
+// by CLAUDE.md's pin_status rule; kept in Newly opened, which is a list
+// section, and the same rule says those still show a pending submission.
+const NEWLY_OPENED_MONTHS = 6;
+
+const TYPE_LISTS = [
+  {
+    key: 'our-picks', label: 'Our picks', label_lo: 'ທີ່ພວກເຮົາເລືອກ',
+    venues: (type) => sortEditorial((state.picks?.venue_ids || [])
+      .map(venueById).filter(Boolean)
+      .filter(v => v.type === type && v.pin_status !== 'pending')),
+  },
+  {
+    key: 'newly-opened', label: 'Newly opened', label_lo: 'ເປີດໃໝ່',
+    venues: (type) => sortForDisplay(state.venues
+      .filter(v => v.type === type && openedWithinMonths(v, NEWLY_OPENED_MONTHS))),
+  },
+];
+
+// "recently opened" reads an OPTIONAL `opened` field — "YYYY-MM" when only
+// the month is known, "YYYY-MM-DD" when the day is. No venue carries it
+// yet, so today this list comes back empty and its card is hidden (see
+// typeListsFor()); it fills in by itself the moment Kar starts recording
+// opening dates, with no other change here.
+//
+// `source` is NOT used for this and must not be. Its date is when Kar last
+// looked at the listing ("Google Maps listing, 2026-07-25"), not when the
+// place opened — reading one as the other would invent an opening date for
+// every venue in the file, which is exactly what CLAUDE.md forbids. An
+// unparseable or missing value is false, never a guess.
+//
+// A future date is false too: something that has not opened yet is not
+// newly opened (the app has a separate status:'opening-soon' for that).
+function openedWithinMonths(v, months) {
+  const m = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(String(v.opened || '').trim());
+  if (!m) return false;
+  const opened = new Date(Date.UTC(+m[1], +m[2] - 1, +(m[3] || 1)));
+  if (Number.isNaN(opened.getTime())) return false;
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setMonth(cutoff.getMonth() - months);
+  return opened <= now && opened >= cutoff;
+}
+
+// the step-2 lists that actually have something in them, each paired with
+// its venues so the card can show a real count without resolving twice. An
+// empty list is dropped rather than shown as a 0 — a disabled 0-count card
+// is honest for a mood (the tag exists, nothing carries it), but "Newly
+// opened · 0" reads as a broken feature, and with only two cards here a
+// dead one is half the screen.
+function typeListsFor(type) {
+  return TYPE_LISTS
+    .map(def => ({ def, venues: def.venues(type) }))
+    .filter(x => x.venues.length > 0);
+}
+
+// one illustration per list, under the same rules as MOOD_ILLUS above:
+// flat fills only, every colour a CSS custom property, nothing hardcoded.
+// Both reuse classes the existing drawings already define (.mc-bottle-*
+// from the Bars type card, .mc-building/.mc-glow/.mc-sign from the
+// tucked-away mood), so they track both themes with no new tokens.
+const TYPE_LIST_ILLUS = {
+  // three bottles, the middle one pulled forward: a few chosen out of the
+  // shelf. No flame and no arrow — this is a curated shortlist, not a
+  // popularity ranking, and the drawing should not claim otherwise.
+  'our-picks': `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
+    <ellipse class="mc-bar-floor" cx="50" cy="53" rx="38" ry="4.5"/>
+    <g class="mc-pick-side">
+      <rect class="mc-bottle-neck" x="14.5" y="17" width="5" height="10"/>
+      <path class="mc-bottle-body" d="M14.5 26 C14.5 30 9 32.5 9 38.5 V49 Q9 52 12 52 H22 Q25 52 25 49 V38.5 C25 32.5 19.5 30 19.5 26 Z"/>
+    </g>
+    <g class="mc-pick-side">
+      <rect class="mc-bottle-neck" x="80.5" y="17" width="5" height="10"/>
+      <path class="mc-bottle-body" d="M80.5 26 C80.5 30 75 32.5 75 38.5 V49 Q75 52 78 52 H88 Q91 52 91 49 V38.5 C91 32.5 85.5 30 85.5 26 Z"/>
+    </g>
+    <g class="mc-pick-hero">
+      <rect class="mc-bottle-cap" x="44" y="2" width="12" height="5" rx="1.6"/>
+      <rect class="mc-bottle-neck" x="45.6" y="6.5" width="8.8" height="13.5"/>
+      <path class="mc-bottle-body" d="M45.6 19.5 C45.6 25 36 28.5 36 37 V48 Q36 52 40 52 H60 Q64 52 64 48 V37 C64 28.5 54.4 25 54.4 19.5 Z"/>
+      <rect class="mc-bottle-label" x="37.5" y="35" width="25" height="9.5"/>
+    </g>
+  </svg>`,
+  // a lit doorway under a fresh sign, with two sparks: the lights just went
+  // on here. Shares the tucked-away mood's building/glow/sign classes on
+  // purpose — same visual language, one door instead of an alley.
+  'newly-opened': `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
+    <rect class="mc-building" x="19" y="11" width="62" height="49"/>
+    <rect class="mc-sign-rod" x="15" y="11" width="70" height="3"/>
+    <rect class="mc-sign" x="36" y="17" width="28" height="8"/>
+    <rect class="mc-glow" x="40" y="31" width="20" height="29"/>
+    <path class="mc-spark" d="M11 22 L13.4 28.6 L20 31 L13.4 33.4 L11 40 L8.6 33.4 L2 31 L8.6 28.6 Z"/>
+    <path class="mc-spark mc-spark-2" d="M88 13 L89.6 17.4 L94 19 L89.6 20.6 L88 25 L86.4 20.6 L82 19 L86.4 17.4 Z"/>
+  </svg>`,
+};
+
+// one card in the step-2 list grid. Same .ms-type-card shell as the type
+// step's own two cards — border, press feedback and the entry stagger all
+// come from rules that grid already has, and two cards laid out the way
+// two cards were already laid out one step earlier. No disabled state: an
+// empty list never reaches here (see typeListsFor()). The count is a plain
+// count of the venues in the list, not a popularity figure (CLAUDE.md).
+function listCardHtml(def, venues) {
+  const lo = def.label_lo ? ` · <span class="lao">${esc(def.label_lo)}</span>` : '';
+  return `<button type="button" class="vibe-card ms-type-card" data-list-key="${def.key}">
+    <span class="vibe-card-illus">${TYPE_LIST_ILLUS[def.key] || ''}</span>
+    <span class="vibe-card-body">
+      <span class="vibe-card-label">${esc(def.label)}${lo}</span>
+      <span class="vibe-card-count">${venues.length} place${venues.length === 1 ? '' : 's'}</span>
     </span>
   </button>`;
 }
@@ -3774,7 +3904,7 @@ function showMoodIntro({ startAtMood = false } = {}) {
                   <button type="button" class="ms-back" data-ms-back aria-label="Back">‹</button>
                   <div>
                     <div class="vibe-chooser-title" data-ms-mood-title></div>
-                    <div class="vibe-chooser-sub">What kind of place?</div>
+                    <div class="vibe-chooser-sub" data-ms-mood-sub></div>
                   </div>
                 </div>
                 <div class="vibe-cards" data-ms-mood-cards></div>
@@ -3803,6 +3933,7 @@ function showMoodIntro({ startAtMood = false } = {}) {
   const typeCardsEl = typeStep.querySelector('.vibe-cards');
   const moodCardsEl = moodStep.querySelector('[data-ms-mood-cards]');
   const moodTitleEl = moodStep.querySelector('[data-ms-mood-title]');
+  const moodSubEl = moodStep.querySelector('[data-ms-mood-sub]');
 
   // the mood slide's two steps live inside that one slide, stacked in a
   // single grid cell and swapped by class — NOT as a fifth .mi-slide. See
@@ -3892,35 +4023,56 @@ function showMoodIntro({ startAtMood = false } = {}) {
     setTimeout(() => ov.remove(), reduced ? 0 : 280);
   };
   // step 2's grid is built for whichever type was picked, and pre-built at
-  // mount for the first type that has moods. Pre-building matters for
+  // mount for the first type that has one. Pre-building matters for
   // layout, not speed: both steps share one grid cell so the slide settles
   // to a single height (see .ms-steps), and an empty step 2 would let that
   // height — and so the vertically-centred brand mark and heading above it
   // — jump the first time somebody tapped a type.
+  //
+  // A type with moods gets the four mood cards; one without (MOOD_TYPES
+  // moods:false — Bars today) gets the editorial lists instead, in the
+  // .ms-type-cards layout step 1 already uses for its own two cards. Both
+  // are the same .vibe-card shell and both open the same results popup, so
+  // everything below this line is shared.
   let moodType = null;
   const fillMoodStep = (t) => {
     if (moodType === t.key) return;
     moodType = t.key;
-    const venues = state.venues.filter(v => v.type === t.key);
     const lo = t.label_lo ? ` · <span class="lao">${esc(t.label_lo)}</span>` : '';
     moodTitleEl.innerHTML = `${esc(t.label)}${lo}`;
-    moodCardsEl.innerHTML = VIBE_TAGS.map(tag => vibeCardHtml(tag, venues)).join('');
+    moodSubEl.textContent = t.moods ? 'What kind of place?' : 'What are you after?';
+    moodCardsEl.classList.toggle('ms-type-cards', !t.moods);
+    moodCardsEl.innerHTML = t.moods
+      ? VIBE_TAGS.map(tag => vibeCardHtml(tag, state.venues.filter(v => v.type === t.key))).join('')
+      : typeListsFor(t.key).map(x => listCardHtml(x.def, x.venues)).join('');
     // bound here rather than once at mount: these cards don't exist until
-    // this runs, and they're replaced wholesale whenever the type changes
-    moodCardsEl.querySelectorAll('[data-vibe-tag]').forEach(el => el.addEventListener('click', () => {
-      logMoodPick(el.dataset.vibeTag);
-      markMoodIntroSeen();
-      dismiss();
-      openVibePop(el.dataset.vibeTag, t.key);
-    }));
+    // this runs, and they're replaced wholesale whenever the type changes.
+    // One binding for both kinds of card — the key is a vibe tag or a
+    // TYPE_LISTS key, and openVibePop() resolves either.
+    moodCardsEl.querySelectorAll('[data-vibe-tag], [data-list-key]').forEach(el => {
+      const key = el.dataset.vibeTag || el.dataset.listKey;
+      el.addEventListener('click', () => {
+        // list keys are logged with a prefix, same convention as the type
+        // step's `type:` above, so mood_stats can tell a list tap from a
+        // mood tap without knowing today's vocabulary
+        logMoodPick(el.dataset.listKey ? `list:${key}` : key);
+        markMoodIntroSeen();
+        dismiss();
+        openVibePop(key, t.key);
+      });
+    });
   };
+
+  // true when this type has a step 2 worth showing at all: four moods, or
+  // at least one non-empty editorial list
+  const hasStepTwo = (t) => t.moods || typeListsFor(t.key).length > 0;
 
   const pickType = (t) => {
     logMoodPick(`type:${t.key}`);
-    if (!t.moods) {
-      // see MOOD_TYPES: this type has no vibe vocabulary yet, so there is no
-      // second step worth showing. Close the intro and hand the person that
-      // type's own list instead of four 0-count cards.
+    if (!hasStepTwo(t)) {
+      // no vibe vocabulary and nothing in either list — there is no second
+      // step worth showing. Close the intro and hand the person that type's
+      // own list instead of a screen of dead cards.
       markMoodIntroSeen();
       openTypeList(t.key);
       dismiss();
@@ -3938,8 +4090,8 @@ function showMoodIntro({ startAtMood = false } = {}) {
     const t = MOOD_TYPES.find(x => x.key === el.dataset.moodType);
     if (t) el.addEventListener('click', () => pickType(t));
   });
-  const firstWithMoods = MOOD_TYPES.find(t => t.moods);
-  if (firstWithMoods) fillMoodStep(firstWithMoods);
+  const firstWithStepTwo = MOOD_TYPES.find(hasStepTwo);
+  if (firstWithStepTwo) fillMoodStep(firstWithStepTwo);
   ov.querySelectorAll('[data-mood-intro-skip], [data-mi-skip]').forEach(el => el.addEventListener('click', () => {
     logMoodPick('dismissed');
     markMoodIntroSeen();
@@ -3996,16 +4148,24 @@ function closeVibePop() {
   setTimeout(() => ov.remove(), reduced ? 0 : 280);
 }
 
-// tagKey: one of VIBE_TAGS' keys, or 'any' for that type's unfiltered list.
+// tagKey: one of VIBE_TAGS' keys, or a TYPE_LISTS key (the step-2 cards for
+// a type with no moods — see typeListsFor()), or 'any' for that type's
+// unfiltered list. One popup serves all three: a list brings its own
+// ordering with it, a vibe tag filters the type's distance-sorted pool.
 // type: the venue type the mood was chosen for (a MOOD_TYPES key) — defaults
 // to 'cafe', which is what this popup meant before the chooser grew a type
 // step in front of it, and what every caller outside that step still means.
 function openVibePop(tagKey, type = 'cafe') {
   closeVibePop(); // guard against a stray double-open, same as openLightbox()
+  const listDef = TYPE_LISTS.find(l => l.key === tagKey);
   const pool = sortForDisplay(state.venues.filter(v => v.type === type));
-  const matches = tagKey === 'any' ? pool : pool.filter(v => (v.vibe || []).includes(tagKey));
+  const matches = listDef ? listDef.venues(type)
+    : tagKey === 'any' ? pool
+    : pool.filter(v => (v.vibe || []).includes(tagKey));
   const def = VIBE_TAGS.find(t => t.key === tagKey);
-  const title = def ? def.label : 'Anything';
+  const title = listDef ? listDef.label : def ? def.label : 'Anything';
+  const titleLo = listDef ? listDef.label_lo : def ? def.label_lo : null;
+  const titleHtml = `${esc(title)}${titleLo ? ` · <span class="lao">${esc(titleLo)}</span>` : ''}`;
 
   const ov = document.createElement('div');
   ov.className = 'vibe-pop';
@@ -4013,13 +4173,14 @@ function openVibePop(tagKey, type = 'cafe') {
     <div class="vibe-pop-sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
       <div class="vibe-pop-grip"></div>
       <div class="vibe-pop-head">
-        <span class="vibe-pop-title">${esc(title)} <span class="vibe-pop-count">· ${matches.length}</span></span>
+        <span class="vibe-pop-title">${titleHtml} <span class="vibe-pop-count">· ${matches.length}</span></span>
         <button type="button" class="vibe-pop-close" aria-label="Close">✕</button>
       </div>
       <div class="vibe-pop-body">
         ${matches.length
           ? matches.map(v => collageCardHtml(v)).join('')
           : `<div class="sec-empty">Nothing here right now.</div>`}
+        <button type="button" class="vibe-pop-all" data-vibe-see-all>See all · <span class="lao">ເບິ່ງທັງໝົດ</span></button>
       </div>
     </div>`;
   document.body.appendChild(ov);
@@ -4032,6 +4193,18 @@ function openVibePop(tagKey, type = 'cafe') {
 
   ov.addEventListener('click', (e) => { if (e.target === ov) closeVibePop(); });
   ov.querySelector('.vibe-pop-close').addEventListener('click', closeVibePop);
+  // the way out of a narrowed set and into the whole type — closes the
+  // popup, then the intro behind it if it is somehow still up, then clicks
+  // the real type chip (openTypeList()). Present even on an empty result,
+  // where it is the only thing left to do. The intro removal is a safety
+  // net rather than the normal path: every caller today dismisses the intro
+  // before opening this popup, but a popup that outlived it would leave a
+  // full-screen overlay sitting on top of the list this just opened.
+  ov.querySelector('[data-vibe-see-all]').addEventListener('click', () => {
+    closeVibePop();
+    document.querySelector('.mood-intro')?.remove();
+    openTypeList(type);
+  });
   // tapping a card closes the popup and opens that venue, same order as
   // every other [data-open-venue] tap elsewhere in the app expects
   bodyEl.querySelectorAll('[data-open-venue]').forEach(el =>

@@ -320,6 +320,18 @@ body {
 .mc-ice { fill: var(--bone); opacity: .55; }
 .mc-straw { fill: var(--bone); opacity: .7; }
 
+/* the two editorial-list cards that stand in for the mood grid on a type
+   with no vibe tags (TYPE_LIST_ILLUS in js/app.js). Both drawings are made
+   almost entirely of classes above — the bottle for Our picks, the
+   building/glow/sign for Newly opened — so the three rules below are all
+   the new colour they need, and they inherit both themes for free.
+   .mc-pick-side dims the two flanking bottles so the middle one reads as
+   the chosen one without an arrow, a flame or any other ranking mark: this
+   is a curated shortlist, not a popularity order (see TYPE_LISTS). */
+.mc-pick-side { opacity: .34; }
+.mc-spark { fill: var(--mc-glow); }
+.mc-spark-2 { opacity: .7; }
+
 /* item 2: entry animation only, never a loop — see showMoodIntro(), which
    adds .mc-enter to .vibe-cards each time the mood slide becomes visible
    (removing and re-adding it to restart, since a class that's already
@@ -342,6 +354,9 @@ body {
 @keyframes mc-card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
 .mc-canopy-group, .mc-books, .mc-glass { transform-box: fill-box; transform-origin: center; }
+/* bottom-centre, not centre: the picked bottle should rise off the bar
+   floor it is standing on, not grow out of its own middle */
+.mc-pick-hero { transform-box: fill-box; transform-origin: bottom center; }
 .mc-steam { transform-box: fill-box; }
 
 .vibe-cards.mc-enter [data-vibe-tag="under-trees"] .mc-canopy-group {
@@ -353,6 +368,20 @@ body {
   animation: mc-glow-in .6s ease-out both; animation-delay: 230ms;
 }
 @keyframes mc-glow-in { from { opacity: 0; } to { opacity: 1; } }
+/* the same lights-coming-on beat for Newly opened — its whole point is that
+   the place just opened, so the glow arriving after the card does the work
+   a static drawing can't. Same keyframes, same delay as tucked-away above:
+   these two never appear in the same grid, so there is no clash. */
+.vibe-cards.mc-enter [data-list-key="newly-opened"] .mc-glow {
+  animation: mc-glow-in .6s ease-out both; animation-delay: 230ms;
+}
+
+/* the middle bottle settles in last, which is what makes it read as the
+   one that was picked out rather than just the tallest of three */
+.vibe-cards.mc-enter [data-list-key="our-picks"] .mc-pick-hero {
+  animation: mc-pick-in .5s cubic-bezier(.16,.8,.3,1) both; animation-delay: 190ms;
+}
+@keyframes mc-pick-in { from { transform: translateY(7px); } to { transform: translateY(0); } }
 
 .vibe-cards.mc-enter [data-vibe-tag="for-coffee"] .mc-steam {
   animation: mc-steam-in .6s ease-out both; animation-delay: 310ms;
@@ -647,6 +676,13 @@ body {
    would win it back anyway, and its 20px is the value wanted here. */
 .ms-type-cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .ms-type-card { aspect-ratio: 3 / 4; }
+/* auto-fit collapses the empty track when there is only one card, so a lone
+   card would stretch the full width of the slide and — at aspect-ratio 3/4
+   — stand about 450px tall. That happens for real: step 2 for Bars hides an
+   empty list (see typeListsFor() in js/app.js), and with no opening dates
+   recorded yet only Our picks has anything in it. Cap and centre it instead
+   of letting the grid decide. */
+.ms-type-cards .ms-type-card:only-child { max-width: 210px; justify-self: center; }
 /* .mc-illus scales its viewBox to fit, and in a 2-column grid a type card
    is exactly as wide as a mood card — so the extra height alone does not
    enlarge the drawing at all, and trimming the side padding is what
@@ -704,6 +740,11 @@ body {
   padding: 6px 18px 12px; border-bottom: 1px solid var(--ink3); flex-shrink: 0;
 }
 .vibe-pop-title { font-size: 15px; font-weight: 700; color: var(--bone); }
+/* the Lao half of a bilingual popup title (the TYPE_LISTS lists carry one;
+   the vibe tags don't have Lao labels yet) — same lighter treatment the
+   type cards give it, so English leads and Lao supports rather than both
+   shouting at 700 */
+.vibe-pop-title .lao { font-weight: 400; opacity: .75; }
 .vibe-pop-count { font-weight: 400; color: var(--mute); }
 .vibe-pop-close {
   flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none;
@@ -732,6 +773,21 @@ body {
 .vibe-pop-body > .collage-card:nth-child(6) { animation-delay: .30s; }
 .vibe-pop-body > .collage-card:nth-child(7) { animation-delay: .36s; }
 .vibe-pop-body > .collage-card:nth-child(n+8) { animation-delay: .42s; }
+/* "See all" out of a narrowed result set and into that type's own list (see
+   openVibePop()). Inside the scrolling body rather than a pinned footer: it
+   belongs after the results, as the thing you reach once you have looked
+   through them, and a fixed bar would take height off a sheet already
+   capped at 82vh. It is the last child, so the nth-child stagger above —
+   which only ever matches .collage-card — is untouched by its presence. */
+.vibe-pop-all {
+  display: block; width: 100%; margin: 12px 0 2px; padding: 12px;
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  color: var(--bone); background: var(--ink3);
+  border: 1px solid var(--ink4); border-radius: 12px;
+  cursor: pointer; text-align: center;
+}
+.vibe-pop-all .lao { font-weight: 400; opacity: .75; }
+.vibe-pop-all:active { opacity: .7; }
 @media (prefers-reduced-motion: reduce) {
   .vibe-pop, .vibe-pop-sheet, .vibe-pop.show .vibe-pop-sheet { transition: none; }
   .vibe-pop-sheet { transform: none; }
