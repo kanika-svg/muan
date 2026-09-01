@@ -3467,9 +3467,9 @@ function collageCardHtml(v) {
 // do not machine-translate (see CLAUDE.md).
 const VIBE_TAGS = [
   { key: 'under-trees', label: 'Under the trees', label_lo: null }, // TODO(Kar): Lao label
-  { key: 'tucked-away', label: 'Tucked away', label_lo: null }, // TODO(Kar): Lao label
+  { key: 'tucked-away', label: 'Small and quiet', label_lo: null }, // TODO(Kar): Lao label
   { key: 'for-coffee', label: 'For the coffee', label_lo: null }, // TODO(Kar): Lao label
-  { key: 'settle-in', label: 'Settle in for a while', label_lo: null }, // TODO(Kar): Lao label
+  { key: 'settle-in', label: 'Stay a long time', label_lo: null }, // TODO(Kar): Lao label
 ];
 
 // one flat, no-outline SVG per mood tag — every fill is a CSS custom
@@ -3561,17 +3561,17 @@ const WELCOME_SLIDES = [
   {
     photo: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_31_59_PM_vivr57',
     title: 'ໄປໃສດີ?', titleLao: true,
-    sub: "Somewhere to go in Vientiane — bars, cafés, and what's open right now.",
+    sub: 'Find places to go in Vientiane.',
   },
   {
     photo: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_37_27_PM_kvbxej',
-    title: "Places we've actually checked", titleLao: false,
-    sub: 'Real hours, real photos, kept up to date.',
+    title: 'Checked by us', titleLao: false,
+    sub: 'Real opening times and real photos.',
   },
   {
     photo: 'v1788009908/ChatGPT_Image_Aug_29_2026_06_38_56_PM_gmszju',
-    title: 'Find your way there', titleLao: false,
-    sub: "See what's near you and how to get there.",
+    title: 'See what is near you', titleLao: false,
+    sub: 'Find the way there on the map.',
   },
 ];
 
@@ -3675,9 +3675,9 @@ function showMoodIntro({ startAtMood = false } = {}) {
           <div class="vibe-chooser">
             <div class="vibe-chooser-h">
               <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
-              <div class="vibe-chooser-sub">Bars, cafés and places to go in Vientiane — with real hours, photos and how far away they are.</div>
+              <div class="vibe-chooser-sub">Pick what you feel like. We will show you places.</div>
             </div>
-            <div class="vibe-chooser-scope">Start with a café · <span class="lao">ເລີ່ມຈາກຄາເຟ</span></div>
+            <div class="vibe-chooser-scope">Cafés first · <span class="lao">ເລີ່ມຈາກຄາເຟ</span></div>
             <div class="vibe-cards">${VIBE_TAGS.map(t => vibeCardHtml(t, cafes)).join('')}</div>
             <button type="button" class="vibe-any" data-mood-intro-skip>Just show me around</button>
           </div>
@@ -4811,8 +4811,17 @@ function initSheetDrag() {
     const moveX = t.clientX - startX;
     const moveY = t.clientY - startY;
     if (axis === null) {
-      if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
-      axis = Math.abs(moveX) > Math.abs(moveY) ? 'x' : 'y';
+      // vertical scrolling has to beat the filter-swipe: a thumb travelling up
+      // or down naturally drifts sideways, and the old symmetric 12px test was
+      // eager enough that the drift alone could lock 'x' and change the filter
+      // mid-scroll. Two guards now — a 20px minimum on whichever axis is
+      // currently winning (the gesture must be deliberate before it commits to
+      // anything), and a 1.8x dominance ratio before 'x' may win at all.
+      // Vertical needs no ratio: scrolling wins every tie, on purpose.
+      const ax = Math.abs(moveX), ay = Math.abs(moveY);
+      const wantsX = ax >= ay * 1.8;
+      if ((wantsX ? ax : ay) <= 20) return;
+      axis = wantsX ? 'x' : 'y';
       if (axis === 'x' && !canSwipeX(e)) axis = 'none';
     }
     if (axis === 'y') {
