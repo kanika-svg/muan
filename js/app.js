@@ -3526,14 +3526,91 @@ const MOOD_ILLUS = {
   </svg>`,
 };
 
+// step 1 of the mood slide (see showMoodIntro()) — which kind of place,
+// asked before which mood. Kept as data rather than markup so restaurants
+// and hotels are a line each here and not a redesign: the grid is a
+// 2-column auto-fit (see .ms-type-cards in style.css), which lays 2 cards
+// out side by side and 4 as a 2x2 with no other change.
+//
+// moods:false means this type has no vibe vocabulary yet, so its step 2
+// would be four 0-count cards and a dead end. Picking such a type closes
+// the intro and drops the person into that type's own list instead — an
+// empty screen is worse than no screen. Flip it to true the moment Kar
+// starts tagging that type (migrations/013_vibe.sql) and the second step
+// starts appearing on its own, no other change needed.
+//
+// label_lo here was written by Kar in the task that added this step, not
+// machine-translated — see CLAUDE.md, and VIBE_TAGS above, whose own Lao
+// labels are still waiting on him.
+const MOOD_TYPES = [
+  { key: 'cafe', label: 'Cafés', label_lo: 'ຄາເຟ', moods: true },
+  { key: 'bar', label: 'Bars', label_lo: 'ບາຣ໌', moods: false },
+];
+
+// one illustration per type card, under the same rules as MOOD_ILLUS above:
+// flat fills only, every colour a CSS custom property, nothing hardcoded.
+// Cafés reuse the mood grid's cup verbatim — the type card just gives it
+// more room (see .ms-type-card .vibe-card-illus). Bars get a bottle and a
+// glass, drawn to match: same 100x60 viewBox, same ground-ellipse-plus-
+// objects composition as the cup on its saucer.
+const MOOD_TYPE_ILLUS = {
+  cafe: MOOD_ILLUS['for-coffee'],
+  bar: `<svg viewBox="0 0 100 60" class="mc-illus" aria-hidden="true">
+    <ellipse class="mc-bar-floor" cx="50" cy="53" rx="36" ry="4.5"/>
+    <g class="mc-bottle">
+      <rect class="mc-bottle-cap" x="30" y="2" width="9" height="4.5" rx="1.5"/>
+      <rect class="mc-bottle-neck" x="31.2" y="6" width="6.6" height="14"/>
+      <path class="mc-bottle-body" d="M31.2 19 C31.2 24 23 27 23 35 V48 Q23 52 27 52 H42 Q46 52 46 48 V35 C46 27 37.8 24 37.8 19 Z"/>
+      <rect class="mc-bottle-label" x="24" y="34" width="21" height="9"/>
+    </g>
+    <g class="mc-glass">
+      <path class="mc-glass-body" d="M57 25 H83 L80 52 H60 Z"/>
+      <path class="mc-drink" d="M58.6 39 H81.4 L80 52 H60 Z"/>
+      <rect class="mc-ice" x="66" y="40" width="8" height="8" rx="1.5" transform="rotate(-14 70 44)"/>
+      <rect class="mc-straw" x="76" y="16" width="2.6" height="20" rx="1.3" transform="rotate(15 77.3 26)"/>
+    </g>
+  </svg>`,
+};
+
+// re-runs a CSS entry animation on an element that may already be carrying
+// the class — adding a class that is already present does not restart an
+// animation, so it has to come off, force a reflow, and go back on. Was
+// inline in showMoodIntro()'s scroll listener; now shared by that and by
+// the two-step swap (showStep()), which needs the same trick.
+function restartAnim(el, cls) {
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
+// one card in the type grid — the same .vibe-card shell as vibeCardHtml()
+// below, so border, press feedback, disabled state and the entry stagger
+// all come from rules that grid already has; only the size and the bigger
+// illustration are its own (.ms-type-card). The count is a plain count of
+// that type in state.venues: real data, not a popularity figure (CLAUDE.md).
+function typeCardHtml(t) {
+  const count = state.venues.filter(v => v.type === t.key).length;
+  const lo = t.label_lo ? ` · <span class="lao">${esc(t.label_lo)}</span>` : '';
+  return `<button type="button" class="vibe-card ms-type-card" data-mood-type="${t.key}" ${count === 0 ? 'disabled' : ''}>
+    <span class="vibe-card-illus">${MOOD_TYPE_ILLUS[t.key] || ''}</span>
+    <span class="vibe-card-body">
+      <span class="vibe-card-label">${esc(t.label)}${lo}</span>
+      <span class="vibe-card-count">${count} place${count === 1 ? '' : 's'}</span>
+    </span>
+  </button>`;
+}
+
 // one card in the mood grid — shared by showMoodIntro() below. A 0-match
 // card stays visible but disabled (native [disabled], so it's inert
 // without an extra click guard) rather than hidden. The illustration is
 // fixed per mood tag (MOOD_ILLUS above), not per matching venue, so unlike
 // the old photo-backed cards there's no per-venue lookup or photo-load
-// fallback needed here any more.
-function vibeCardHtml(t, cafes) {
-  const count = cafes.filter(v => (v.vibe || []).includes(t.key)).length;
+// fallback needed here any more. `venues` is the already-type-filtered pool
+// the counts are taken from (see fillMoodStep() inside showMoodIntro()), so
+// the same card serves cafés, bars, or whatever MOOD_TYPES grows next.
+function vibeCardHtml(t, venues) {
+  const count = venues.filter(v => (v.vibe || []).includes(t.key)).length;
   return `<button type="button" class="vibe-card" data-vibe-tag="${t.key}" ${count === 0 ? 'disabled' : ''}>
     <span class="vibe-card-illus">${MOOD_ILLUS[t.key]}</span>
     <span class="vibe-card-body">
@@ -3653,13 +3730,21 @@ function logMoodPick(tag) {
 // which calls this same function with startAtMood:true — a manual reopen is
 // someone who already knows what this is, so it jumps straight to the mood
 // slide instead of replaying the 3 panels (still swipeable back to, just
-// not shown by default). Picking a mood marks it seen and opens the normal
-// results popup (openVibePop()), same as a mood card anywhere else; "Just
-// show me around" (the last slide's own link, or the "Skip" link visible on
-// every slide) marks it seen and just closes, leaving whatever screen was
-// already underneath (Home on first open, the Cafes tab on a manual reopen).
+// not shown by default).
+//
+// That 4th slide is itself two steps (see showStep() below): first which
+// kind of place — Cafés or Bars, MOOD_TYPES — then the four moods within
+// it, sliding in from the right with a back arrow that returns to step 1
+// and never exits the intro. Both steps live inside the one slide, so the
+// carousel still has exactly 4 pages and step 2 can't be swiped to before
+// a type is chosen. Picking a mood marks the intro seen and opens the
+// normal results popup (openVibePop()), same as a mood card anywhere else;
+// picking a type with no moods yet marks it seen and opens that type's own
+// list (openTypeList()); "Just show me around" (step 1's own link, or the
+// "Skip" link visible on every slide) marks it seen and just closes,
+// leaving whatever screen was already underneath (Home on first open, the
+// Cafes tab on a manual reopen).
 function showMoodIntro({ startAtMood = false } = {}) {
-  const cafes = state.venues.filter(v => v.type === 'cafe');
   const moodIndex = WELCOME_SLIDES.length; // last slide
   const startIndex = startAtMood ? moodIndex : 0;
   const totalSlides = moodIndex + 1;
@@ -3672,14 +3757,29 @@ function showMoodIntro({ startAtMood = false } = {}) {
       <div class="mi-slide mi-slide-mood" data-mi-index="${moodIndex}">
         <div class="mood-intro-inner">
           <div class="mood-intro-brand" aria-hidden="true">${logoMark(20, 'var(--ink)')}<span class="mood-intro-brand-word">PAISAIDEE</span></div>
-          <div class="vibe-chooser">
-            <div class="vibe-chooser-h">
-              <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
-              <div class="vibe-chooser-sub">Pick what you feel like. We will show you places.</div>
+          <div class="ms-steps" data-ms-steps>
+            <div class="ms-step on" data-ms-step="type">
+              <div class="vibe-chooser">
+                <div class="vibe-chooser-h">
+                  <div class="vibe-chooser-title lao">ຢາກໄປໃສດີ?</div>
+                  <div class="vibe-chooser-sub">Pick what you feel like.</div>
+                </div>
+                <div class="vibe-cards ms-type-cards">${MOOD_TYPES.map(typeCardHtml).join('')}</div>
+                <button type="button" class="vibe-any" data-mood-intro-skip>Just show me around</button>
+              </div>
             </div>
-            <div class="vibe-chooser-scope">Cafés first · <span class="lao">ເລີ່ມຈາກຄາເຟ</span></div>
-            <div class="vibe-cards">${VIBE_TAGS.map(t => vibeCardHtml(t, cafes)).join('')}</div>
-            <button type="button" class="vibe-any" data-mood-intro-skip>Just show me around</button>
+            <div class="ms-step" data-ms-step="mood">
+              <div class="vibe-chooser">
+                <div class="vibe-chooser-h ms-mood-h">
+                  <button type="button" class="ms-back" data-ms-back aria-label="Back">‹</button>
+                  <div>
+                    <div class="vibe-chooser-title" data-ms-mood-title></div>
+                    <div class="vibe-chooser-sub">What kind of place?</div>
+                  </div>
+                </div>
+                <div class="vibe-cards" data-ms-mood-cards></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -3698,16 +3798,45 @@ function showMoodIntro({ startAtMood = false } = {}) {
   const viewport = ov.querySelector('[data-mi-viewport]');
   const dots = [...ov.querySelectorAll('.mi-dot')];
   const nextBtn = ov.querySelector('[data-mi-next]');
-  const cardsEl = ov.querySelector('.vibe-cards');
-  // the 4 cards' one-time entry animation (see .mc-enter in style.css) —
+  const typeStep = ov.querySelector('[data-ms-step="type"]');
+  const moodStep = ov.querySelector('[data-ms-step="mood"]');
+  const typeCardsEl = typeStep.querySelector('.vibe-cards');
+  const moodCardsEl = moodStep.querySelector('[data-ms-mood-cards]');
+  const moodTitleEl = moodStep.querySelector('[data-ms-mood-title]');
+
+  // the mood slide's two steps live inside that one slide, stacked in a
+  // single grid cell and swapped by class — NOT as a fifth .mi-slide. See
+  // the .ms-steps comment in style.css for why (a fifth child of a
+  // scroll-snap viewport is a page anyone can swipe to before choosing).
+  // dir: 'forward' slides the incoming step in from the right, 'back' from
+  // the left, null swaps silently (used when the slide scrolls out of view
+  // and resets itself). Only a dir'd swap replays the card stagger; a
+  // silent reset happens off-screen, and re-entry is the scroll listener's
+  // job below.
+  const activeCards = () => (moodStep.classList.contains('on') ? moodCardsEl : typeCardsEl);
+  const showStep = (name, dir) => {
+    const enter = name === 'mood' ? moodStep : typeStep;
+    const leave = name === 'mood' ? typeStep : moodStep;
+    leave.classList.remove('on', 'ms-from-right', 'ms-from-left');
+    enter.classList.remove('ms-from-right', 'ms-from-left');
+    enter.classList.add('on');
+    if (dir) {
+      restartAnim(enter, dir === 'back' ? 'ms-from-left' : 'ms-from-right');
+      restartAnim(name === 'mood' ? moodCardsEl : typeCardsEl, 'mc-enter');
+    }
+  };
+
+  // the cards' one-time entry animation (see .mc-enter in style.css) —
   // triggered here rather than unconditionally on mount, since on a fresh
   // open (startAtMood:false) the mood slide isn't the visible one yet; the
-  // scroll listener below re-triggers it (remove+reflow+re-add, since
-  // adding a class that's already present doesn't restart a CSS animation
-  // on its own) each time the mood slide actually comes into view, swipe
-  // or chevron alike — "on entry", not "only the very first time ever".
+  // scroll listener below re-triggers it (restartAnim(), since adding a
+  // class that's already present doesn't restart a CSS animation on its
+  // own) each time the mood slide actually comes into view, swipe or
+  // chevron alike — "on entry", not "only the very first time ever". Slide
+  // 4 always opens on step 1, so it's the type cards that stagger in here;
+  // step 2's own four cards get the same treatment when it's shown.
   let wasOnMood = startIndex === moodIndex;
-  if (wasOnMood) cardsEl.classList.add('mc-enter');
+  if (wasOnMood) typeCardsEl.classList.add('mc-enter');
   if (startIndex > 0) viewport.scrollLeft = startIndex * viewport.clientWidth;
   // scroll-snap does the paging itself (native touch handling — no manual
   // touchmove math, so there's no inline transform this needs to clean up
@@ -3724,11 +3853,12 @@ function showMoodIntro({ startAtMood = false } = {}) {
       dots.forEach((d, i) => d.classList.toggle('on', i === idx));
       nextBtn.classList.toggle('mi-hidden', idx === moodIndex);
       const onMood = idx === moodIndex;
-      if (onMood && !wasOnMood) {
-        cardsEl.classList.remove('mc-enter');
-        void cardsEl.offsetWidth; // force reflow so re-adding the class restarts the animation
-        cardsEl.classList.add('mc-enter');
-      }
+      if (onMood && !wasOnMood) restartAnim(activeCards(), 'mc-enter');
+      // swiping back off the slide resets it to step 1: returning to a
+      // half-finished two-step flow reads as broken, and it keeps "which
+      // grid animates on re-entry" unambiguous. Silent (no dir) — this
+      // happens with the slide already scrolled out of view.
+      if (!onMood && wasOnMood) showStep('type', null);
       wasOnMood = onMood;
     });
   }, { passive: true });
@@ -3761,12 +3891,55 @@ function showMoodIntro({ startAtMood = false } = {}) {
     ov.classList.add('hide');
     setTimeout(() => ov.remove(), reduced ? 0 : 280);
   };
-  ov.querySelectorAll('[data-vibe-tag]').forEach(el => el.addEventListener('click', () => {
-    logMoodPick(el.dataset.vibeTag);
-    markMoodIntroSeen();
-    dismiss();
-    openVibePop(el.dataset.vibeTag);
-  }));
+  // step 2's grid is built for whichever type was picked, and pre-built at
+  // mount for the first type that has moods. Pre-building matters for
+  // layout, not speed: both steps share one grid cell so the slide settles
+  // to a single height (see .ms-steps), and an empty step 2 would let that
+  // height — and so the vertically-centred brand mark and heading above it
+  // — jump the first time somebody tapped a type.
+  let moodType = null;
+  const fillMoodStep = (t) => {
+    if (moodType === t.key) return;
+    moodType = t.key;
+    const venues = state.venues.filter(v => v.type === t.key);
+    const lo = t.label_lo ? ` · <span class="lao">${esc(t.label_lo)}</span>` : '';
+    moodTitleEl.innerHTML = `${esc(t.label)}${lo}`;
+    moodCardsEl.innerHTML = VIBE_TAGS.map(tag => vibeCardHtml(tag, venues)).join('');
+    // bound here rather than once at mount: these cards don't exist until
+    // this runs, and they're replaced wholesale whenever the type changes
+    moodCardsEl.querySelectorAll('[data-vibe-tag]').forEach(el => el.addEventListener('click', () => {
+      logMoodPick(el.dataset.vibeTag);
+      markMoodIntroSeen();
+      dismiss();
+      openVibePop(el.dataset.vibeTag, t.key);
+    }));
+  };
+
+  const pickType = (t) => {
+    logMoodPick(`type:${t.key}`);
+    if (!t.moods) {
+      // see MOOD_TYPES: this type has no vibe vocabulary yet, so there is no
+      // second step worth showing. Close the intro and hand the person that
+      // type's own list instead of four 0-count cards.
+      markMoodIntroSeen();
+      openTypeList(t.key);
+      dismiss();
+      return;
+    }
+    fillMoodStep(t);
+    showStep('mood', 'forward');
+  };
+
+  // returns to step 1 and nothing else — the ways out of the intro itself
+  // are Skip (always visible in .mi-controls) and "Just show me around" on
+  // step 1, both wired below
+  ov.querySelector('[data-ms-back]').addEventListener('click', () => showStep('type', 'back'));
+  typeCardsEl.querySelectorAll('[data-mood-type]').forEach(el => {
+    const t = MOOD_TYPES.find(x => x.key === el.dataset.moodType);
+    if (t) el.addEventListener('click', () => pickType(t));
+  });
+  const firstWithMoods = MOOD_TYPES.find(t => t.moods);
+  if (firstWithMoods) fillMoodStep(firstWithMoods);
   ov.querySelectorAll('[data-mood-intro-skip], [data-mi-skip]').forEach(el => el.addEventListener('click', () => {
     logMoodPick('dismissed');
     markMoodIntroSeen();
@@ -3780,6 +3953,20 @@ function showMoodIntro({ startAtMood = false } = {}) {
 function moodRelinkHtml() {
   if (!anyVibeTagged()) return '';
   return `<button type="button" class="mood-relink lao" data-mood-relink>ຢາກໄປໃສດີ?</button>`;
+}
+
+// drops someone on the home list already filtered to one venue type — used
+// by the intro's type step for a type that has no moods yet (see
+// MOOD_TYPES). Clicks the real filter chip rather than re-implementing what
+// tapping it does: bindChips() wires the static chips in index.html once at
+// boot, so the chip is always present, and its handler already carries the
+// whole behaviour (filter, markers, selection, route clearing, re-render,
+// keeping the chip itself in view) with no second copy here to drift out of
+// step. A MOOD_TYPES key with no matching chip is a no-op, which leaves
+// whatever screen was underneath the intro — the same place "Just show me
+// around" leaves you.
+function openTypeList(type) {
+  document.querySelector(`.chip[data-filter="${type}"]`)?.click();
 }
 
 // { ov, sheetEl } while open, else null — a fresh overlay element created
@@ -3809,11 +3996,14 @@ function closeVibePop() {
   setTimeout(() => ov.remove(), reduced ? 0 : 280);
 }
 
-// tagKey: one of VIBE_TAGS' keys, or 'any' for the unfiltered café list
-function openVibePop(tagKey) {
+// tagKey: one of VIBE_TAGS' keys, or 'any' for that type's unfiltered list.
+// type: the venue type the mood was chosen for (a MOOD_TYPES key) — defaults
+// to 'cafe', which is what this popup meant before the chooser grew a type
+// step in front of it, and what every caller outside that step still means.
+function openVibePop(tagKey, type = 'cafe') {
   closeVibePop(); // guard against a stray double-open, same as openLightbox()
-  const cafes = sortForDisplay(state.venues.filter(v => v.type === 'cafe'));
-  const matches = tagKey === 'any' ? cafes : cafes.filter(v => (v.vibe || []).includes(tagKey));
+  const pool = sortForDisplay(state.venues.filter(v => v.type === type));
+  const matches = tagKey === 'any' ? pool : pool.filter(v => (v.vibe || []).includes(tagKey));
   const def = VIBE_TAGS.find(t => t.key === tagKey);
   const title = def ? def.label : 'Anything';
 

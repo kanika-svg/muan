@@ -250,13 +250,6 @@ body {
 .vibe-chooser { margin: 14px 0 2px; }
 .vibe-chooser-title { font-size: 16px; font-weight: 700; color: var(--bone); }
 .vibe-chooser-sub { font-size: 12px; font-weight: 400; color: var(--mute); margin-top: 2px; line-height: 1.45; }
-/* the honest-scoping line (see showMoodIntro()) — smaller and dimmer than
-   .vibe-chooser-sub above it, sitting directly over the grid it's scoping
-   rather than being buried in the paragraph. --dim is one step past --mute
-   in this app's ink scale and isn't shadowed by .mood-intro or re-declared
-   by .mi-slide-mood, so it already tracks the real theme here same as
-   everything else on this slide. */
-.vibe-chooser-scope { font-size: 11px; font-weight: 500; color: var(--dim); margin-top: 14px; }
 .vibe-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 /* illustration fills the top ~60%, label+count sit beneath it on the
    card's own surface (not overlaid on a photo with a scrim any more —
@@ -309,6 +302,24 @@ body {
 .mc-book-2 { opacity: .85; }
 .mc-book-3 { opacity: .7; }
 
+/* the Bars type card's bottle and glass (MOOD_TYPE_ILLUS in js/app.js) —
+   same rules as the mood illustrations above: no hardcoded hex, every
+   colour a token, so it tracks both themes through .mi-slide-mood's
+   re-declaration. --pin-bar is the colour the map already uses for bar
+   pins, so the card and the marker read as the same thing. --mc-coffee is
+   borrowed here as the warm brown it is rather than as "coffee" — the
+   tucked-away buildings already borrow it the same way — because --ink4
+   (the tree trunks' colour) all but disappears against --ink3 in the light
+   theme, which a 4px bottle cap can't afford. */
+.mc-bar-floor { fill: var(--pin-bar); opacity: .25; }
+.mc-bottle-body, .mc-bottle-neck { fill: var(--pin-bar); }
+.mc-bottle-cap { fill: var(--mc-coffee); }
+.mc-bottle-label { fill: var(--bone); opacity: .85; }
+.mc-glass-body { fill: var(--bone); opacity: .22; }
+.mc-drink { fill: var(--mc-glow); }
+.mc-ice { fill: var(--bone); opacity: .55; }
+.mc-straw { fill: var(--bone); opacity: .7; }
+
 /* item 2: entry animation only, never a loop — see showMoodIntro(), which
    adds .mc-enter to .vibe-cards each time the mood slide becomes visible
    (removing and re-adding it to restart, since a class that's already
@@ -330,7 +341,7 @@ body {
 .vibe-cards.mc-enter .vibe-card:nth-child(4) { animation-delay: 240ms; }
 @keyframes mc-card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
-.mc-canopy-group, .mc-books { transform-box: fill-box; transform-origin: center; }
+.mc-canopy-group, .mc-books, .mc-glass { transform-box: fill-box; transform-origin: center; }
 .mc-steam { transform-box: fill-box; }
 
 .vibe-cards.mc-enter [data-vibe-tag="under-trees"] .mc-canopy-group {
@@ -353,6 +364,19 @@ body {
 }
 @keyframes mc-book-in { from { transform: translateX(20px); } to { transform: translateX(0); } }
 
+/* step 1's two type cards get the card stagger above for free — they are
+   .vibe-card children of a .vibe-cards grid, so the nth-child delays
+   already apply — plus one illustration flourish each, so the type step
+   isn't visibly plainer than the mood step it leads to. The café card
+   reuses the mood grid's cup and therefore its steam animation verbatim. */
+.vibe-cards.mc-enter [data-mood-type="cafe"] .mc-steam {
+  animation: mc-steam-in .6s ease-out both; animation-delay: 150ms;
+}
+.vibe-cards.mc-enter [data-mood-type="bar"] .mc-glass {
+  animation: mc-glass-in .5s ease-out both; animation-delay: 230ms;
+}
+@keyframes mc-glass-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
 /* specificity must match the [data-vibe-tag="..."]-scoped rules above, not
    just the bare .mc-canopy-group/.mc-glow/etc — a lower-specificity
    override here loses the cascade regardless of source order or the media
@@ -364,7 +388,9 @@ body {
   .vibe-cards.mc-enter [data-vibe-tag="under-trees"] .mc-canopy-group,
   .vibe-cards.mc-enter [data-vibe-tag="tucked-away"] .mc-glow,
   .vibe-cards.mc-enter [data-vibe-tag="for-coffee"] .mc-steam,
-  .vibe-cards.mc-enter [data-vibe-tag="settle-in"] .mc-books {
+  .vibe-cards.mc-enter [data-vibe-tag="settle-in"] .mc-books,
+  .vibe-cards.mc-enter [data-mood-type="cafe"] .mc-steam,
+  .vibe-cards.mc-enter [data-mood-type="bar"] .mc-glass {
     animation: none;
   }
 }
@@ -525,7 +551,8 @@ body {
    own background too — .mood-intro paints its (still dark-locked)
    background at the overlay level, an ancestor of this rule, so without
    repainting here this slide would show real-theme text over a
-   still-forced-dark backdrop. */
+   still-forced-dark backdrop. Now two steps rather than one grid — type
+   first, then mood — but still one slide; see .ms-steps below. */
 .mi-slide-mood {
   --ink: #131019; --ink2: #1C1726; --ink3: #241E31; --ink4: #2E2740;
   --bone: #F5F1E8; --mute: #8A8494; --flame: #FF5A3C;
@@ -543,8 +570,91 @@ body {
 .mood-intro-brand-word { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--mute); }
 .mood-intro-inner .vibe-chooser-title { font-size: 26px; }
 .mood-intro-inner .vibe-cards { text-align: left; margin-top: 20px; }
-.mood-intro-inner .vibe-chooser-scope { text-align: left; }
 @media (min-width: 768px) { .mood-intro-inner { max-width: 400px; } }
+
+/* --- the mood slide's two steps (see showMoodIntro() in js/app.js): which
+   kind of place, then which mood within it.
+
+   Deliberately NOT a fifth .mi-slide. .mi-viewport is a scroll-snap
+   container, so a fifth child would be a page anyone could swipe to before
+   choosing a type — landing them on a mood grid for no type in particular —
+   and .mi-dots would have to grow a fifth dot for a step that isn't a
+   destination. Both steps live inside slide 4 instead, so the carousel
+   still sees exactly 4 pages, the dots stay 4, .mi-next still hides on the
+   last one, and step 2 is reachable only by tapping a type card.
+
+   Stacked in one grid cell rather than shown and hidden in flow so the two
+   steps share a single height: the slide is vertically centred, and a step
+   2 that is ~70px taller than step 1 would otherwise shunt the brand mark
+   and heading upward the instant a type was tapped. align-items:center then
+   centres the shorter step inside that shared box. visibility, not
+   display:none, is what keeps the hidden step contributing its height — and
+   it also takes that step out of the tab order and the accessibility tree,
+   so there's no aria-hidden to keep in sync on top of it. (showMoodIntro()
+   pre-fills step 2's grid at mount for the same reason: an empty step 2
+   would settle to the wrong shared height.)
+
+   overflow-x:clip, not hidden: the entering step starts a full width off to
+   the right, and unclipped that would widen .mi-viewport's own scrollable
+   area mid-animation — this app has already been bitten by a transform
+   leaking into a scroll container. clip rather than hidden because hidden
+   on one axis forces the other to auto, which would turn this into a second
+   scroll container and clip the cards' own translateY entry animation;
+   overflow-clip-margin leaves the few px the settle-in card's books need as
+   they slide in from the right. --- */
+.ms-steps { display: grid; align-items: center; overflow-x: clip; overflow-clip-margin: 12px; }
+.ms-step { grid-area: 1 / 1; visibility: hidden; }
+.ms-step.on { visibility: visible; }
+/* self-contained from/to with fill-mode:both, same reasoning as .mc-enter
+   and .mood-intro's own animations elsewhere in this file — each step's
+   resting style is already its correct final appearance, so nothing depends
+   on the animation having run. showStep() removes and re-adds these classes
+   to restart them (a class already present won't re-trigger an animation). */
+.ms-step.ms-from-right { animation: ms-step-in-right .3s cubic-bezier(.16,.8,.3,1) both; }
+.ms-step.ms-from-left  { animation: ms-step-in-left  .3s cubic-bezier(.16,.8,.3,1) both; }
+@keyframes ms-step-in-right { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ms-step-in-left  { from { opacity: 0; transform: translateX(-100%); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .ms-step.ms-from-right, .ms-step.ms-from-left { animation: none; }
+}
+
+/* step 2's header: the back arrow sits beside the title rather than above
+   it, so it reads as "back from here" and not as a second piece of top
+   chrome competing with the brand mark. Same 28px circle as .mi-next's
+   forward chevron — one affordance, two directions. It returns to step 1
+   only; the ways out of the intro stay Skip and "Just show me around". */
+.ms-mood-h { display: flex; align-items: center; gap: 10px; text-align: left; }
+.ms-back {
+  width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(138,132,148,.18); border: none; color: var(--bone);
+  font-family: var(--font); font-size: 15px; line-height: 1; padding: 0; cursor: pointer;
+}
+.ms-back:active { opacity: .6; }
+
+/* step 1's type cards. The same .vibe-card shell as the mood grid — border,
+   background, press feedback, disabled state and the entry stagger all come
+   free from rules that grid already has — just taller, with the
+   illustration given most of the card.
+
+   auto-fit rather than the base grid's fixed `1fr 1fr` so this takes 2
+   cards side by side, 4 as a 2x2, and stacks to one column on a phone too
+   narrow for two: adding restaurants or hotels is a line in MOOD_TYPES, not
+   a layout change. Specificity here ties with the base .vibe-cards rule
+   (one class each), so this only wins because it is later in the file —
+   keep it below that rule. margin-top is deliberately not restated: the
+   .mood-intro-inner .vibe-cards rule above outranks a single class and
+   would win it back anyway, and its 20px is the value wanted here. */
+.ms-type-cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.ms-type-card { aspect-ratio: 3 / 4; }
+/* .mc-illus scales its viewBox to fit, and in a 2-column grid a type card
+   is exactly as wide as a mood card — so the extra height alone does not
+   enlarge the drawing at all, and trimming the side padding is what
+   actually does it. */
+.ms-type-card .vibe-card-illus { flex: 0 0 62%; padding: 18px 4px 0; }
+.ms-type-card .vibe-card-body { padding: 2px 14px 12px; }
+.ms-type-card .vibe-card-label { font-size: 15px; }
+.ms-type-card .vibe-card-label .lao { font-weight: 400; opacity: .75; }
 
 /* quiet route back to the mood chooser once the one-time greeting above has
    been dismissed for good (see moodRelinkHtml() in js/app.js) — plain text
