@@ -2673,6 +2673,91 @@ function icoSurprise(size) {
     <circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/></svg>`;
 }
 
+/* ---------- venue detail glyphs + row helpers ----------
+   Same stroke-icon family as icoLocate/icoHomeNav above (24x24 viewBox,
+   stroke-width 2, currentColor) — the venue sheet's detail group used
+   emoji (📍🕐📞🅿ℹ️📘🌐) until this redesign, which is exactly the
+   inconsistency the header icons were replaced for: emoji carry their own
+   colour and their own per-platform weight, so a row of them reads as
+   seven unrelated badges instead of one quiet list. */
+function icoBack(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M15 4 7 12l8 8"/></svg>`;
+}
+function icoShare(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 16V4"/><path d="M8 7.5 12 3.5l4 4"/>
+    <path d="M5 13v6a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6"/></svg>`;
+}
+function icoCheck(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M5 12.5 10 17.5 19 7"/></svg>`;
+}
+function icoPin(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 21s-7-5.686-7-11a7 7 0 1 1 14 0c0 5.314-7 11-7 11z"/>
+    <circle cx="12" cy="10" r="2.5"/></svg>`;
+}
+function icoClock(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.2 2"/></svg>`;
+}
+function icoPhone(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M7.5 3.5h-2A2.5 2.5 0 0 0 3 6.2C3 14 10 21 17.8 21a2.5 2.5 0 0 0 2.7-2.5v-2l-4.5-1.7-2 2.2a13.6 13.6 0 0 1-5-5l2.2-2Z"/></svg>`;
+}
+/* a P in a rounded square rather than a lettered glyph — the parking note is
+   a one-liner (see CLAUDE.md's parking field), so the icon carries the
+   category on its own */
+function icoParking(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="3.5" y="3.5" width="17" height="17" rx="4"/>
+    <path d="M9.8 17V7h3.1a2.9 2.9 0 0 1 0 5.8H9.8"/></svg>`;
+}
+function icoLink(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3"/>
+    <path d="M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.3-1.3"/></svg>`;
+}
+function icoSpoon(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M7 3v7M10 3v7M8.5 10v11"/>
+    <path d="M16.5 3c-1.7 1.6-2.5 3.8-2.5 6 0 1.7 1 3 2.5 3s2.5-1.3 2.5-3c0-2.2-.8-4.4-2.5-6Z"/>
+    <path d="M16.5 12v9"/></svg>`;
+}
+
+/* one row of the venue sheet's quiet detail group — icon in a fixed-width
+   gutter, everything else in the flow column beside it. A helper rather
+   than repeated markup so a row can never drift into having its own
+   divider or its own icon size again. */
+function vdRow(icon, main) {
+  return `<div class="vd-row"><span class="vd-row-ico" aria-hidden="true">${icon}</span><div class="vd-row-main">${main}</div></div>`;
+}
+
+/* splits a description into [first sentence, everything after it] for the
+   venue sheet's "More" link. Returns ['', ''] for empty text and
+   [wholeThing, ''] when there's only one sentence, so the caller can skip
+   the link entirely rather than showing a "More" that reveals nothing.
+   The lookahead on whitespace-or-end is what keeps "10 a.m." and "No.1"
+   from being read as a sentence end mid-line — a full stop only counts
+   when something actually follows it as a break. */
+function firstSentence(text) {
+  const t = (text || '').trim();
+  if (!t) return ['', ''];
+  const m = /^[\s\S]*?[.!?](?=\s|$)/.exec(t);
+  if (!m) return [t, ''];
+  return [m[0], t.slice(m[0].length).trim()];
+}
+
 function renderMarkers() {
   state.markers.forEach(m => m.marker.remove());
   state.markers = [];
@@ -3241,8 +3326,9 @@ function openLightbox(photos, index) {
 // a letter. onSettled(ok) — used by watchCollageCard() for hero promotion —
 // fires once either way, after any monogram swap has already happened.
 function watchImgLoad(img, v, onSettled) {
-  // re-arms cleanly if called again on an img whose src just changed (see
-  // the gallery's thumbnail-click handler, which swaps #galHero's photo)
+  // re-arms cleanly if called again on an img whose src just changed — the
+  // venue sheet's hero (#galHero) is re-rendered and re-watched on every
+  // openVenue(), including a sticky re-open of the venue already showing
   delete img.dataset.settled;
   delete img.dataset.monogram;
   const finish = (ok) => {
@@ -3253,7 +3339,7 @@ function watchImgLoad(img, v, onSettled) {
       console.warn('[muan] image failed to load:', img.src);
       img.dataset.monogram = '1';
       img.onerror = null;
-      const wide = img.classList.contains('big-thumb') || img.classList.contains('gal-hero');
+      const wide = img.classList.contains('big-thumb') || img.classList.contains('vd-hero-img');
       img.src = venueTileUri(v.short_name || v.name, v.type, wide);
     }
     onSettled?.(ok);
@@ -4528,6 +4614,19 @@ function updateCheckinButton(v) {
       lbl.textContent = `${fmtDist(d)} away — get closer`;
     }
   }
+  // there is exactly one primary action on the page, and it is never a
+  // disabled one: when check-in isn't available (too far, no fix, blocked)
+  // the flame fill moves to Directions, which always works from here.
+  // Both classes are set on both buttons every time — toggling only the
+  // primary would leave whichever button lost it wearing neither.
+  const ready = cbtn.classList.contains('ready');
+  cbtn.classList.toggle('vd-btn-primary', ready);
+  cbtn.classList.toggle('vd-btn-secondary', !ready);
+  const dbtn = document.getElementById('dirBtn');
+  if (dbtn) {
+    dbtn.classList.toggle('vd-btn-primary', !ready);
+    dbtn.classList.toggle('vd-btn-secondary', ready);
+  }
 }
 
 /* ---------- sheet: venue detail ---------- */
@@ -4555,19 +4654,30 @@ function openVenue(id) {
   const isPending = v.pin_status === 'pending';
 
   const photos = v.photos || [];
-  let galleryHtml;
-  if (!photos.length) {
-    galleryHtml = `<div class="gal"><img class="gal-hero" src="${venueTileUri(v.short_name || v.name, v.type, true)}" alt="${esc(v.name)}"></div>`;
-  } else {
-    galleryHtml = `
-      <div class="gal">
-        <img class="gal-hero" id="galHero" src="${esc(cloudinaryUrl(photos[0], 900))}" alt="${esc(v.name)}" loading="lazy">
-        ${photos.length > 1 ? `<div class="gal-thumbs">` +
-          photos.map((p, i) =>
-            `<img class="gal-thumb ${i===0?'sel':''}" src="${esc(cloudinaryUrl(p, 200))}" data-gi="${i}" alt="" loading="lazy">`
-          ).join('') + `</div>` : ''}
-      </div>`;
-  }
+  // full-bleed hero (see .vd-hero in style.css): edge to edge, ~40vh, tap
+  // anywhere on it to open the lightbox. The thumbnail strip this replaced
+  // is gone — the "N photos" count plus the lightbox's own prev/next covers
+  // browsing the rest, and the strip was competing with the title block for
+  // the first screenful.
+  const heroSrc = photos.length
+    ? esc(cloudinaryUrl(photos[0], 900))
+    : venueTileUri(v.short_name || v.name, v.type, true);
+  // statusPillHtml() returns '' when v.hours is null — no invented "unknown"
+  // pill (see CLAUDE.md). The back arrow and the pill share the top-left
+  // cluster as one flex row rather than stacking on top of each other.
+  const heroHtml = `
+    <div class="vd-hero${photos.length ? ' vd-hero-tap' : ''}">
+      <img class="vd-hero-img" id="galHero" src="${heroSrc}" alt="${esc(v.name)}">
+      <div class="vd-hero-tl">
+        <button class="vd-round" data-home aria-label="Back">${icoBack(17)}</button>
+        ${statusPillHtml(v, true)}
+      </div>
+      <div class="vd-hero-tr">
+        ${isNo1(v) ? '<span class="vd-tonight">TONIGHT</span>' : ''}
+        <button class="vd-round" data-home aria-label="Close">✕</button>
+      </div>
+      ${photos.length > 1 ? `<span class="vd-photo-count">${photos.length} photos</span>` : ''}
+    </div>`;
 
   let travel;
   if (isPending) {
@@ -4575,9 +4685,9 @@ function openVenue(id) {
   } else if (hasStickyRoute) {
     travel = state.routeLabel;
   } else if (state.userPos) {
-    travel = `${fmtDist(haversine(state.userPos, v))} away · straight line`;
+    travel = `${fmtDist(haversine(state.userPos, v))} away`;
   } else {
-    travel = `<span class="sub">tap "near me" up top to see distance</span>`;
+    travel = `<span class="vd-dim">tap "near me" for distance</span>`;
   }
 
   const order = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -4590,87 +4700,82 @@ function openVenue(id) {
     return `<div class="${d === todayKey ? 'today' : ''}"><span>${d}</span><span>${label}</span></div>`;
   }).join('');
 
-  let html = `
-    <span data-venue-detail hidden></span>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <button class="sheet-x" data-home aria-label="Back">←</button>
-      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-        ${isNo1(v) ? '<span class="tag flame" style="background:var(--ink3);padding:5px 10px;border-radius:12px;">TONIGHT</span>' : ''}
-        <button class="sheet-x" data-home aria-label="Close">✕</button>
-      </div>
-    </div>
-    <div class="s-title">${esc(v.name)} <span class="lao" style="font-size:13px;color:var(--mute);">${esc(v.name_lo || '')}</span></div>
-    <div class="s-sub">${esc(v.short || '')}</div>
+  // tagline · distance on one line — distance decides whether someone goes,
+  // so it sits with the name instead of in a row below the fold. #travelLine
+  // stays the element toggleRoute() rewrites with the routed distance/time.
+  const metaBits = [];
+  if (v.short) metaBits.push(esc(v.short));
+  metaBits.push(`<span id="travelLine">${travel}</span>`);
 
-    ${galleryHtml}
+  // the venue's own vibe tags (migrations/013_vibe.sql), which until now only
+  // showed inside the mood chooser. Unknown keys are dropped rather than
+  // printed raw; no row at all when the venue has none.
+  const vibes = (v.vibe || []).map(k => VIBE_TAGS.find(t => t.key === k)).filter(Boolean);
 
-    <div class="act-row">
-      ${isPending ? '' : `
-      <button class="act" id="checkinBtn" data-venue="${v.id}" disabled>
-        <span class="act-ico">🔥</span><span class="act-lbl" id="checkinLabel">Check in</span>
-      </button>
-      <button class="act" id="dirBtn">
-        <span class="act-ico">➤</span><span class="act-lbl" id="dirLbl">Directions</span>
-      </button>`}
-      <a class="act act-narrow" id="gmapsBtn"
-         href="${esc(v.links?.maps || '#')}" target="_blank" rel="noopener"
-         aria-label="Open in Google Maps">
-        <span class="act-ico">🗺️</span><span class="act-lbl">Maps</span>
-      </a>
-      <button class="act" id="shareBtn">
-        <span class="act-ico">↗</span><span class="act-lbl">Share</span>
-      </button>
-    </div>
+  // one primary action only. Check in is the primary when it's actually
+  // available; updateCheckinButton() moves the flame fill to Directions the
+  // moment it isn't, so a disabled button never wears the primary styling.
+  // A pending venue has no confirmed lat/lng — nothing to check into and
+  // nothing to route to — so neither button renders and Share is all that's
+  // left; it takes the row as a labelled secondary rather than a lone icon.
+  const actionsHtml = isPending
+    ? `<div class="vd-actions">
+        <button class="vd-btn vd-btn-secondary" id="shareBtn">${icoShare(16)}<span>Share</span></button>
+      </div>`
+    : `<div class="vd-actions">
+        <button class="vd-btn vd-btn-secondary" id="checkinBtn" data-venue="${v.id}" disabled>
+          <span id="checkinLabel">Check in</span>
+        </button>
+        <button class="vd-btn vd-btn-secondary" id="dirBtn"><span id="dirLbl">Directions</span></button>
+        <button class="vd-btn vd-btn-icon" id="shareBtn" aria-label="Share">${icoShare(16)}</button>
+      </div>`;
 
-    <div class="v-fact">
-      <div class="info-ic">📍</div>
-      <div class="info-main">${esc(v.area || '')}<div class="sub" id="travelLine">${travel}</div></div>
-    </div>
-    <div class="v-fact">
-      <div class="info-ic">🕐</div>
-      <div class="info-main">
-        <span style="color:var(--${st.open ? 'teal' : st.openingSoon ? 'flame' : 'dim'});font-weight:700;">${st.label}</span>
-        · <span class="hours-toggle" id="hoursToggle">all hours</span>
-        <div class="hours-week" id="hoursWeek">${week}</div>
-      </div>
-    </div>
-    ${v.parking?.note ? `
-    <div class="v-fact">
-      <div class="info-ic">🅿</div>
-      <div class="info-main">${esc(v.parking.note)}</div>
-    </div>` : ''}
-    ${v.contact?.phone ? `
-    <div class="v-fact">
-      <div class="info-ic">📞</div>
-      <div class="info-main">
-        <a href="tel:${esc(v.contact.phone)}" class="v-phone">${esc(v.contact.phone_display)}</a>
-        <div class="t-sub">call to book a table</div>
-      </div>
-    </div>` : ''}
-    ${v.description ? `
-    <div class="v-fact">
-      <div class="info-ic">ℹ️</div>
-      <div class="info-main">${esc(v.description)}</div>
-    </div>` : ''}
-    ${v.signature?.length ? `
-    <div class="section-h">Try this · <span class="lao">ລອງອັນນີ້</span></div>
+  const [descFirst, descRest] = firstSentence(v.description || '');
+  const descHtml = !descFirst ? '' : `
+    <div class="vd-desc" id="vdDesc">
+      <span>${esc(descFirst)}</span>${descRest ? `<span class="vd-desc-rest"> ${esc(descRest)}</span>
+      <button type="button" class="vd-more" id="descMore">More</button>` : ''}
+    </div>`;
+
+  // ---- the quiet group: everything factual, one divider above it, small
+  // stroke icons (never emoji — same reason the header lost its own), muted
+  // text, no rule between rows
+  const detail = [];
+  if (v.area) detail.push(vdRow(icoPin(16), esc(v.area)));
+  detail.push(vdRow(icoClock(16), `
+    <span class="vd-status">${esc(st.label)}</span>
+    <span class="vd-dot">·</span>
+    <button type="button" class="vd-more" id="hoursToggle">all hours</button>
+    <div class="hours-week" id="hoursWeek">${week}</div>`));
+  if (v.parking?.note) detail.push(vdRow(icoParking(16), esc(v.parking.note)));
+  if (v.contact?.phone) detail.push(vdRow(icoPhone(16), `
+    <a href="tel:${esc(v.contact.phone)}" class="vd-phone">${esc(v.contact.phone_display || v.contact.phone)}</a>
+    <div class="vd-row-sub">call to book a table</div>`));
+  const links = [];
+  // the old fourth action button folded in here — Maps is a link, not an
+  // action that should compete with Check in for the eye
+  if (v.links?.maps) links.push(`<a href="${esc(v.links.maps)}" target="_blank" rel="noopener">Google Maps</a>`);
+  if (v.links?.facebook) links.push(`<a href="${esc(v.links.facebook)}" target="_blank" rel="noopener">Facebook page</a>`);
+  if (v.links?.website) links.push(`<a href="${esc(v.links.website)}" target="_blank" rel="noopener">Website</a>`);
+  if (links.length) detail.push(vdRow(icoLink(16), `<div class="vd-links">${links.join('')}</div>`));
+  if (v.signature?.length) detail.push(vdRow(icoSpoon(16), `
+    <div class="vd-row-label">Try this · <span class="lao">ລອງອັນນີ້</span></div>
     <div class="v-sig-list">
       ${v.signature.map(it => `
         <div class="v-sig-item">
           <div class="v-sig-name">${esc(it.name)}</div>
           ${(it.price != null || it.note) ? `<div class="v-sig-meta">${it.price != null ? fmtKip(it.price) : ''}${it.price != null && it.note ? ' · ' : ''}${it.note ? esc(it.note) : ''}</div>` : ''}
         </div>`).join('')}
-    </div>` : ''}
-    ${v.links?.facebook ? `
-    <div class="v-fact">
-      <div class="info-ic">📘</div>
-      <div class="info-main"><a href="${esc(v.links.facebook)}" target="_blank" rel="noopener" style="color:var(--bone);">Facebook page</a></div>
-    </div>` : ''}
-    ${v.links?.website ? `
-    <div class="v-fact">
-      <div class="info-ic">🌐</div>
-      <div class="info-main"><a href="${esc(v.links.website)}" target="_blank" rel="noopener" style="color:var(--bone);">Website</a></div>
-    </div>` : ''}`;
+    </div>`));
+
+  let html = `
+    <span data-venue-detail hidden></span>
+    ${heroHtml}
+    <div class="vd-title">${esc(v.name)}${v.name_lo ? ` <span class="vd-title-lo lao">${esc(v.name_lo)}</span>` : ''}</div>
+    <div class="vd-meta">${metaBits.join(' <span class="vd-dot">·</span> ')}</div>
+    ${vibes.length ? `<div class="vd-vibes">${vibes.map(t => `<span class="vd-vibe">${esc(t.label)}</span>`).join('')}</div>` : ''}
+    ${actionsHtml}
+    ${descHtml}`;
 
   for (const ev of evs) {
     html += `
@@ -4682,6 +4787,7 @@ function openVenue(id) {
   }
 
   html += `
+    <div class="vd-details">${detail.join('')}</div>
     <div class="section-h">Comments</div>
     <div class="comment-empty">
       No comments yet.<br>
@@ -4708,13 +4814,14 @@ function openVenue(id) {
   } else {
     history.replaceState(null, '', venueUrl);
   }
-  document.querySelectorAll('.gal-hero, .gal-thumb').forEach(img => watchImgLoad(img, v));
-  // tapping any photo — hero or thumbnail — opens the full-size lightbox at
-  // that photo, rather than swapping the hero image in place
+  document.querySelectorAll('.vd-hero-img').forEach(img => watchImgLoad(img, v));
+  // the whole hero is the tap target now that the thumbnail strip is gone —
+  // it opens the lightbox at the first photo, and the lightbox's own
+  // prev/next walks the rest. A venue with no photos renders the monogram
+  // tile instead, which has nothing to open, so it gets no handler and no
+  // "N photos" count.
   if (photos.length) {
-    document.getElementById('galHero')?.addEventListener('click', () => openLightbox(photos, 0));
-    document.querySelectorAll('.gal-thumb').forEach(t =>
-      t.addEventListener('click', () => openLightbox(photos, +t.dataset.gi)));
+    document.querySelector('.vd-hero')?.addEventListener('click', () => openLightbox(photos, 0));
   }
   document.getElementById('shareBtn')?.addEventListener('click', async () => {
     const url = location.origin + '/?v=' + v.id;
@@ -4723,9 +4830,23 @@ function openVenue(id) {
       try { await navigator.share({ title, url }); } catch(e) {}
     } else {
       await navigator.clipboard.writeText(url);
-      const ico = document.querySelector('#shareBtn .act-ico');
-      if (ico) { ico.textContent = '✓'; setTimeout(() => ico.textContent = '↗', 1500); }
+      // the button's content is an SVG now, not an emoji glyph, so the
+      // confirmation swaps the whole innerHTML and restores it rather than
+      // rewriting a text node
+      const btn = document.getElementById('shareBtn');
+      if (btn) {
+        const prev = btn.innerHTML;
+        btn.innerHTML = icoCheck(16) + (btn.classList.contains('vd-btn-icon') ? '' : '<span>Copied</span>');
+        setTimeout(() => { btn.innerHTML = prev; }, 1500);
+      }
     }
+  });
+  // description: first sentence up front, the rest revealed in place — no
+  // modal, and the link removes itself once there's nothing left to reveal
+  const dm = document.getElementById('descMore');
+  if (dm) dm.addEventListener('click', () => {
+    document.getElementById('vdDesc')?.classList.add('open');
+    dm.remove();
   });
   const ht = document.getElementById('hoursToggle');
   if (ht) ht.addEventListener('click', () =>

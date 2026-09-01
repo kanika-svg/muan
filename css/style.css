@@ -801,9 +801,19 @@ body {
 #locateBtn { position: relative; min-width: 122px; justify-content: center; }
 
 /* ============ Bottom sheet ============ */
+/* --sheet-pad-x is the sheet's live left/right padding, declared at every
+   one of the three places that padding is set (here = 14px, the mobile
+   Home/You override = 16px, the desktop one = 18px) so a full-bleed child
+   can cancel exactly the inset actually in force with
+   margin: 0 calc(-1 * var(--sheet-pad-x)). Read by .vd-hero and by
+   #sheetTopCover, which used to hardcode -17px against an assumed 16px and
+   so overhung the venue sheet — a 14px screen — by 3px a side. #sheet
+   .chip-bar still hardcodes -16px, but only ever renders on mobile Home,
+   where 16px is right; see its own comment for the last time that drifted. */
 #sheet {
+  --sheet-pad-x: 14px;
   background: var(--ink2); border-radius: 24px 24px 0 0;
-  padding: 9px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  padding: 9px var(--sheet-pad-x) calc(env(safe-area-inset-bottom, 0px) + 16px);
   max-height: 44vh; overflow-y: auto; z-index: 6;
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
 }
@@ -977,7 +987,7 @@ body {
   .hcard:hover { background: var(--ink4); transform: translateY(-2px); border-color: var(--dim); }
   .card:hover { transform: translateY(-2px); border-color: var(--dim); }
   .hcards { flex-wrap: wrap; overflow-x: visible; margin-right: 0; padding-right: 0; }
-  #sheet { padding-left: 18px; padding-right: 18px; }
+  #sheet { --sheet-pad-x: 18px; padding-left: var(--sheet-pad-x); padding-right: var(--sheet-pad-x); }
 }
 
 /* expanded venue sheet */
@@ -993,49 +1003,14 @@ body {
   align-items: center; justify-content: center; color: var(--dim); font-size: 11px;
 }
 
-.info-row {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 10px 0; border-bottom: 1px solid var(--ink3); font-size: 13px;
-}
-.info-row:last-of-type { border-bottom: none; }
-.info-ic { flex-shrink: 0; width: 20px; text-align: center; }
-.info-main { flex: 1; color: var(--bone); line-height: 1.5; }
-.info-main .sub { color: var(--mute); font-size: 12px; }
 /* shown under the straight-line distance while the routed distance/time is
    still in flight — see toggleRoute() in app.js */
 .travel-measuring { display: block; color: var(--dim); font-size: 10.5px; margin-top: 1px; }
 
-.act-row { display: flex; gap: 8px; margin: 14px 0 18px; }
-.act {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
-  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
-  border: none; border-radius: 14px;
-  padding: 11px 6px; color: var(--mute); font-size: 11.5px;
-  font-family: var(--font); text-decoration: none; cursor: pointer;
-  transition: transform .16s cubic-bezier(.34,1.56,.64,1), background .2s;
-}
-.act-ico { font-size: 17px; line-height: 1; }
-.act#checkinBtn.ready { background: var(--flame); color: var(--ink); }
-.act:disabled { opacity: .5; cursor: default; }
-.act-narrow { flex: 0 0 62px; }
-/* inline-flex so a loadingRing() (see #dirLbl's "Finding route…" state in
-   toggleRoute()) sits next to the label text instead of stacking under it —
-   harmless for the plain-text label state every other .act-lbl stays in */
-.act-lbl { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
-.act-lbl .lring { color: var(--flame); }
-
-/* tighter fact rows */
-.v-fact { display: flex; gap: 10px; padding: 9px 0; align-items: flex-start; }
-.v-fact + .v-fact { border-top: 1px solid var(--ink3); }
-
 .hours-week { margin-top: 6px; font-size: 12px; color: var(--mute); display: none; }
 .hours-week.show { display: block; }
 .hours-week div { display: flex; justify-content: space-between; padding: 2px 0; }
-
-.v-phone { color: var(--flame); text-decoration: none; font-weight: 700; }
-.v-phone:active { opacity: .7; }
 .hours-week .today { color: var(--bone); font-weight: 700; }
-.hours-toggle { color: var(--violet); cursor: pointer; font-size: 12px; }
 
 .section-h { font-size: 13px; font-weight: 700; margin-top: 16px; letter-spacing: .5px; }
 
@@ -1160,14 +1135,14 @@ body {
    own rule already used (.card's spring cubic-bezier, etc.) rather than
    overwriting every one of these selectors' pre-existing transitions. */
 .card:active, .collage-card:active, .surprise-btn:active,
-.fl-badge:active, .fl-item:active, .fl-manage-item:active, .act:active {
+.fl-badge:active, .fl-item:active, .fl-manage-item:active, .vd-btn:active {
   transition: box-shadow .08s ease, transform .08s ease;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
   transform: translateY(1px);
 }
 @media (prefers-reduced-motion: reduce) {
   .card:active, .collage-card:active, .surprise-btn:active,
-  .fl-badge:active, .fl-item:active, .fl-manage-item:active, .act:active {
+  .fl-badge:active, .fl-item:active, .fl-manage-item:active, .vd-btn:active {
     transform: none;
   }
 }
@@ -1614,31 +1589,174 @@ body {
 .adm-actions { margin-top: 10px; }
 .adm-reject-panel { margin-top: 10px; }
 
-.gal { margin: 12px 0 4px; }
-.gal-hero {
-  width: 100%; aspect-ratio: 16/10; object-fit: cover;
-  border-radius: 16px; display: block; cursor: pointer;
+/* ============ Venue detail (openVenue() in js/app.js) ============
+   Rebuilt from a page where location, hours, phone and description were all
+   the same shape — emoji icon, coloured text, divider — so nothing led the
+   eye and the phone number (flame, 700) was the loudest thing on screen.
+   The order is now: photo, who this is, the one thing to do, then every
+   remaining fact together and quiet. */
+
+/* full-bleed hero. #sheet's side padding is the only inset between sheet
+   content and the screen edge and it differs per breakpoint, so this
+   cancels --sheet-pad-x rather than a hardcoded number (see the comment on
+   #sheet). It does NOT cancel #sheet's padding-top: on mobile that strip is
+   the status-bar/safe-area inset that #sheetTopCover paints over at every
+   scroll position, so a photo pushed up into it would simply be covered —
+   and the back button with it. */
+.vd-hero {
+  position: relative;
+  margin: 0 calc(-1 * var(--sheet-pad-x));
+  height: 40vh; min-height: 200px; max-height: 420px;
+  background: var(--ink3); overflow: hidden;
 }
-.gal-thumbs {
-  display: flex; gap: 7px; margin-top: 8px;
-  overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+.vd-hero-tap { cursor: pointer; }
+.vd-hero-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* bottom scrim: carries the photo count, and stops a pale photo from
+   running straight into the sheet background with no edge */
+.vd-hero::after {
+  content: ''; position: absolute; inset: auto 0 0 0; height: 96px;
+  background: linear-gradient(180deg, rgba(19,16,25,0), rgba(19,16,25,.55));
+  pointer-events: none;
 }
-.gal-thumbs::-webkit-scrollbar { display: none; }
-.gal-thumb {
-  width: 64px; height: 48px; object-fit: cover; flex-shrink: 0;
-  border-radius: 9px; cursor: pointer; opacity: .55;
-  border: 2px solid transparent;
-  transition: opacity .2s, border-color .2s, transform .16s cubic-bezier(.34,1.56,.64,1);
+/* both corner clusters are flex rows, so the back arrow and the status pill
+   sit side by side at top-left instead of on top of each other */
+.vd-hero-tl, .vd-hero-tr {
+  position: absolute; top: 10px; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
 }
-.gal-thumb:active { transform: scale(.93); }
-.gal-thumb.sel { opacity: 1; border-color: var(--flame); }
+.vd-hero-tl { left: 10px; }
+.vd-hero-tr { right: 10px; }
+/* .status-pill is written for a card's photo corner: position:absolute with
+   top/left 6px. Inside .vd-hero-tl it has to be an ordinary flex item —
+   position:static makes its top/left/z-index inert in one property, and
+   every other declaration in that rule (solid fill, size, radius, dark ink
+   text) is exactly what's wanted here, so nothing else needs neutralising. */
+.vd-hero-tl .status-pill { position: static; }
+/* fixed hex, not tokens: these sit over a photo, so they must read the same
+   in both themes — same reasoning as .status-pill's own colours */
+.vd-round {
+  flex-shrink: 0; width: 34px; height: 34px; padding: 0;
+  border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(19,16,25,.62); color: #F5F1E8;
+  font-family: var(--font); font-size: 15px; line-height: 1; cursor: pointer;
+}
+.vd-round svg { display: block; }
+.vd-tonight {
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; line-height: 1.3;
+  padding: 5px 9px; border-radius: 8px;
+  background: var(--flame); color: #131019;
+}
+.vd-photo-count {
+  position: absolute; right: 10px; bottom: 10px; z-index: 2;
+  font-size: 11.5px; font-weight: 700; line-height: 1;
+  padding: 6px 9px; border-radius: 8px;
+  background: rgba(19,16,25,.62); color: #F5F1E8;
+}
+/* desktop: the sheet is a 420px-wide full-height panel, so 40vh of a tall
+   window is a near-square photo in a narrow column. Fixed height instead,
+   and max-height/min-height are re-stated rather than left dangling — a
+   height override does not neutralise them (see CLAUDE.md). */
+@media (min-width: 768px) {
+  .vd-hero { height: 260px; min-height: 0; max-height: none; }
+}
+
+/* title block: name, Lao name inline and quieter, then tagline · distance.
+   Distance decides whether someone actually goes, so it reads with the name
+   instead of sitting in a row below the fold. */
+.vd-title {
+  margin-top: 14px;
+  font-size: 20px; font-weight: 600; line-height: 1.25; color: var(--bone);
+}
+.vd-title-lo { font-size: 14px; font-weight: 500; color: var(--mute); }
+.vd-meta { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--mute); }
+.vd-dot { color: var(--dim); }
+.vd-dim { color: var(--dim); }
+
+/* the venue's own vibe tags (migrations/013_vibe.sql) — until now these only
+   existed inside the mood chooser. Read-only here: a label, not a filter. */
+.vd-vibes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.vd-vibe {
+  font-size: 11.5px; font-weight: 500; line-height: 1;
+  padding: 6px 10px; border-radius: 999px;
+  background: var(--ink3); border: 1px solid var(--ink4); color: var(--mute);
+}
+
+/* one primary action. The flame fill lives on whichever of Check in /
+   Directions is actually usable — see updateCheckinButton() in app.js,
+   which sets both classes on both buttons every time so neither can end up
+   wearing neither. Share is icon-only and never primary. */
+.vd-actions { display: flex; gap: 8px; margin-top: 14px; }
+.vd-btn {
+  flex: 1; min-width: 0; min-height: 44px; padding: 0 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: none; border-radius: 14px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 700;
+  cursor: pointer; text-decoration: none;
+  transition: transform .16s cubic-bezier(.34,1.56,.64,1), background .2s, opacity .2s;
+}
+.vd-btn svg { display: block; }
+/* background (shorthand) deliberately, not background-color: it has to clear
+   the --card-fill gradient .vd-btn-secondary sets, since a button swaps
+   between the two classes at runtime */
+.vd-btn-primary { background: var(--flame); color: #131019; box-shadow: var(--card-lift); }
+.vd-btn-secondary {
+  background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
+  color: var(--bone);
+}
+.vd-btn-icon { flex: 0 0 40px; padding: 0; color: var(--mute); }
+.vd-btn:disabled { cursor: default; opacity: .6; }
+/* loadingRing() goes inside #dirLbl during a route fetch (see toggleRoute())
+   — no colour of its own here, so it inherits whichever of the two button
+   states Directions is currently in */
+#dirLbl { display: inline-flex; align-items: center; gap: 6px; }
+
+/* description: first sentence, the rest behind More, expanded in place */
+.vd-desc { margin-top: 14px; font-size: 13px; line-height: 1.55; color: var(--bone); }
+.vd-desc-rest { display: none; }
+.vd-desc.open .vd-desc-rest { display: inline; }
+.vd-more {
+  background: none; border: none; padding: 0;
+  font-family: var(--font); font-size: 13px; font-weight: 700;
+  color: var(--flame); cursor: pointer;
+}
+
+/* the quiet group: one divider above the lot, nothing between the rows.
+   Small stroke icons in a fixed gutter (see vdRow()/icoPin() etc. in
+   app.js) — never emoji, which is the treatment this replaced. */
+.vd-details { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--ink4); }
+.vd-row { display: flex; align-items: flex-start; gap: 11px; padding: 7px 0; font-size: 12.5px; }
+.vd-row-ico { flex: 0 0 16px; padding-top: 2px; line-height: 0; color: var(--dim); }
+.vd-row-ico svg { display: block; }
+.vd-row-main { flex: 1; min-width: 0; color: var(--mute); line-height: 1.5; }
+.vd-row-sub { margin-top: 1px; font-size: 11.5px; color: var(--dim); }
+.vd-row-label { margin-bottom: 2px; font-size: 12.5px; font-weight: 700; color: var(--bone); }
+/* still a tel: link, still tappable — just no longer the brightest thing on
+   the page. It was flame/700 before, which made a phone number outrank the
+   venue's own name. */
+.vd-phone { color: var(--mute); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.vd-phone:active { opacity: .7; }
+.vd-links { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.vd-links a { color: var(--mute); text-decoration: underline; text-underline-offset: 2px; }
+/* the open/closed word heads its row but carries no hue of its own: the
+   hero's status pill (statusPillHtml(), a solid teal/orange/grey chip over
+   the photo) is already the loud signal for exactly this fact, and saying it
+   again in flame down here is the "everything shouts" problem this redesign
+   undoes. The row still earns its place — it's what "all hours" hangs off. */
+.vd-status { font-weight: 700; color: var(--mute); }
+/* the "all hours" toggle is inside the quiet group, so it drops .vd-more's
+   flame for the same muted underline the links and phone use */
+.vd-row .vd-more {
+  font-size: 12px; font-weight: 500; color: var(--mute);
+  text-decoration: underline; text-underline-offset: 2px;
+}
 
 /* Mood popup result cards (see openVibePop() in js/app.js) — this base rule
    is the card's default size; the popup itself shrinks it further (see the
    .vibe-pop-body override near the mood popup rules below) so more results
    fit on screen at once without scrolling. Deliberately not sharing classes
-   with #sheet's own .gal photo strip (venue detail) so neither's styles
-   bleed into the other. */
+   with the venue sheet's own .vd-hero photo (venue detail) so neither's
+   styles bleed into the other. */
 .collage-card {
   position: relative; height: 300px; margin-top: 10px;
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
@@ -1880,8 +1998,12 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
        the full width. Same fix, other axis: overlap past the padding edge
        (16px) by the same 1px margin used vertically, so the cover is full-
        bleed-plus-one on both sides too, past #chipBar's own edge everywhere
-       chipBar exists. */
-    margin-left: -17px; margin-right: -17px;
+       chipBar exists. Written against --sheet-pad-x now rather than the flat
+       -17px it used to be: that number assumed Home/You's 16px padding and
+       silently overhung by 3px a side on the venue detail, whose padding is
+       14px — enough to give that sheet a horizontal scrollbar of its own. */
+    margin-left: calc(-1 * (var(--sheet-pad-x) + 1px));
+    margin-right: calc(-1 * (var(--sheet-pad-x) + 1px));
     background: var(--ink2);
     /* translateZ(0) (below) turned the original multi-line flicker into a
        single line at the #chipBar boundary — real progress, but it confirmed
@@ -2171,7 +2293,8 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      existing #sheet padding untouched */
   #app[data-screen="home"]:not(.sheet-detail) #sheet,
   #app[data-screen="you"]:not(.sheet-detail) #sheet {
-    padding-left: 16px; padding-right: 16px;
+    --sheet-pad-x: 16px;
+    padding-left: var(--sheet-pad-x); padding-right: var(--sheet-pad-x);
   }
 
   /* ---- section headers: 15px/600 sentence case, quieter dot ---- */
