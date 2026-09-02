@@ -197,7 +197,7 @@ export async function onRequest(context) {
     await db.prepare(`UPDATE venues SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
 
     // purge the public list's cached entry so the map reflects this edit
-    // immediately rather than waiting out its 5-minute TTL — see
+    // immediately rather than waiting out its hour-long TTL — see
     // functions/api/venues.js for the cache this mirrors the key of
     const publicVenuesUrl = new URL('/api/venues', context.request.url).toString();
     await caches.default.delete(new Request(publicVenuesUrl, { method: 'GET' }));

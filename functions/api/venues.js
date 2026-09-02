@@ -81,7 +81,15 @@ async function handleGet(context) {
 
     const response = Response.json(
       { venues },
-      { headers: { 'Cache-Control': 'public, max-age=300' } }
+      // one hour, not five minutes: venue data changes weekly at most,
+      // and every path that changes it purges this exact cache key
+      // immediately afterwards — the POST below, and
+      // functions/api/venues/[id].js, [id]/approve.js and [id]/reject.js —
+      // so an owner's edit still appears at once rather than waiting the
+      // TTL out. The TTL only governs how long a *stale-but-unedited*
+      // response is reused, which is exactly where the round trip to D1
+      // is pure cost.
+      { headers: { 'Cache-Control': 'public, max-age=3600' } }
     );
     context.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
@@ -221,7 +229,7 @@ async function handlePost(context) {
     // a pending venue is deliberately excluded from the public list's
     // renderMarkers/editorial sections, but it's still new data — purge so
     // it shows up in list sections/type filters right away (see
-    // js/app.js renderHomeSheet) instead of waiting out the 5-minute TTL
+    // js/app.js renderHomeSheet) instead of waiting out the hour-long TTL
     const publicVenuesUrl = new URL('/api/venues', context.request.url).toString();
     await caches.default.delete(new Request(publicVenuesUrl, { method: 'GET' }));
 

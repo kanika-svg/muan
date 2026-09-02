@@ -47,7 +47,7 @@ export async function onRequest(context) {
     ).bind(lat, lng, source, nowIso, venueId).run();
 
     // so the pin appears on the public map immediately instead of waiting
-    // out the 5-minute TTL — same cache/key this mirrors as functions/api/
+    // out the hour-long TTL — same cache/key this mirrors as functions/api/
     // venues/[id].js's owner-edit path
     const publicVenuesUrl = new URL('/api/venues', context.request.url).toString();
     await caches.default.delete(new Request(publicVenuesUrl, { method: 'GET' }));

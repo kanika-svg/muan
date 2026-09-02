@@ -329,6 +329,106 @@ function placeChips() {
   }
 }
 
+/* ---------- first-paint data: bundle now, live list a moment later ---------- */
+
+// data/venues.json is a mirror of D1 refreshed by hand (scripts/export-venues.js),
+// so it is right almost all of the time and wrong in exactly one way: an
+// edit made to a venue since the last export. Rather than guess, compare
+// the two properly once the live list lands.
+//
+// HOW "DIFFERS" IS DETECTED: a canonical fingerprint of the whole list —
+// every object's keys sorted recursively, then JSON.stringify'd — compared
+// as a single string. That is sensitive to every field of every venue: an
+// edited closing hour, a corrected phone number, a flipped `verified`, a
+// new photo id, a venue added, removed, or moved in the list. A length
+// check (or an id-set check) would catch only additions and deletions and
+// would sail straight past the far more common case, which is one field
+// edited on a venue that was already there. Sorting the keys is what makes
+// it safe to run on every load: the row -> object reassembly in
+// functions/api/venues.js and rowToVenue() in scripts/export-venues.js
+// build the same object deliberately, but property order is not part of
+// what either promises, and an order-only difference is not a data
+// difference — without the sort every load would "differ" and re-render for
+// nothing. Cost is ~40 KB stringified twice, well under a millisecond, and
+// it runs after the first paint either way.
+function canonicalise(value) {
+  if (Array.isArray(value)) return value.map(canonicalise);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const k of Object.keys(value).sort()) out[k] = canonicalise(value[k]);
+    return out;
+  }
+  return value;
+}
+const venuesFingerprint = list => JSON.stringify(canonicalise(list));
+
+// /api/venues excludes rejected submissions (see its SELECT); the mirror is
+// a straight dump of the table with no such filter, so the same rule has to
+// be applied here — otherwise the bundle would briefly show a venue the API
+// never returns, and would register as a "differs" on every single load.
+const publicVenues = list => (list || []).filter(v => v.pin_status !== 'rejected');
+
+// swaps the bundle out for the live list, but only when it actually says
+// something different. In the common case (mirror in sync with D1) this
+// costs one string comparison and nothing on screen moves.
+function refreshVenuesFromLive(live) {
+  if (!live || !Array.isArray(live.venues)) {
+    console.warn('[muan] live venues unavailable — staying on the bundled mirror');
+    return;
+  }
+  // D1 threw and the Function served its own copy of the same mirror we are
+  // already showing (see functions/api/venues.js) — no re-render to do, but
+  // the data really may be out of date, so say so
+  if (live.stale) showStaleWarning();
+  const fresh = publicVenues(live.venues);
+  if (venuesFingerprint(fresh) === venuesFingerprint(state.venues)) return;
+  console.info('[muan] live venue data differs from the bundle — re-rendering');
+  state.venues = fresh;
+  renderMarkers();
+  // only Home is safe to redraw from under the user: a venue detail, the
+  // You screen or a half-filled owner form would lose its scroll position
+  // (or its unsaved input) over a change the person may not even be looking
+  // at. Every other view reads state.venues on its next render anyway.
+  if (state.sheetView.type === 'home') renderHomeSheet();
+}
+
+// maplibre-gl.js is a ~830 KB classic <script>. Loaded synchronously ahead
+// of this file — as it was until this pass — it gated every line of it:
+// boot() could not start, so nothing could render, until the whole map
+// library had downloaded and executed, on a screen where the list is the
+// content and the map sits behind it. index.html loads it `async` now and
+// this is the single point that waits for it. Resolves false rather than
+// hanging if the tag is missing, the CDN is blocked, or it is still not
+// there after 12s, so a dead unpkg costs the map and not the app.
+function maplibreReady() {
+  if (window.maplibregl) return Promise.resolve(true);
+  const tag = document.getElementById('maplibre-js');
+  if (!tag) return Promise.resolve(false);
+  return Promise.race([
+    new Promise(resolve => {
+      tag.addEventListener('load', () => resolve(!!window.maplibregl), { once: true });
+      tag.addEventListener('error', () => resolve(false), { once: true });
+    }),
+    new Promise(resolve => setTimeout(() => resolve(!!window.maplibregl), 12000)),
+  ]);
+}
+
+// First-load instrumentation for "navigation -> venues on screen".
+// performance.now() is already measured from navigation start in a
+// top-level document, so a mark's own startTime is the number wanted and no
+// arithmetic against window.__bootStart is needed. The requestAnimationFrame
+// in the caller is what makes it honest: renderHomeSheet() only writes
+// innerHTML, and the frame those cards are actually painted in is the next
+// one. The two marks are separate on purpose — the cards exist at the
+// first, but #splash is still opaque over them until the second.
+function mark(name) {
+  requestAnimationFrame(() => {
+    performance.mark(name);
+    const t = performance.getEntriesByName(name).pop()?.startTime ?? performance.now();
+    console.info(`[muan] ${name} at ${Math.round(t)}ms from navigation`);
+  });
+}
+
 async function boot() {
   try {
     // captured before anything else touches the URL — renderHomeSheet()
@@ -343,16 +443,27 @@ async function boot() {
     placeChips();
     window.addEventListener('resize', placeChips);
     initDebugTapTrigger();  // 5 taps on the logo within 3s — see DEBUG_GEO above
-    const [vRes, eRes, picks] = await Promise.all([
-      fetch('/api/venues'),
-      fetch('data/events.json'),
-      fetch('data/picks.json')
-        .then(r => r.ok ? r.json() : Promise.reject(new Error('picks fetch failed: ' + r.status)))
+    // FIRST PAINT COMES OFF THE BUNDLE, NOT THE DATABASE. Everything
+    // awaited here is a static file on the Pages edge, already requested
+    // from index.html's <head> (window.__boot) before this script had even
+    // finished downloading — so by the time this line runs they are
+    // typically resolved and the list renders in the same tick. /api/venues
+    // is a Worker invocation and a D1 query behind that; it is started at
+    // the same moment but deliberately not awaited, and reconciled against
+    // the bundle by refreshVenuesFromLive() further down.
+    const pre = window.__boot || {};
+    const livePromise = (pre.live || fetch('/api/venues').then(r => r.json()))
+      .catch(e => { console.warn('[muan] live venues fetch failed', e); return null; });
+
+    const [bundle, eData, picks] = await Promise.all([
+      pre.venues || fetch('data/venues.json').then(r => r.json()),
+      pre.events || fetch('data/events.json').then(r => r.json()),
+      pre.picks || fetch('data/picks.json')
+        .then(r => (r.ok ? r.json() : null))
         .catch(e => { console.warn('[muan] picks unavailable', e); return null; }),
     ]);
-    const vData = await vRes.json();
-    state.venues = vData.venues;
-    state.events = (await eRes.json()).events.filter(ev => !isPast(ev.date));
+    state.venues = publicVenues(bundle.venues);
+    state.events = eData.events.filter(ev => !isPast(ev.date));
     state.picks = picks;
 
     initTheme();
@@ -373,8 +484,12 @@ async function boot() {
     mePromise.then(me => {
       if (me?.ok && !me.signed_out) applyAvatarUrl(me.avatar_url || null);
     });
-    initMap();
+    // renderHomeSheet() before the map, not after: the list is the content
+    // of the first screen and needs neither tiles nor maplibre-gl.js, which
+    // is still downloading at this point (see maplibreReady(), called below
+    // once every binding is in place).
     renderHomeSheet();
+    mark('muan:venues-rendered');
 
     // fire-and-forget, not in the Promise.all above with venues/events/picks
     // — weather is decoration (see weatherWidgetHtml()), not content the
@@ -434,7 +549,9 @@ async function boot() {
     bindRouteBar();
     bindMapWarning();
     bindStaleWarning();
-    if (vData.stale) showStaleWarning();
+    // the live list arrives whenever it arrives — the app has been usable
+    // off the bundle since renderHomeSheet() above
+    livePromise.then(refreshVenuesFromLive);
     initSheetDrag();
 
     // mobile bottom nav — tapping a tab while a venue is open closes it via
@@ -497,6 +614,30 @@ async function boot() {
       }
     });
 
+    // Nothing below this line is something the splash is covering for. For
+    // a return visitor there is no intro to mount, so Home — rendered and
+    // fully bound by now — is what is behind the splash, and it comes off
+    // here rather than at the end of boot(). That matters more than it
+    // sounds: everything after this point waits on the 830 KB map library
+    // and then on basemap tiles, so leaving the splash to the finally block
+    // meant a list that had finished rendering at half a second stayed
+    // invisible for several more. moodIntroPossible() is checked once and
+    // reused below so the two decisions can't disagree.
+    const introPending = moodIntroPossible();
+    if (!introPending) dismissSplash();
+
+    // the one point in the app that has to wait for maplibre-gl.js —
+    // placed after renderHomeSheet() and after every binding above, so the
+    // list is on screen and interactive while the library is still coming
+    // down. Everything else that touches `maplibregl` is either reached
+    // from initMap() or guarded on state.map.
+    if (await maplibreReady()) {
+      initMap();
+    } else {
+      console.warn('[muan] maplibre-gl.js unavailable — continuing without the map');
+      showMapWarning();
+    }
+
     const vid = deepLinkId;
     if (vid && venueById(vid)) {
       openVenue(vid);
@@ -512,32 +653,40 @@ async function boot() {
     // flaky connection) hold the splash — or the rest of the app — hostage.
     // The sheet/list/gallery don't need tiles at all, so race the real load
     // against a timeout rather than awaiting it unconditionally
-    if (state.map) {
-      let mapTimedOut = false;
-      await Promise.race([
-        new Promise(resolve => state.map.once('load', resolve)),
-        new Promise(resolve => setTimeout(() => {
-          console.warn('[muan] map load timed out after 8s — continuing without it');
-          mapTimedOut = true;
-          resolve();
-        }, 8000)),
-      ]);
-      if (mapTimedOut) showMapWarning();
-    }
+    // Kept as a promise now instead of an inline await. This wait was the
+    // reason a list that had finished rendering at ~0.5s still sat behind
+    // an opaque splash until the basemap tiles arrived — the bundle-first
+    // work above would have bought nothing user-visible while it stood.
+    const mapSettled = !state.map ? Promise.resolve() : Promise.race([
+      new Promise(resolve => state.map.once('load', () => resolve(false))),
+      new Promise(resolve => setTimeout(() => {
+        console.warn('[muan] map load timed out after 8s — continuing without it');
+        resolve(true);
+      }, 8000)),
+    ]).then(timedOut => { if (timedOut) showMapWarning(); });
 
     // one-time first-open intro flow — mounted here, right before the
     // finally block's dismissSplash(), so it's the first thing revealed as
-    // the splash fades rather than Home. mePromise has almost certainly
-    // resolved by now (it started alongside the venues/events/picks fetch,
-    // well before this 8s-capped map wait), so this await costs ~nothing.
-    // preloadWelcomeSlides() is awaited too (capped at 4s) so the carousel
-    // never opens mid-load — the splash's own loader stays up and covers
-    // for it (#splash is z-index 999, above .mood-intro's 900) rather than
-    // flashing Home before the intro pops in late.
-    const me = await mePromise;
-    if (shouldShowMoodIntro(me)) {
-      await preloadWelcomeSlides();
-      showMoodIntro();
+    // the splash fades rather than Home. preloadWelcomeSlides() is awaited
+    // too (capped at 4s) so the carousel never opens mid-load — the
+    // splash's own loader stays up and covers for it (#splash is z-index
+    // 999, above .mood-intro's 900) rather than flashing Home before the
+    // intro pops in late.
+    //
+    // moodIntroPossible() is the half of shouldShowMoodIntro() that can be
+    // answered with no network round trip at all. When it says no — every
+    // return visit, which is nearly every visit — there is nothing left
+    // that needs the splash, so both the map wait and the /api/me read are
+    // skipped and the finally block drops the splash as soon as Home has
+    // painted. Only a genuine first-time visitor still pays for them, and
+    // for them the wait is buying something they will actually see.
+    if (introPending) {
+      await mapSettled;
+      const me = await mePromise;
+      if (shouldShowMoodIntro(me)) {
+        await preloadWelcomeSlides();
+        showMoodIntro();
+      }
     }
   } catch (err) {
     console.error('[muan] boot failed', err);
@@ -548,13 +697,22 @@ async function boot() {
   }
 }
 
+let splashDismissed = false;
 function dismissSplash() {
+  // boot() drops the splash as soon as Home is up on the fast path, and its
+  // finally block drops it again for the paths that don't — whichever gets
+  // here first owns the fade; a second call must not restart it
+  if (splashDismissed) return;
+  splashDismissed = true;
   const splash = document.getElementById('splash');
   if (!splash) return;
   const MIN_MS = 600;                    // avoid a jarring flash on fast loads
   const wait = Math.max(0, MIN_MS - (performance.now() - window.__bootStart));
   setTimeout(() => {
     splash.classList.add('gone');
+    // the venues were rendered at muan:venues-rendered but nobody could see
+    // them until this line — #splash is opaque and covers the whole viewport
+    mark('muan:splash-lifting');
     setTimeout(() => splash.remove(), 500);
   }, wait);
 }
@@ -829,8 +987,35 @@ function openAvatarSheet() {
   document.querySelector('[data-back-flame]')?.addEventListener('click', openFlameSheet);
 }
 
-function initGoogleSignIn(containerId) {
-  if (!window.google?.accounts?.id) { setTimeout(() => initGoogleSignIn(containerId), 400); return; }
+// Google Identity Services used to be a plain <script async defer> in
+// index.html's <head>, so every visitor downloaded and executed it on every
+// load for a button that exists in one place: the You screen, signed out.
+// Injected on demand instead. openFlameSheet() starts it the moment You is
+// opened, so it is usually ready by the time that screen's /api/me round
+// trip finishes, and this awaits it — which also replaces the old 400ms
+// polling retry with the actual load event.
+let gsiPromise = null;
+function loadGoogleSignIn() {
+  if (window.google?.accounts?.id) return Promise.resolve(true);
+  if (gsiPromise) return gsiPromise;
+  gsiPromise = new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = () => resolve(!!window.google?.accounts?.id);
+    // cleared so a later visit to the You screen retries rather than being
+    // stuck on one failed load for the rest of the session
+    s.onerror = () => { gsiPromise = null; resolve(false); };
+    document.head.appendChild(s);
+  });
+  return gsiPromise;
+}
+
+async function initGoogleSignIn(containerId) {
+  if (!(await loadGoogleSignIn())) {
+    console.warn('[muan] Google sign-in script unavailable');
+    return;
+  }
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
     callback: async (resp) => {
@@ -928,6 +1113,11 @@ function miniFlame() {
 }
 
 async function openFlameSheet() {
+  // every route into signing in lands here (the avatar pill, the You tab,
+  // a 401 from check-in), so this one line is enough to have the sign-in
+  // script downloading in parallel with the /api/me read below instead of
+  // starting a round trip later, once initGoogleSignIn() asks for it
+  loadGoogleSignIn();
   toggleSheet(false);
   setSheetView({ type: 'flame', venueId: null });
   setMobileScreen('you');
@@ -2452,6 +2642,7 @@ function initMap() {
     if (markersDone) return;
     markersDone = true;
     renderMarkers();
+    updateUserMarker();   // no-op unless a fix landed while the map was still loading
   }
   state.map.on('load', () => {
     state.map.resize();
@@ -2759,6 +2950,10 @@ function firstSentence(text) {
 }
 
 function renderMarkers() {
+  // maplibre-gl.js loads async now, so a filter tap (bindChips) can land
+  // before there is a map to hang markers on — initMap()'s own
+  // renderMarkersOnce() draws them as soon as there is
+  if (!state.map) return;
   state.markers.forEach(m => m.marker.remove());
   state.markers = [];
 
@@ -3898,6 +4093,19 @@ function preloadWelcomeSlides() {
 
 const MOOD_INTRO_KEY = 'psd-mood-intro-seen';
 
+// the half of shouldShowMoodIntro() that needs no network, so boot() can use
+// it to decide whether the splash still has any reason to stay up. A "no"
+// here is conclusive: the localStorage flag is written for everyone who
+// dismisses the intro, signed in or not (see markMoodIntroSeen()), so a
+// visitor carrying it can never be shown it again whatever /api/me says. A
+// "yes" is only a maybe — shouldShowMoodIntro() still gets the final word
+// once mePromise resolves.
+function moodIntroPossible() {
+  if (!anyVibeTagged()) return false;
+  try { if (localStorage.getItem(MOOD_INTRO_KEY) === '1') return false; } catch (e) {}
+  return true;
+}
+
 // gates the automatic first-open call in boot() to exactly once ever —
 // mirrors users.intro_seen (migrations/004_intro_seen.sql) for the flame
 // explainer, but with a localStorage fallback: most first-time visitors
@@ -4972,6 +5180,10 @@ async function toggleRoute(v) {
 /* ---------- route drawing ---------- */
 function updateUserMarker() {
   if (!state.userPos) return;
+  // boot()'s silent geolocation request now runs while maplibre-gl.js is
+  // still downloading, so a coarse fix can arrive before the map exists —
+  // renderMarkersOnce() in initMap() calls this again once it does
+  if (!state.map) return;
   if (state.userMarker) {
     state.userMarker.setLngLat([state.userPos.lng, state.userPos.lat]);
     return;

@@ -15,6 +15,32 @@
         document.documentElement.dataset.theme = 'dark';
       }
       window.__bootStart = performance.now();
+
+      // First-paint data, requested here rather than from boot() at the
+      // bottom of the body. js/app.js cannot run until it has downloaded,
+      // so a fetch started inside boot() only begins hundreds of ms into
+      // the load on a phone; started here it is in flight before the
+      // stylesheets below have even been requested.
+      //
+      // data/venues.json is the mirror of D1 that already ships in every
+      // deploy as /api/venues' outage fallback (see functions/api/venues.js
+      // and scripts/export-venues.js). It is a static file served straight
+      // off the Pages edge — no Function invocation, no D1 round trip — so
+      // the map and the list can be drawn from it in full while the live
+      // /api/venues response is still on the wire. boot() reads these
+      // promises off window.__boot and reconciles the live list against the
+      // bundle when it lands; it falls back to fetching for itself if this
+      // block ever fails to run.
+      window.__boot = {
+        venues: fetch('data/venues.json').then(function (r) { return r.json(); }),
+        events: fetch('data/events.json').then(function (r) { return r.json(); }),
+        picks: fetch('data/picks.json')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; }),
+        live: fetch('/api/venues')
+          .then(function (r) { return r.json(); })
+          .catch(function () { return null; }),
+      };
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -69,12 +95,12 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Lao:wght@400;700&display=swap" rel="stylesheet">
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="splash">
@@ -153,7 +179,7 @@
 
 </div>
 
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script id="maplibre-js" async src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
