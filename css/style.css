@@ -453,6 +453,11 @@ body {
 .mood-intro {
   --ink: #131019; --ink2: #1C1726; --ink3: #241E31; --ink4: #2E2740;
   --bone: #F5F1E8; --mute: #8A8494; --flame: #FF5A3C;
+  /* the phone-shaped content column this flow collapses to on desktop —
+     a token because three separate rules have to agree on it now: the
+     viewport, the controls bar, and .mi-skip, which is positioned rather
+     than laid out and so has to work its own offset out from it. */
+  --mi-col: 440px;
   position: fixed; inset: 0; z-index: 900;
   display: flex; flex-direction: column;
   background: var(--ink); opacity: 0;
@@ -471,29 +476,66 @@ body {
   .mood-intro.hide { animation: none; opacity: 0; }
 }
 
-/* dots + chevron + Skip share one bottom bar — nothing floats loose in the
-   slide itself any more. The chevron used to live in a flexible spacer
-   between image and text (.mi-gap, since removed): that spacer was meant
-   to hold the empty space the shorter image left over, but once the text
-   was also pinned to the bottom of the slide it turned into a genuinely
-   huge void (measured: ~500px at 400x939) with the chevron floating alone
-   in the middle of it, colliding with nothing but not sitting near
-   anything either. Putting it in the controls bar removes the question of
-   where the "empty space" is entirely — the chevron just lives beside the
-   dots, wherever that ends up. A 3-column grid holds the dots+chevron
-   group dead-centre regardless of Skip's own width, rather than drifting
-   off-centre to make room for it. */
+/* The bottom bar is down to the chevron alone: the dots moved up into the
+   slide (see .mi-dots below) and Skip moved to the top-right corner (see
+   .mi-skip). The chevron stays here rather than following the dots up —
+   it is an action, not an indicator, and the reason it was pulled out of
+   the slide in the first place still stands: it used to live in a flexible
+   spacer between image and text (.mi-gap, since removed), which on a tall
+   phone became a ~500px void with a lone chevron floating in the middle of
+   it (measured at 400x939). Right-aligned rather than centred, though —
+   "centre" only meant anything while it was grouped with the dots; alone
+   in the middle of an otherwise empty bar it reads as a primary call to
+   action, which paging forward is not (swiping is). On the right it reads
+   as what it is, a directional "next", and it lines up under Skip on the
+   same edge.
+
+   The chevron hides on the last slide (.mi-hidden), and it is now the bar's
+   only occupant, so that has to not change the bar's height: .mi-viewport
+   is flex:1, and a bar that shrinks when the mood slide is reached re-lays
+   out every slide mid-swipe. .mi-hidden therefore reserves the space rather
+   than removing the box — see .mi-next.mi-hidden below. A min-height here
+   cannot do that job: box-sizing is border-box globally (see the reset at
+   the top of this file), so the 6px + 18px of vertical padding swallow any
+   min-height up to 24px, and the honest figure is not a constant anyway
+   (the bottom padding is a max() against env(safe-area-inset-bottom)). */
 .mi-controls {
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-  padding: 6px 16px max(18px, env(safe-area-inset-bottom));
+  display: flex; justify-content: flex-end; align-items: center;
+  /* 12px, not the 16px this bar used to carry, so the chevron's right edge
+     lands on the same 12px inset as .mi-skip above it — "lines up under
+     Skip" is the whole reason it is right-aligned, and at 16px it sat 4px
+     inboard of it. */
+  padding: 6px 12px max(18px, env(safe-area-inset-bottom));
 }
-.mi-dots-row { grid-column: 2; display: flex; align-items: center; gap: 14px; }
-.mi-dots { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.mi-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); transition: background .2s, transform .2s; }
-.mi-dot.on { background: var(--flame); transform: scale(1.3); }
+/* Page dots, in the slide's own flow between the illustration and the copy
+   so they read as part of the content rather than as toolbar furniture.
+   Weighted towards the text (26px of air above, 14px below via .mi-copy's
+   top padding) so they group with the words they sit over rather than
+   floating equidistant between image and heading.
+
+   iOS-style: solid circles of one colour, the difference between pages
+   carried entirely by opacity. Deliberately NOT --flame — these say where
+   you are, they are not emphasis, and the flame is spoken for elsewhere in
+   this flow. Transitioning opacity alone (no transform, no background) is
+   the whole animation: the previous version scaled the active dot 1.3x and
+   swapped its colour, which made the row twitch on every swipe. Both
+   properties are gone from the rules entirely rather than being overridden
+   back to their initial values — see CLAUDE.md on per-property cascade,
+   which is why the .on rule declares nothing but opacity. */
+.mi-dots {
+  display: flex; justify-content: center; gap: 8px;
+  flex-shrink: 0; margin-top: 26px;
+}
+.mi-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--bone); opacity: .25; transition: opacity .2s;
+}
+.mi-dot.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .mi-dot { transition: none; } }
-/* smaller than its old floating-in-the-gap size (40px) — inline next to
-   the dots it reads as one more piece of chrome, not its own destination.
+/* smaller than its old floating-in-the-gap size (40px) — sized as one more
+   piece of chrome in the controls bar, not its own destination (it was 40px
+   back when it floated alone in the middle of the slide, where it had to
+   carry the whole gap on its own).
    Hidden (not just scrolled past) on the mood slide, since there's no
    "next" from the last slide — see showMoodIntro()'s scroll listener,
    which toggles .mi-hidden. A bare [hidden] attribute won't reliably beat
@@ -506,11 +548,40 @@ body {
   font-size: 15px; line-height: 1; cursor: pointer;
 }
 .mi-next:active { background: rgba(245,241,232,.18); }
-.mi-next.mi-hidden { display: none; }
+/* visibility, not display:none — the chevron is the whole content of
+   .mi-controls now, so removing its box collapses the bar by 24px the
+   moment the mood slide is reached and every slide above it visibly
+   re-lays-out mid-swipe (see .mi-controls). visibility:hidden keeps the
+   28px reserved while still taking it out of the tab order and the
+   accessibility tree; pointer-events belt-and-braces the dead corner. */
+.mi-next.mi-hidden { visibility: hidden; pointer-events: none; }
+/* Top-right corner, over the illustration rather than under it. Same pill
+   geometry as the app's own #topbar pills (36px, 999px, 0 14px) and the
+   same frosted treatment as #bottomNav/#routeBar — translucent fill plus a
+   real backdrop blur — so it reads as app chrome floating over artwork
+   instead of a link stamped onto it. The tint is written out rather than
+   taken from --frost: --frost is .72 and follows the theme, and this pill
+   needs to be lighter than that and pinned to the dark palette like the
+   rest of .mood-intro (the illustrations are night scenes). Same
+   @supports fallback as the other two frosted surfaces — an older Android
+   WebView with no backdrop-filter would otherwise render a 35% tint as a
+   barely-there smear over a bright shop sign, which is precisely the case
+   this pill exists for.
+
+   The offset matches #topbar's own (safe-area + 12px, 12px in) so it lands
+   where a top-right control lands everywhere else in the app. */
 .mi-skip {
-  grid-column: 3; justify-self: end;
+  position: absolute; z-index: 2;
+  top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px;
+  display: inline-flex; align-items: center;
+  height: 36px; padding: 0 14px; border-radius: 999px;
+  background: rgba(19,16,25,.35); border: none;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   font-family: var(--font); font-size: 13px; font-weight: 600;
-  color: var(--mute); background: none; border: none; cursor: pointer; padding: 8px 4px;
+  color: var(--bone); cursor: pointer;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .mi-skip { background: rgba(19,16,25,.72); }
 }
 .mi-skip:active { opacity: .6; }
 
@@ -533,7 +604,23 @@ body {
    with a narrower content column centred in it. Same breakpoint already
    used for .mood-intro-inner below. */
 @media (min-width: 768px) {
-  .mi-viewport, .mi-controls { max-width: 440px; margin-left: auto; margin-right: auto; }
+  .mi-viewport, .mi-controls { max-width: var(--mi-col); margin-left: auto; margin-right: auto; }
+  /* auto side margins on a flex item disable the cross-axis stretch that
+     would otherwise give this bar the column's full width, so it falls back
+     to shrink-to-fit — and with the dots and Skip gone, its only content is
+     a 28px chevron. That collapsed the bar to 32px wide and the auto margins
+     then centred that, putting the chevron in the dead centre of the column
+     instead of right-aligned under Skip (measured at 1528x784: bar l:748
+     r:780 in a 544-984 column). width:100% restores the intended width, and
+     max-width still clamps it to the column. .mi-viewport doesn't need this
+     — its own max-content width is four full-width slides, so it is clamped
+     down to the column rather than collapsing up to it. */
+  .mi-controls { width: 100%; }
+  /* .mi-skip is positioned against .mood-intro, which stays full-bleed, so
+     it does not inherit the column's narrowing the way the two rules above
+     do — without this it would sit in the far corner of a 1528px window,
+     hundreds of px away from the artwork it belongs to. */
+  .mi-skip { right: calc(50% - var(--mi-col) / 2 + 12px); }
 }
 
 .mi-slide {
@@ -557,13 +644,14 @@ body {
    being forced to it; only a tall one (45vh > 340px, true past ~756px
    tall) gets clamped down. */
 @media (min-width: 768px) { .mi-illus { max-height: 340px; } }
-/* ~32px below the image, then whatever's left over is genuinely empty —
-   no explicit spacer needed: .mi-copy is sized to its own content (no
-   flex:1), so with .mi-slide's default flex-start stacking it just sits
-   right under the image, and anything left of the slide's height stays
-   blank below it, in front of .mi-controls (a separate element outside
+/* The old 32px gap under the image is now split by the dots row: 26px of
+   air, the dots, then this 14px. Whatever is left over below is genuinely
+   empty — no explicit spacer needed: .mi-copy is sized to its own content
+   (no flex:1), so with .mi-slide's default flex-start stacking it just
+   sits under the dots, and anything left of the slide's height stays blank
+   below it, in front of .mi-controls (a separate element outside
    .mi-viewport entirely, always pinned to the very bottom). */
-.mi-copy { padding: 32px 28px 24px; }
+.mi-copy { padding: 14px 28px 24px; }
 .mi-title { font-size: 30px; font-weight: 700; color: var(--bone); }
 .mi-sub { font-size: 13px; font-weight: 400; color: var(--mute); margin-top: 8px; line-height: 1.5; max-width: 320px; }
 

@@ -4063,9 +4063,27 @@ const WELCOME_SLIDES = [
   },
 ];
 
-function welcomeSlideHtml(s, i) {
+// page dots, rendered once per welcome panel rather than once for the whole
+// flow. "Below the illustration, just above the copy" is a position that
+// only exists inside a slide, and .mi-viewport scrolls, so a single shared
+// row could not sit there — it would either scroll away with one slide or
+// have to be absolutely positioned at a hardcoded copy of .mi-illus's
+// height, which is exactly the kind of duplicated constant that drifts.
+// Every row carries every dot and they are all kept in sync by
+// data-mi-dot index (see the scroll listener in showMoodIntro()), so what
+// reads as one indicator is really one per page. aria-hidden because the
+// slide position is decoration here, and three duplicated rows would
+// otherwise be announced as a dozen empty elements.
+function miDotsHtml(total, active) {
+  return `<div class="mi-dots" aria-hidden="true">${
+    Array.from({ length: total }, (_, i) =>
+      `<span class="mi-dot${i === active ? ' on' : ''}" data-mi-dot="${i}"></span>`).join('')}</div>`;
+}
+
+function welcomeSlideHtml(s, i, total, active) {
   return `<div class="mi-slide" data-mi-index="${i}">
     <div class="mi-illus"><img src="${esc(cloudinaryUrl(s.photo, 800))}" alt="" loading="eager"></div>
+    ${miDotsHtml(total, active)}
     <div class="mi-copy">
       <div class="mi-title${s.titleLao ? ' lao' : ''}">${esc(s.title)}</div>
       <div class="mi-sub">${esc(s.sub)}</div>
@@ -4177,7 +4195,7 @@ function showMoodIntro({ startAtMood = false } = {}) {
   ov.className = 'mood-intro';
   ov.innerHTML = `
     <div class="mi-viewport" data-mi-viewport>
-      ${WELCOME_SLIDES.map(welcomeSlideHtml).join('')}
+      ${WELCOME_SLIDES.map((s, i) => welcomeSlideHtml(s, i, totalSlides, startIndex)).join('')}
       <div class="mi-slide mi-slide-mood" data-mi-index="${moodIndex}">
         <div class="mood-intro-inner">
           <div class="mood-intro-brand" aria-hidden="true">${logoMark(20, 'var(--ink)')}<span class="mood-intro-brand-word">PAISAIDEE</span></div>
@@ -4208,13 +4226,9 @@ function showMoodIntro({ startAtMood = false } = {}) {
         </div>
       </div>
     </div>
+    <button type="button" class="mi-skip" data-mi-skip>Skip</button>
     <div class="mi-controls">
-      <div class="mi-dots-row">
-        <div class="mi-dots" data-mi-dots>${Array.from({ length: totalSlides }, (_, i) =>
-          `<span class="mi-dot${i === startIndex ? ' on' : ''}"></span>`).join('')}</div>
-        <button type="button" class="mi-next${startIndex === moodIndex ? ' mi-hidden' : ''}" data-mi-next aria-label="Next">›</button>
-      </div>
-      <button type="button" class="mi-skip" data-mi-skip>Skip</button>
+      <button type="button" class="mi-next${startIndex === moodIndex ? ' mi-hidden' : ''}" data-mi-next aria-label="Next">›</button>
     </div>`;
   document.body.appendChild(ov);
 
@@ -4275,7 +4289,11 @@ function showMoodIntro({ startAtMood = false } = {}) {
     dotRaf = requestAnimationFrame(() => {
       dotRaf = null;
       const idx = Math.round(viewport.scrollLeft / viewport.clientWidth);
-      dots.forEach((d, i) => d.classList.toggle('on', i === idx));
+      // every welcome panel carries its own full row (see miDotsHtml), so
+      // this walks 3 rows x totalSlides dots and matches on the dot's own
+      // page index — a positional `i === idx` would light up the wrong
+      // dot in every row but the first
+      dots.forEach(d => d.classList.toggle('on', Number(d.dataset.miDot) === idx));
       nextBtn.classList.toggle('mi-hidden', idx === moodIndex);
       const onMood = idx === moodIndex;
       if (onMood && !wasOnMood) restartAnim(activeCards(), 'mc-enter');
@@ -4377,8 +4395,9 @@ function showMoodIntro({ startAtMood = false } = {}) {
   };
 
   // returns to step 1 and nothing else — the ways out of the intro itself
-  // are Skip (always visible in .mi-controls) and "Just show me around" on
-  // step 1, both wired below
+  // are Skip (the pill pinned to the top-right corner of the overlay, on
+  // every slide including this one) and "Just show me around" on step 1,
+  // both wired below
   ov.querySelector('[data-ms-back]').addEventListener('click', () => showStep('type', 'back'));
   typeCardsEl.querySelectorAll('[data-mood-type]').forEach(el => {
     const t = MOOD_TYPES.find(x => x.key === el.dataset.moodType);
