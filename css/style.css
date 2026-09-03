@@ -274,9 +274,9 @@ body {
 .vibe-card:disabled:active { transform: none; }
 
 /* --- mood illustrations: flat fills only, every colour a CSS variable
-   (see the --mc-* tokens and .mi-slide-mood's token re-declaration at the
-   top of this file — nothing here is a hardcoded hex, so it tracks the
-   real theme). Two exceptions to "no outlines": for-coffee's steam curls
+   (see the --mc-* tokens at the top of this file — nothing here is a
+   hardcoded hex, so it tracks the real theme, in the mood popup and in the
+   intro carousel alike). Two exceptions to "no outlines": for-coffee's steam curls
    are stroked paths, not filled shapes — a filled blob doesn't read as a
    wisp of steam the way a thin curved line does, so this is one flat
    colour used as a line rather than a border drawn around a shape, which
@@ -304,8 +304,8 @@ body {
 
 /* the Bars type card's bottle and glass (MOOD_TYPE_ILLUS in js/app.js) —
    same rules as the mood illustrations above: no hardcoded hex, every
-   colour a token, so it tracks both themes through .mi-slide-mood's
-   re-declaration. --pin-bar is the colour the map already uses for bar
+   colour a token, so it tracks both themes wherever the card is rendered.
+   --pin-bar is the colour the map already uses for bar
    pins, so the card and the marker read as the same thing. --mc-coffee is
    borrowed here as the warm brown it is rather than as "coffee" — the
    tucked-away buildings already borrow it the same way — because --ink4
@@ -443,16 +443,17 @@ body {
    solid takeover, not a scrim over the map/sheet like .vibe-pop below, so
    it reads as its own moment rather than a popup over Home. 3 illustrated
    welcome panels followed by the mood question as a 4th slide, one
-   horizontal swipe carousel. The illustrations are dark scenes, so this
-   whole flow is pinned to the dark palette regardless of the app's own
-   light/dark theme: these custom properties shadow the :root/[data-theme]
-   ones (see the top of this file) for every descendant — .vibe-chooser/
-   .vibe-card included — without needing a second copy of those rules, so
-   the mood slide still reads as "the same feature" as the mood popup
-   elsewhere in the app, just always in its dark colours here. */
+   horizontal swipe carousel.
+
+   This flow used to pin itself to the dark palette by shadowing the
+   :root/[data-theme] custom properties for its whole subtree, because the
+   only illustrations that existed were night scenes and cream chrome
+   around a night scene looked like a mistake. There is a daytime set now
+   (see WELCOME_SLIDES in js/app.js, which picks the pair by theme), so the
+   lock is gone and the intro inherits the real theme like every other
+   surface — which also removed the need for .mi-slide-mood to un-shadow it
+   again just to get the mood cards reading correctly in both themes. */
 .mood-intro {
-  --ink: #131019; --ink2: #1C1726; --ink3: #241E31; --ink4: #2E2740;
-  --bone: #F5F1E8; --mute: #8A8494; --flame: #FF5A3C;
   /* the phone-shaped content column this flow collapses to on desktop —
      a token because three separate rules have to agree on it now: the
      viewport, the controls bar, and .mi-skip, which is positioned rather
@@ -544,10 +545,17 @@ body {
 .mi-next {
   width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(245,241,232,.10); border: none; color: var(--bone);
+  /* --ink3/--ink4, not the rgba(245,241,232,.10 / .18) bone tint this used
+     to carry: a 10% light film is all but invisible on the light theme's
+     cream ground, which left a bare chevron glyph with no affordance under
+     it. The ink scale gives the same "one quiet step up from the page, one
+     more on press" in both themes, and in dark it lands within a shade or
+     two of the tint it replaces. Unlike .mi-skip this sits on .mood-intro's
+     own background, never over an illustration, so it needs no blur. */
+  background: var(--ink3); border: none; color: var(--bone);
   font-size: 15px; line-height: 1; cursor: pointer;
 }
-.mi-next:active { background: rgba(245,241,232,.18); }
+.mi-next:active { background: var(--ink4); }
 /* visibility, not display:none — the chevron is the whole content of
    .mi-controls now, so removing its box collapses the bar by 24px the
    moment the mood slide is reached and every slide above it visibly
@@ -559,14 +567,34 @@ body {
    geometry as the app's own #topbar pills (36px, 999px, 0 14px) and the
    same frosted treatment as #bottomNav/#routeBar — translucent fill plus a
    real backdrop blur — so it reads as app chrome floating over artwork
-   instead of a link stamped onto it. The tint is written out rather than
-   taken from --frost: --frost is .72 and follows the theme, and this pill
-   needs to be lighter than that and pinned to the dark palette like the
-   rest of .mood-intro (the illustrations are night scenes). Same
-   @supports fallback as the other two frosted surfaces — an older Android
-   WebView with no backdrop-filter would otherwise render a 35% tint as a
-   barely-there smear over a bright shop sign, which is precisely the case
-   this pill exists for.
+   instead of a link stamped onto it.
+
+   --frost, not the hand-written rgba(19,16,25,.35) this used to carry.
+   That 35% ink tint was only ever safe because every illustration was a
+   night scene; against the daytime set it composites to roughly #ACA9A8
+   and puts --bone text on it at about 2.1:1, which is unreadable. --frost
+   is the app's own frosted fill, it follows the theme (ink at .72 in dark,
+   cream at .72 in light), and with --bone flipping the same way the label
+   is dark-on-cream in light and bone-on-ink in dark. Measured against the
+   worst pixels under this pill in each set — the day panel 1 awning at
+   L .05 and the day panel 3 sky at L .84 — .72 holds the label above 8:1
+   either way, where anything lighter fails one end or the other. The
+   trade-off is a more solid-looking pill than the old .35: at .35 nothing
+   survives artwork this varied, and matching #bottomNav/#routeBar exactly
+   is the more defensible place to land than a third bespoke value.
+
+   Same @supports fallback as those two surfaces, and for the same reason:
+   with no backdrop-filter the remaining 28% of a busy illustration reads
+   straight through the tint, so fall back to opaque --ink2 rather than
+   leaving the label sitting on a shop sign.
+
+   The 1px --ink4 edge is #routeBar's, for #routeBar's reason: a frosted
+   surface tinted with the theme's own --ink has no shape of its own where
+   the thing behind it happens to be the same brightness as that tint.
+   Measured on the day panel 3 sky (L .84 against a cream pill) the label
+   stayed perfectly readable but the pill itself all but disappeared, which
+   leaves Skip reading as loose text rather than a control. The hairline is
+   what draws the button back out, in both themes.
 
    The offset matches #topbar's own (safe-area + 12px, 12px in) so it lands
    where a top-right control lands everywhere else in the app. */
@@ -575,13 +603,13 @@ body {
   top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px;
   display: inline-flex; align-items: center;
   height: 36px; padding: 0 14px; border-radius: 999px;
-  background: rgba(19,16,25,.35); border: none;
+  background: var(--frost); border: 1px solid var(--ink4);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   font-family: var(--font); font-size: 13px; font-weight: 600;
   color: var(--bone); cursor: pointer;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .mi-skip { background: rgba(19,16,25,.72); }
+  .mi-skip { background: var(--ink2); }
 }
 .mi-skip:active { opacity: .6; }
 
@@ -657,28 +685,16 @@ body {
 
 /* the mood question, last slide — centred like a screen of its own rather
    than the upper-55%-illustration layout above, since it has no photo.
-   Also the one slide that un-shadows .mood-intro's forced-dark palette:
-   that override exists for the first 3 slides' dark night-scene photos,
-   but this slide's own content (heading, the 4 illustrated cards below)
-   has no such reason to stay dark-locked, and the cards specifically need
-   to read correctly in both themes. Re-declaring the exact same tokens
-   :root/[data-theme="light"] already define, scoped one level deeper than
-   .mood-intro's own override, wins the cascade for everything in this
-   slide's subtree without touching the other 3 slides at all. Needs its
-   own background too — .mood-intro paints its (still dark-locked)
-   background at the overlay level, an ancestor of this rule, so without
-   repainting here this slide would show real-theme text over a
-   still-forced-dark backdrop. Now two steps rather than one grid — type
-   first, then mood — but still one slide; see .ms-steps below. */
+   This slide used to carry a re-declaration of the whole token set, plus a
+   background repaint, purely to escape .mood-intro's forced-dark palette so
+   the mood cards would read correctly in both themes. That lock is gone
+   (see .mood-intro above), so the escape hatch went with it — the tokens
+   and the background now come from :root/[data-theme] through .mood-intro
+   like everywhere else, and this rule is back to being nothing but layout.
+   Now two steps rather than one grid — type first, then mood — but still
+   one slide; see .ms-steps below. */
 .mi-slide-mood {
-  --ink: #131019; --ink2: #1C1726; --ink3: #241E31; --ink4: #2E2740;
-  --bone: #F5F1E8; --mute: #8A8494; --flame: #FF5A3C;
   align-items: center; justify-content: center; padding: 24px;
-  background: var(--ink);
-}
-[data-theme="light"] .mi-slide-mood {
-  --ink: #FFFCF5; --ink2: #FBF6E9; --ink3: #F2EAD8; --ink4: #DDD2BA;
-  --bone: #2A2419; --mute: #6B6151; --flame: #E8462A;
 }
 .mood-intro-inner { width: 100%; max-width: 340px; text-align: center; }
 /* small and quiet — by this slide the flow has already introduced itself,

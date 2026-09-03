@@ -3756,8 +3756,9 @@ const VIBE_TAGS = [
 // one flat, no-outline SVG per mood tag — every fill is a CSS custom
 // property (see .mc-canopy/.mc-building/etc. in style.css and the --mc-*
 // tokens near the top of that file), never a hardcoded hex, so these track
-// the real theme correctly (see .mi-slide-mood's own token re-declaration,
-// which un-shadows .mood-intro's forced-dark palette for just this slide).
+// the real theme correctly, in the mood popup and in the intro carousel
+// alike (the carousel used to be pinned to the dark palette and is not any
+// more — see the .mood-intro comment in style.css).
 // Grouped elements (.mc-canopy-group, .mc-books) exist purely so their
 // one-time entry animation (see the .mc-enter rules in style.css) can
 // move/scale the whole cluster together rather than each shape animating
@@ -4045,23 +4046,45 @@ function anyVibeTagged() {
 // a hardcoded full URL (see CLAUDE.md). titleLao marks slide 1's heading as
 // Lao script (gets the .lao font-feature class); slides 2-3 don't have a
 // Lao heading yet — TODO(Kar): write and add one for each.
+//
+// Two illustrations per panel — night scenes for the dark theme, daytime
+// cream ones for the light theme — held on the one slide definition rather
+// than in a second parallel array. A second array would have to be kept the
+// same length and in the same order as this one by hand, with nothing to
+// catch it drifting; here a panel's copy and both of its images move
+// together. welcomePhoto() picks between them at render time.
 const WELCOME_SLIDES = [
   {
-    photo: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_31_59_PM_vivr57',
+    photoDark: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_31_59_PM_vivr57',
+    photoLight: 'v1788348856/cafecard1_egqeb6',
     title: 'ໄປໃສດີ?', titleLao: true,
     sub: 'Find places to go in Vientiane.',
   },
   {
-    photo: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_37_27_PM_kvbxej',
+    photoDark: 'v1788009913/ChatGPT_Image_Aug_29_2026_06_37_27_PM_kvbxej',
+    // PLACEHOLDER, until this one is regenerated: the signage in it is not
+    // real Lao, and the scene shows water that is not there.
+    photoLight: 'v1788348889/ilustait2_u0sfrv',
     title: 'Checked by us', titleLao: false,
     sub: 'Real opening times and real photos.',
   },
   {
-    photo: 'v1788009908/ChatGPT_Image_Aug_29_2026_06_38_56_PM_gmszju',
+    photoDark: 'v1788009908/ChatGPT_Image_Aug_29_2026_06_38_56_PM_gmszju',
+    photoLight: 'v1788348856/cafecard2_tuubpu',
     title: 'See what is near you', titleLao: false,
     sub: 'Find the way there on the map.',
   },
 ];
+
+// which of a panel's two illustrations the current theme wants. Reads
+// state.theme — the resolved 'light'/'dark' the rest of the app renders
+// from, set by initTheme()/applyTheme() — rather than taking the theme as a
+// parameter at every call site, so the carousel cannot end up showing the
+// night set on a cream page. Falls back to the night set if state.theme is
+// somehow unset: that is the pair this flow shipped with.
+function welcomePhoto(s) {
+  return state.theme === 'light' ? s.photoLight : s.photoDark;
+}
 
 // page dots, rendered once per welcome panel rather than once for the whole
 // flow. "Below the illustration, just above the copy" is a position that
@@ -4082,7 +4105,7 @@ function miDotsHtml(total, active) {
 
 function welcomeSlideHtml(s, i, total, active) {
   return `<div class="mi-slide" data-mi-index="${i}">
-    <div class="mi-illus"><img src="${esc(cloudinaryUrl(s.photo, 800))}" alt="" loading="eager"></div>
+    <div class="mi-illus"><img src="${esc(cloudinaryUrl(welcomePhoto(s), 800))}" alt="" loading="eager"></div>
     ${miDotsHtml(total, active)}
     <div class="mi-copy">
       <div class="mi-title${s.titleLao ? ' lao' : ''}">${esc(s.title)}</div>
@@ -4097,11 +4120,19 @@ function welcomeSlideHtml(s, i, total, active) {
 // load wait in boot() (see the MAPLIBRE HAZARD note there): past the cap the
 // carousel opens anyway and a still-loading <img> just fills in on its own,
 // because a slow image must not hold the splash hostage forever.
+//
+// Three images, not six: only the set the current theme will actually show.
+// Preloading both sets would double the bytes of the very first screen for
+// every visitor, to cover a theme change that essentially nobody makes
+// during a 4-slide intro — and the splash is held on this. The carousel
+// does handle that change if it happens (see the theme observer in
+// showMoodIntro()); the other set just loads at that point, with a brief
+// pop-in, which is the right side of that trade.
 function preloadWelcomeSlides() {
   const loaders = WELCOME_SLIDES.map(s => new Promise(resolve => {
     const img = new Image();
     img.onload = img.onerror = resolve;
-    img.src = cloudinaryUrl(s.photo, 800);
+    img.src = cloudinaryUrl(welcomePhoto(s), 800);
   }));
   return Promise.race([
     Promise.all(loaders),
@@ -4329,7 +4360,34 @@ function showMoodIntro({ startAtMood = false } = {}) {
   // No rAF needed: adding the class synchronously is enough.
   ov.classList.add('show');
 
+  // the illustrations come in a night set and a daytime set (WELCOME_SLIDES),
+  // and only the current theme's three were preloaded — so if the theme
+  // changes while the carousel is open, swap the <img> src and let the other
+  // set load then. A brief pop-in on three images is the accepted cost of
+  // not preloading six (see preloadWelcomeSlides()).
+  //
+  // Watches the data-theme attribute rather than hooking into applyTheme():
+  // the theme moves on the toggle AND on the 60s interval that re-resolves
+  // 'auto' at dusk (see bindTheme()), so reacting to the attribute itself
+  // means no present or future path that sets it has to remember the intro
+  // exists. Observer callbacks are delivered at the microtask checkpoint
+  // after the setter's task finishes, so applyTheme() has always assigned
+  // state.theme — which welcomePhoto() reads — by the time this runs.
+  const themeObserver = new MutationObserver(() => {
+    WELCOME_SLIDES.forEach((s, i) => {
+      const img = ov.querySelector(`.mi-slide[data-mi-index="${i}"] .mi-illus img`);
+      if (!img) return;
+      const src = cloudinaryUrl(welcomePhoto(s), 800);
+      if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+    });
+  });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
   const dismiss = () => {
+    // before the fade, not after: the overlay lingers ~280ms and the 60s
+    // theme interval can fire inside that window, which would otherwise
+    // swap all three illustrations out mid-fade
+    themeObserver.disconnect();
     ov.classList.remove('show');
     ov.classList.add('hide');
     setTimeout(() => ov.remove(), reduced ? 0 : 280);
