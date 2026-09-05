@@ -3544,7 +3544,7 @@ function watchImgLoad(img, v, onSettled) {
       console.warn('[muan] image failed to load:', img.src);
       img.dataset.monogram = '1';
       img.onerror = null;
-      const wide = img.classList.contains('big-thumb') || img.classList.contains('vd-hero-img');
+      const wide = img.classList.contains('big-thumb');
       img.src = venueTileUri(v.short_name || v.name, v.type, wide);
     }
     onSettled?.(ok);
@@ -4639,6 +4639,16 @@ function openVibePop(tagKey, type = 'cafe') {
 // a sticky routed venue (state.routeVenueId) wins over an incidental
 // re-render, per clearRoute()'s comment on when a route is allowed to die
 function goHome() {
+  // the lightbox is appended to document.body, not to #sheet, so re-rendering
+  // the sheet underneath leaves it covering the fresh content (see
+  // openLightbox()). closeLightbox() is a guarded no-op when nothing is open,
+  // so it costs nothing on the paths that never had one. Deliberately here
+  // and NOT by routing this function through leaveVenue(): the sticky-route
+  // branch below re-opens a venue rather than leaving one, so goHome() is not
+  // always a close and must not run leaveVenue()'s full teardown. Callers
+  // reaching this: the map background tap and the post-check-in
+  // celebration's "Done" — see the same call in bindChips().
+  closeLightbox();
   if (state.routeVenueId) { openVenue(state.routeVenueId); return; }
   renderHomeSheet();
 }
@@ -5593,8 +5603,6 @@ function initSheetDrag() {
 
   sheet.addEventListener('touchstart', e => {
     if (window.innerWidth >= 768) return;
-    // TEMP DIAGNOSTIC — remove once confirmed the sheet no longer sticks
-    console.log('[sheet-drag] touchstart', { axis, dragging, sheetDragging: sheet.classList.contains('dragging') });
     if (e.touches.length > 1) { endGesture(); return; }   // a second finger mid-drag is a common way to strand this state
     endGesture();           // defensive: clear anything a missed touchend/touchcancel left behind
     dx = 0;
@@ -5676,8 +5684,6 @@ function initSheetDrag() {
     } else {
       endGesture();
     }
-    // TEMP DIAGNOSTIC — remove once confirmed the sheet no longer sticks
-    console.log('[sheet-drag] touchend', { axis, dragging, sheetDragging: sheet.classList.contains('dragging') });
   };
   sheet.addEventListener('touchend', onEnd);
   sheet.addEventListener('touchcancel', endGesture);
@@ -5849,6 +5855,7 @@ function bindChips() {
       // a sticky routed venue (state.routeVenueId) the same as pressing back
       state.selectedId = null;
       if (state.map) clearRoute();
+      closeLightbox();   // body-level overlay, survives the re-render — see goHome()
       renderHomeSheet();
       updateSelection();
       renderMarkers();
