@@ -3532,7 +3532,7 @@ function openLightbox(photos, index) {
 // fires once either way, after any monogram swap has already happened.
 function watchImgLoad(img, v, onSettled) {
   // re-arms cleanly if called again on an img whose src just changed — the
-  // venue sheet's hero (#galHero) is re-rendered and re-watched on every
+  // venue sheet's collage tiles are re-rendered and re-watched on every
   // openVenue(), including a sticky re-open of the venue already showing
   delete img.dataset.settled;
   delete img.dataset.monogram;
@@ -4949,20 +4949,26 @@ function openVenue(id) {
   const isPending = v.pin_status === 'pending';
 
   const photos = v.photos || [];
-  // full-bleed hero (see .vd-hero in style.css): edge to edge, ~40vh, tap
-  // anywhere on it to open the lightbox. The thumbnail strip this replaced
-  // is gone — the "N photos" count plus the lightbox's own prev/next covers
-  // browsing the rest, and the strip was competing with the title block for
-  // the first screenful.
-  const heroSrc = photos.length
-    ? esc(cloudinaryUrl(photos[0], 900))
-    : venueTileUri(v.short_name || v.name, v.type, true);
+  // full-bleed photo collage (see .vd-hero in style.css), replacing the single
+  // hero image: 1 photo fills the block, 2 split it large-left/tall-right, 3
+  // stacks two tiles beside the large one, and a 4th+ photo folds into a "+N"
+  // on the last tile. That "+N" is exactly what the old .vd-photo-count badge
+  // said, so the badge is gone rather than saying it twice.
+  //
+  // collagePhotosHtml() is the SAME component the Recommended café list and
+  // the mood popup use, markup and loader included — nothing here is a second
+  // copy of it. The one thing scoped to this page is its axis: .vd-hero is a
+  // wide, short box, so style.css re-lays the same markup out left/right
+  // instead of the card's top/bottom (see .vd-hero .collage-photos there).
+  // It renders inside .vd-hero's existing box at its existing height, so the
+  // title block below does not move down.
+  //
   // statusPillHtml() returns '' when v.hours is null — no invented "unknown"
   // pill (see CLAUDE.md). The back arrow and the pill share the top-left
   // cluster as one flex row rather than stacking on top of each other.
   const heroHtml = `
     <div class="vd-hero${photos.length ? ' vd-hero-tap' : ''}">
-      <img class="vd-hero-img" id="galHero" src="${heroSrc}" alt="${esc(v.name)}">
+      ${collagePhotosHtml(v, v.name)}
       <div class="vd-hero-tl">
         <button class="vd-round" data-home aria-label="Back">${icoBack(17)}</button>
         ${statusPillHtml(v, true)}
@@ -4971,7 +4977,6 @@ function openVenue(id) {
         ${isNo1(v) ? '<span class="vd-tonight">TONIGHT</span>' : ''}
         <button class="vd-round" data-home aria-label="Close">✕</button>
       </div>
-      ${photos.length > 1 ? `<span class="vd-photo-count">${photos.length} photos</span>` : ''}
     </div>`;
 
   let travel;
@@ -5109,14 +5114,30 @@ function openVenue(id) {
   } else {
     history.replaceState(null, '', venueUrl);
   }
-  document.querySelectorAll('.vd-hero-img').forEach(img => watchImgLoad(img, v));
-  // the whole hero is the tap target now that the thumbnail strip is gone —
-  // it opens the lightbox at the first photo, and the lightbox's own
-  // prev/next walks the rest. A venue with no photos renders the monogram
-  // tile instead, which has nothing to open, so it gets no handler and no
-  // "N photos" count.
-  if (photos.length) {
-    document.querySelector('.vd-hero')?.addEventListener('click', () => openLightbox(photos, 0));
+  // the collage's tiles start on the venue monogram with their real photo URL
+  // parked in data-src (see collagePhotosHtml()). Every other user of that
+  // component waits for an IntersectionObserver to say the card is nearly
+  // visible; this one IS the top of the page the user just opened, so it
+  // loads immediately instead. loadCollageCardPhotos() also arms the per-tile
+  // load/error/6s-timeout monogram fallback (watchCollageCard()), which is
+  // what the single watchImgLoad() on the old #galHero used to do.
+  const heroEl = document.querySelector('.vd-hero');
+  if (heroEl) loadCollageCardPhotos(heroEl, v);
+  // one delegated handler on the collage rather than one per tile: each tile
+  // opens the lightbox at ITS OWN photo, not at 0. Tile order in the DOM is
+  // the component's documented order (big tile = photos[0], then the row's
+  // tiles in order), so a tile's position among .collage-tile IS its photo
+  // index. On a 4+ collage the last tile carries the "+N" and opens at
+  // photos[2]; the lightbox's own prev/next walks the rest from there. A
+  // venue with no photos renders the monogram tile, which has nothing to
+  // open, so it gets no handler.
+  if (photos.length && heroEl) {
+    heroEl.addEventListener('click', (e) => {
+      const tile = e.target.closest('.collage-tile');
+      if (!tile) return;
+      const i = [...heroEl.querySelectorAll('.collage-tile')].indexOf(tile);
+      if (i >= 0 && i < photos.length) openLightbox(photos, i);
+    });
   }
   document.getElementById('shareBtn')?.addEventListener('click', async () => {
     const url = location.origin + '/?v=' + v.id;
@@ -5788,13 +5809,23 @@ function setSheet(html) {
     el.addEventListener('click', () => quickSurpriseMe(state.filter)));
   inner.querySelectorAll('[data-home]').forEach(el =>
     el.addEventListener('click', () => {
-      // on mobile, the venue detail's back arrow / close button returns to
-      // whichever screen it was opened over (Home, Map or You) rather than
-      // always Home — see leaveVenue(). Every other data-home button (the
-      // sign-in prompt's and flame sheet's "Done") always meant "go home",
-      // same as before.
-      if (isMobile() && state.sheetView.type === 'venue') {
-        leaveVenue(state.screenBeforeVenue || 'home');
+      // the venue detail's back arrow / close button. On mobile it returns to
+      // whichever screen the venue was opened over (Home, Map or You) rather
+      // than always Home — see leaveVenue(). Desktop has no such screens and
+      // always goes Home, but it goes there THROUGH leaveVenue() too: that is
+      // the one function that knows what a venue put on screen and has to be
+      // torn down with it (the photo lightbox included — see its
+      // closeLightbox() call). The desktop branch used to fall through to the
+      // generic renderHomeSheet() below instead, which is why closing a venue
+      // on desktop left the lightbox covering the list; the fix is this
+      // routing, not a second closeLightbox() call to keep in sync with the
+      // first. state.screenBeforeVenue is deliberately not consulted off
+      // mobile: a venue opened below the breakpoint and closed after a resize
+      // could have it set to 'map' or 'you', neither of which desktop renders.
+      // Every other data-home button (the sign-in prompt's and flame sheet's
+      // "Done") is not a venue view, so it still means plain "go home".
+      if (state.sheetView.type === 'venue') {
+        leaveVenue(isMobile() ? (state.screenBeforeVenue || 'home') : 'home');
         return;
       }
       stopTracking();

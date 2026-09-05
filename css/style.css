@@ -1730,13 +1730,18 @@ body {
    The order is now: photo, who this is, the one thing to do, then every
    remaining fact together and quiet. */
 
-/* full-bleed hero. #sheet's side padding is the only inset between sheet
-   content and the screen edge and it differs per breakpoint, so this
-   cancels --sheet-pad-x rather than a hardcoded number (see the comment on
-   #sheet). It does NOT cancel #sheet's padding-top: on mobile that strip is
-   the status-bar/safe-area inset that #sheetTopCover paints over at every
-   scroll position, so a photo pushed up into it would simply be covered —
-   and the back button with it. */
+/* full-bleed hero — a photo collage since the venue-page pass, not a single
+   image (see collagePhotosHtml() in js/app.js, the same component the
+   Recommended cafe list and the mood popup render). The box itself is
+   deliberately UNCHANGED: .collage-photos is position:absolute inset:0, so it
+   fills exactly the height the single hero occupied and the title block below
+   does not move down. #sheet's side padding is the only inset between sheet
+   content and the screen edge and it differs per breakpoint, so this cancels
+   --sheet-pad-x rather than a hardcoded number (see the comment on #sheet).
+   It does NOT cancel #sheet's padding-top: on mobile that strip is the
+   status-bar/safe-area inset that #sheetTopCover paints over at every scroll
+   position, so a photo pushed up into it would simply be covered — and the
+   back button with it. */
 .vd-hero {
   position: relative;
   margin: 0 calc(-1 * var(--sheet-pad-x));
@@ -1744,9 +1749,29 @@ body {
   background: var(--ink3); overflow: hidden;
 }
 .vd-hero-tap { cursor: pointer; }
-.vd-hero-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* bottom scrim: carries the photo count, and stops a pale photo from
-   running straight into the sheet background with no edge */
+
+/* the collage's axis, re-scoped for this page only: large tile LEFT, the
+   remaining one or two stacked to its RIGHT. .collage-card is a tall 300px
+   box where the component's own large-top/row-beneath split is right; the
+   venue hero is the opposite shape — wide and short (40vh, 260px on desktop)
+   — where a 55%-tall top tile would leave the tiles under it too short to
+   read. Same markup, same JS, only the direction differs, so .collage-card in
+   the Recommended list and the mood popup is untouched by this.
+   Both axis-dependent properties are flipped per rule, not just
+   flex-direction: the component sets min-height:0 to let tiles shrink in a
+   column, which does nothing in a row — min-width:0 is the row equivalent and
+   has to be stated separately (CSS cascades per property; see CLAUDE.md).
+   .collage-tile-big's `flex: 0 0 55%` needs no override — its basis simply
+   becomes width instead of height once the container is a row. */
+.vd-hero .collage-photos { flex-direction: row; }
+.vd-hero .collage-tile { min-width: 0; }
+.vd-hero .collage-row { flex-direction: column; min-width: 0; }
+
+/* bottom scrim: stops a pale photo from running straight into the sheet
+   background with no edge. It used to carry the photo count as well; that
+   badge is gone — the collage's own "+N" tile says the same thing (see
+   collagePhotosHtml()) — but the edge is still wanted. pointer-events:none
+   already, so it never intercepts a tile tap. */
 .vd-hero::after {
   content: ''; position: absolute; inset: auto 0 0 0; height: 96px;
   background: linear-gradient(180deg, rgba(19,16,25,0), rgba(19,16,25,.55));
@@ -1780,12 +1805,6 @@ body {
   font-size: 11px; font-weight: 700; letter-spacing: .5px; line-height: 1.3;
   padding: 5px 9px; border-radius: 8px;
   background: var(--flame); color: #131019;
-}
-.vd-photo-count {
-  position: absolute; right: 10px; bottom: 10px; z-index: 2;
-  font-size: 11.5px; font-weight: 700; line-height: 1;
-  padding: 6px 9px; border-radius: 8px;
-  background: rgba(19,16,25,.62); color: #F5F1E8;
 }
 /* desktop: the sheet is a 420px-wide full-height panel, so 40vh of a tall
    window is a near-square photo in a narrow column. Fixed height instead,
