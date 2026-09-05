@@ -920,6 +920,18 @@ body {
   padding: 9px var(--sheet-pad-x) calc(env(safe-area-inset-bottom, 0px) + 16px);
   max-height: 44vh; overflow-y: auto; z-index: 6;
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+  /* the browser may only pan this sheet vertically. Everything in here was
+     touch-action: auto, so a diagonal drag - a thumb travelling down that
+     drifts sideways - had the browser panning a nested horizontal strip
+     (.hcards, .photo-strip, .ed-photos, the pinned chip bar) inside the
+     first 20px, before initSheetDrag()'s axis lock in app.js has decided
+     anything. A native scroll that has already started cannot be called
+     back: every touchmove after it is non-cancelable, so the axis branch's
+     preventDefault() is ignored - which is why this has to be declared up
+     front rather than fixed in the handler. Does NOT disable the filter
+     swipe: that gesture is JS-driven (an inline transform on #sheetInner)
+     and touch-action governs browser-initiated panning only. */
+  touch-action: pan-y;
 }
 [data-theme="light"] #sheet { box-shadow: 2px 0 16px rgba(90,75,45,.10); }
 #sheetHandle {
@@ -1040,7 +1052,20 @@ body {
 .t-name { font-size: 15.5px; font-weight: 700; margin-top: 4px; }
 .t-sub  { font-size: 12px; color: var(--mute); margin-top: 2px; line-height: 1.45; }
 
-.hcards { display: flex; gap: 10px; margin-top: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; margin-right: -14px; padding-right: 14px; }
+/* pan-x on every horizontal strip nested inside #sheet (.hcards here, plus
+   #sheet .chip-bar, .photo-strip and .ed-photos further down): a deliberately
+   horizontal gesture still scrolls them, but they no longer capture a
+   diagonal drag that began as a vertical scroll - see #sheet's touch-action
+   note above for the gesture this fixes.
+   Caveat that has to be checked on a real device and cannot be reproduced in
+   an emulator (emulated drags are straight): touch-action is intersected
+   down the ancestor chain, and can only ever narrow, never widen. pan-x
+   inside #sheet's pan-y may therefore intersect to neither axis, leaving
+   these strips unscrollable by touch altogether. If that is what the device
+   shows, the fix is to drop #sheet's pan-y and constrain the strips alone,
+   or to drive their horizontal scroll from JS - not to declare a wider
+   touch-action here, which cannot re-widen what an ancestor narrowed. */
+.hcards { display: flex; gap: 10px; margin-top: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; margin-right: -14px; padding-right: 14px; touch-action: pan-x; }
 .hcards::-webkit-scrollbar { display: none; }
 .hcard {
   flex-shrink: 0; background: transparent; border: 1px solid var(--ink4);
@@ -1090,14 +1115,19 @@ body {
      gradient (not in the raised-surface set), so it keeps the flat tint. */
   .hcard:hover { background: var(--ink4); transform: translateY(-2px); border-color: var(--dim); }
   .card:hover { transform: translateY(-2px); border-color: var(--dim); }
-  .hcards { flex-wrap: wrap; overflow-x: visible; margin-right: 0; padding-right: 0; }
+  /* touch-action reset alongside the overflow it exists for: the cards wrap
+     here instead of scrolling sideways, and a leftover pan-x would block
+     vertical panning over them on a touchscreen laptop. CSS cascades per
+     property - overriding overflow-x does not override touch-action. */
+  .hcards { flex-wrap: wrap; overflow-x: visible; margin-right: 0; padding-right: 0; touch-action: auto; }
   #sheet { --sheet-pad-x: 18px; padding-left: var(--sheet-pad-x); padding-right: var(--sheet-pad-x); }
 }
 
 /* expanded venue sheet */
 #sheet.expanded { max-height: 78vh; }
 
-.photo-strip { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; }
+/* touch-action: see the .hcards note */
+.photo-strip { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
 .photo-strip::-webkit-scrollbar { display: none; }
 .photo-strip img, .photo-ph {
   flex-shrink: 0; width: 150px; height: 100px; border-radius: 10px; object-fit: cover;
@@ -1972,6 +2002,7 @@ body {
     background: var(--ink2);
     margin: 0 -16px 8px; padding: 8px 16px 4px;
     overflow-x: auto; scrollbar-width: none;
+    touch-action: pan-x;   /* see the .hcards note */
   }
   #sheet .chip-bar::-webkit-scrollbar { display: none; }
   /* only while actually stuck (see observeChipPin() in app.js, which
@@ -2260,6 +2291,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 .ed-photos {
   display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
   padding-bottom: 2px;
+  touch-action: pan-x;   /* see the .hcards note */
 }
 .ed-photos::-webkit-scrollbar { display: none; }
 

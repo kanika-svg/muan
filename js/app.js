@@ -3505,13 +3505,23 @@ function openLightbox(photos, index) {
   ov.querySelector('.lightbox-next').addEventListener('click', () => lightboxStep(1));
   document.addEventListener('keydown', lightboxKeydown);
 
-  let touchStartX = null;
-  ov.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  // dy is recorded and compared, not just dx: the old test was |dx| > 40 with
+  // no vertical term at all, so a drag the user meant as vertical — scrolling
+  // the page behind, or just a thumb arcing on its way somewhere — stepped to
+  // the next photo on 40px of sideways drift. Requiring the horizontal
+  // component to exceed the vertical one is the minimum that makes this a
+  // horizontal gesture rather than "any gesture with 40px of x in it".
+  let touchStartX = null, touchStartY = null;
+  ov.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
   ov.addEventListener('touchend', (e) => {
     if (touchStartX == null) return;
     const dx = e.changedTouches[0].clientX - touchStartX;
-    if (Math.abs(dx) > 40) lightboxStep(dx > 0 ? -1 : 1);
-    touchStartX = null;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) lightboxStep(dx > 0 ? -1 : 1);
+    touchStartX = touchStartY = null;
   }, { passive: true });
 }
 
