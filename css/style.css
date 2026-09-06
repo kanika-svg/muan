@@ -1217,9 +1217,34 @@ body {
 #map.labels-hidden .m-label, #map.labels-hidden .m-sub { display: none; }
 
 /* selection: chosen pin grows, others recede */
+/* !important on both, and it has to stay. MapLibre writes opacity as an
+   INLINE style on every marker element it owns: Marker._updateOpacity()
+   (maplibre-gl 4.7.1) runs `element.style.opacity = this._opacity` — where
+   _opacity defaults to the string "1" — for any map without terrain, and
+   Marker._update() schedules it through map.frameAsync() after the marker
+   is added and after every map move. Measured live: all 30 markers carry
+   inline opacity: 1. A normal author rule cannot outrank an inline
+   declaration, so this pair silently did nothing for as long as it has
+   existed; author !important is a step above inline in the cascade and is
+   the one thing that does win. Verified both directions on the running
+   app — without !important the unselected markers compute 1, with it they
+   compute .38.
+   The selected rule needs it too: with !important on the first and not the
+   second, importance beats specificity and the chosen pin would dim along
+   with the rest.
+   The alternative is marker.setOpacity('0.38') per marker in
+   updateSelection(), which works with the library instead of over it —
+   rejected because it moves a purely visual state into JS and has to be
+   re-applied everywhere markers are rebuilt, where this is two words.
+   (Diagnosing this is harder than it looks in a background tab: Chrome
+   freezes rAF and the document timeline there, MapLibre's frame callback
+   never fires so nothing is inline yet, and a CSS transition sits stuck at
+   currentTime 0 pinning opacity to its start value — transitions outrank
+   even author !important, so the rule appears to fail for a completely
+   different reason than it actually does. Test this on a focused tab.) */
 .marker { transition: opacity .2s; }
-.map-has-selection .marker { opacity: .38; }
-.map-has-selection .marker.selected { opacity: 1; }
+.map-has-selection .marker { opacity: .38 !important; }
+.map-has-selection .marker.selected { opacity: 1 !important; }
 
 /* desktop: sheet becomes a floating panel */
 @media (min-width: 768px) {
