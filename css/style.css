@@ -231,11 +231,11 @@ body {
   #themeBtn .pill-label { display: none; }
   #themeBtn { padding: 0 10px; }
 }
-.chip-bar { display: flex; gap: 6px; margin-top: 8px; }
+.chip-bar { display: flex; gap: 8px; margin-top: 8px; }
 .chip {
   pointer-events: auto;
   background: var(--ink); color: var(--mute); border: 1px solid var(--ink4);
-  font-family: var(--font); font-size: 12px; font-weight: 700; padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 999px; cursor: pointer;
 }
 .chip.on {
   background: var(--flame); color: var(--ink); font-weight: 700; border-color: var(--flame);
@@ -922,13 +922,13 @@ body {
 /* ============ Bottom sheet ============ */
 /* --sheet-pad-x is the sheet's live left/right padding, declared at every
    one of the three places that padding is set (here = 14px, the mobile
-   Home/You override = 16px, the desktop one = 18px) so a full-bleed child
+   Home/You override = 20px, the desktop one = 18px) so a full-bleed child
    can cancel exactly the inset actually in force with
-   margin: 0 calc(-1 * var(--sheet-pad-x)). Read by .vd-hero and by
-   #sheetTopCover, which used to hardcode -17px against an assumed 16px and
-   so overhung the venue sheet — a 14px screen — by 3px a side. #sheet
-   .chip-bar still hardcodes -16px, but only ever renders on mobile Home,
-   where 16px is right; see its own comment for the last time that drifted. */
+   margin: 0 calc(-1 * var(--sheet-pad-x)). Read by .vd-hero, by
+   #sheetTopCover (which used to hardcode -17px against an assumed 16px and
+   so overhung the venue sheet — a 14px screen — by 3px a side) and by
+   #sheet .chip-bar, which hardcoded -16px against that same assumption
+   until Home/You went to 20px; see its own comment for that drift. */
 #sheet {
   --sheet-pad-x: 14px;
   background: var(--ink2); border-radius: 24px 24px 0 0;
@@ -1342,11 +1342,24 @@ body {
 }
 .sec-h .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; align-self: center; }
 .sec-h .mini-flame { align-self: center; margin: -4px 0; }
+/* the label's two halves, split out of the old single "English · Lao"
+   string by secH() in app.js. Desktop keeps them on one line, Lao first,
+   with a dim middot standing in for the separator that used to live inside
+   the string. The phone breakpoint stacks them — see the max-width:767px
+   block. */
+.sec-h-lo { display: inline-flex; align-items: baseline; gap: 7px; }
+.sec-h-en::before { content: '·'; color: var(--dim); margin-right: 6px; }
 .sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--dim); margin-left: auto; }
 /* On fire / Busy spots headers pair a Lao-script label with an editorial
-   note (see secH() in app.js) — .sec-h is flex/nowrap, so under ~400px the
-   label alone can be wide enough to force the note (or the label itself)
-   onto a second line, growing the header. Drop the note rather than wrap it. */
+   note (see secH() in app.js) — .sec-h was flex/nowrap, so under ~400px the
+   label alone could be wide enough to force the note (or the label itself)
+   onto a second line, growing the header. Drop the note rather than wrap it.
+   That overflow can no longer happen: the phone block below makes .sec-h
+   wrap and gives the Lao label a row to itself, so the note shares line 2
+   with a short English word and fits well inside 320px. The rule is left
+   in as-is rather than lifted in the same pass that changed the layout
+   under it — deleting it is a one-liner and Kar's call, and the only thing
+   it costs today is the editorial note on sub-400px phones. */
 @media (max-width: 400px) {
   .sec-h .sec-note { display: none; }
 }
@@ -1912,6 +1925,30 @@ body {
 .vd-btn-secondary {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
   color: var(--bone);
+  /* .vd-btn sets border: none; this re-adds one, and being the later rule
+     of equal specificity it wins (border is a shorthand, so it resets
+     width/style/colour together — see CLAUDE.md on per-property cascade).
+     Needed because on day nothing here was drawing a boundary at all:
+     --card-fill runs #FFFDF8 → #F7F1E4 over the sheet's own #FBF6E9,
+     which is 1.06:1 at the top stop and less further down, --card-edge is
+     a 7%-alpha inset hairline and --card-lift a pair of soft warm
+     shadows. Cream on cream. It didn't show while Directions and Share
+     sat side by side — two touching buttons read as buttons from the
+     layout alone — but moving the primary onto its own full-width row
+     above left the secondary standing alone with nothing to say where it
+     ended.
+     --dim, not the --ink4 that .card and .vd-vibe use: --ink4 measures
+     1.39:1 against the day sheet and 1.25:1 against the night one, which
+     is a boundary on paper and not one in the hand. A card can carry an
+     edge that faint because it also holds a photo; a lone button has only
+     its outline. --dim is 2.95:1 on day and 2.45:1 on night — near the
+     3:1 WCAG asks for a UI component boundary, still quiet, and already
+     in the palette rather than a new value. One declaration for both
+     themes: night's edge was carried entirely by --card-edge's bright top
+     inset, so it was no better off than day, just less obviously wrong.
+     box-sizing: border-box (the reset at the top of this file) keeps the
+     44px min-height and the flex widths where they are. */
+  border: 1px solid var(--dim);
 }
 .vd-btn-icon { flex: 0 0 40px; padding: 0; color: var(--mute); }
 .vd-btn:disabled { cursor: default; opacity: .6; }
@@ -2098,12 +2135,20 @@ body {
          screenshots: sticky itself holds position correctly (within 5px
          across several cards of scroll) — the bug was purely this offset.
        - the negative side margins that let it span full-bleed must match
-         #sheet's actual left/right padding on this screen (16px, not the
-         14px this had drifted to — see the padding-left/right rule above) */
+         #sheet's actual left/right padding on this screen — a literal here
+         drifted to 14px once and would have drifted again when Home/You
+         went 16px → 20px, so it reads --sheet-pad-x now (see below) */
   #sheet .chip-bar {
     position: sticky; top: 0; z-index: 2;
     background: var(--ink2);
-    margin: 0 -16px 8px; padding: 8px 16px 4px;
+    /* written against --sheet-pad-x, not a literal, for the reason the
+       comment above spells out: these must equal #sheet's real padding on
+       this screen or the bar stops being full-bleed and scrolled content
+       shows through the gutters. Hardcoding 16px here is what let it drift
+       to 14px once already; it would have drifted again the moment the
+       padding went to 20px. Same token #sheetTopCover's own margins read. */
+    margin: 0 calc(-1 * var(--sheet-pad-x)) 8px;
+    padding: 8px var(--sheet-pad-x) 4px;
     overflow-x: auto; scrollbar-width: none;
     touch-action: pan-x;   /* see the .hcards note */
   }
@@ -2532,7 +2577,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      existing #sheet padding untouched */
   #app[data-screen="home"]:not(.sheet-detail) #sheet,
   #app[data-screen="you"]:not(.sheet-detail) #sheet {
-    --sheet-pad-x: 16px;
+    --sheet-pad-x: 20px;
     padding-left: var(--sheet-pad-x); padding-right: var(--sheet-pad-x);
   }
 
@@ -2542,6 +2587,32 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none;
   }
   .sec-h .dot { width: 5px; height: 5px; opacity: .55; }
+
+  /* two-line header (see secH() in app.js, which splits "English · Lao"
+     into the two spans): Lao leads at 21px in full-strength ink, English
+     sits beneath it at 13px/500 in --mute. .sec-h stays a wrapping flex
+     row and .sec-h-lo takes a whole row of its own, so everything after
+     it falls to line 2.
+     The right-aligned .sec-note ("editor's picks this week", "where we
+     think the crowds are" — On fire and Busy spots are the only two
+     sections that carry one) rides down to line 2 with the English rather
+     than getting a third line or being dropped: it's supporting text and
+     so is the English, they're the two quietest things in the header, and
+     pairing them costs no extra height at all. Left on line 1 it would
+     have put an 11px dim string next to a 21px Lao title with the 13px
+     English underneath — three sizes, and the smallest one competing with
+     the English for the "second line" role. margin-left: auto is already
+     on .sec-note, so right-alignment needs nothing added here.
+     The desktop middot goes with content:none rather than by narrowing
+     that rule's selector: it exists to separate two halves of one line,
+     and here there is no longer one line. */
+  .sec-h { flex-wrap: wrap; row-gap: 1px; color: var(--bone); }
+  .sec-h-lo {
+    flex: 0 0 100%;
+    font-size: 21px; font-weight: 700; line-height: 1.35;
+  }
+  .sec-h-en { font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+  .sec-h-en::before { content: none; }
 
   /* ---- cards: raised surface, 16px radius, 16px rhythm ----
      card-to-card was 12px against .sec-h + .card's 10px, a 2px difference
@@ -2561,9 +2632,13 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   }
 
   /* row cards (type list, Busy spots/Coming up/Opening soon/Open late via
-     rowCard() in app.js) — thumbnail grows from 58px to 96px tall; name
-     uses .t-name's existing 15.5px/700 base as-is, no override needed */
-  .card:not(.card-big) .photo-wrap { width: 96px; height: 96px; }
+     rowCard() in app.js) — thumbnail grows from 58px to 124px tall; name
+     uses .t-name's existing 15.5px/700 base as-is, no override needed.
+     .card is align-items: center with 11px/12px padding, so the row's
+     height follows the thumbnail: 58 → 96 → 124 makes these cards 146px
+     tall, and the two or three lines of text beside them now sit centred
+     in noticeably more space than they fill. */
+  .card:not(.card-big) .photo-wrap { width: 124px; height: 124px; }
 
   /* full-width hero cards (Tonight, On fire) */
   .cb-name { font-size: 16px; font-weight: 600; }

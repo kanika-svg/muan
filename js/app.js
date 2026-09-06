@@ -4741,8 +4741,23 @@ function renderHomeSheet() {
   const showEvents = (f === 'all' || f === 'event');
   const showVenueSections = (f !== 'event');
 
-  const secH = (color, label, note, icon) =>
-    `<div class="sec-h">${icon || `<span class="dot" style="background:var(--${color});"></span>`}${label}${note ? `<span class="sec-note">${note}</span>` : ''}</div>`;
+  /* Section headers are two lines on phone: the Lao label leads at 21px, the
+     English sits beneath at 13px (see .sec-h in style.css). Every label
+     passed in below has the shape "English · Lao", so the split happens here
+     rather than at the eight call sites — one place that knows the shape.
+     A label with no " · " (none today) keeps its single line rather than
+     rendering an empty Lao line above it, and only gets the `lao` font class
+     when the leading text is actually Lao. */
+  const secH = (color, label, note, icon) => {
+    const [en, lo] = label.split(' · ');
+    const lead = lo || en;
+    const mark = icon || `<span class="dot" style="background:var(--${color});"></span>`;
+    return `<div class="sec-h">`
+      + `<span class="sec-h-lo${lo ? ' lao' : ''}">${mark}${lead}</span>`
+      + (lo ? `<span class="sec-h-en">${en}</span>` : '')
+      + (note ? `<span class="sec-note">${note}</span>` : '')
+      + `</div>`;
+  };
 
   const sub = isNight() ? 'ຄືນນີ້ໄປໃສດີ?' : 'ມື້ນີ້ໄປໃສດີ?';
 
