@@ -158,6 +158,27 @@ body {
 }
 .marker .m-label { top: 100%; }
 .marker .m-sub   { top: calc(100% + 16px); }
+/* distance above the selected pin (see updateSelectedDistancePill() in
+   app.js — only the selected marker ever has one, and only when there is a
+   real fix to measure from).
+   position: absolute is load-bearing, not styling. MapLibre positions a
+   custom marker from the element's own box (anchor: 'bottom' here), so any
+   child that adds flow height lifts the pin off its coordinate — the class
+   of bug this file already carries two fixes for. .m-label and .m-sub are
+   absolute for the same reason; out of flow, .marker's rect stays exactly
+   the svg's rect whether the pill is there or not.
+   bottom: 100% puts it above the pin rather than below, where the label
+   and the "tonight" sub already live. The --ink4 edge is #routeBar's
+   argument: an ink fill on dark map tiles is ink on near-ink, and the
+   border is what gives it a shape at a glance. */
+.marker .m-dist {
+  position: absolute; left: 50%; bottom: 100%;
+  transform: translateX(-50%); margin-bottom: 6px;
+  white-space: nowrap;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--ink); color: var(--bone); border: 1px solid var(--ink4);
+  font-family: var(--font); font-size: 11px; font-weight: 700; line-height: 1;
+}
 [data-theme="light"] .marker .m-label {
   color: #2A2419;
   text-shadow:
@@ -234,6 +255,7 @@ body {
 .chip-bar { display: flex; gap: 8px; margin-top: 8px; }
 .chip {
   pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 7px;
   background: var(--ink); color: var(--mute); border: 1px solid var(--ink4);
   font-family: var(--font); font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 999px; cursor: pointer;
 }
@@ -242,6 +264,67 @@ body {
   box-shadow: 0 3px 0 #C6432A;
 }
 .chip.on:active { transform: translateY(2px) scale(.97); box-shadow: 0 1px 0 #C6432A; }
+
+/* legend dot — the same three tokens pinSVG() paints markers with (see
+   COLORS in app.js), so the chip row finally says out loud what the pin
+   colours mean. There is one #chipBar in the document, moved between
+   #topbar and #sheet by placeChips(), so map and Home cannot drift apart:
+   they are the same four buttons.
+   On the active chip the dot goes to currentColor (= --ink, the flame
+   chip's own text colour) rather than keeping its hue. Bars is the reason
+   it has to: --pin-bar IS --flame, so a Bars dot on a lit Bars chip is
+   invisible, and letting only that one chip lose its dot would make the
+   row twitch as you tab along it. Inverting all three keeps every chip the
+   same width lit or unlit, and the legend is no longer the point once a
+   filter is on — the map is showing that one colour and nothing else. */
+.chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.chip[data-filter="bar"]   .chip-dot { background: var(--pin-bar); }
+.chip[data-filter="cafe"]  .chip-dot { background: var(--pin-cafe); }
+.chip[data-filter="event"] .chip-dot { background: var(--pin-venue); }
+.chip.on .chip-dot { background: currentColor; }
+
+/* the map's chips float over the tiles, so they take #routeBar/#bottomNav's
+   frosted treatment (see the "frosted glass" note further down for why it
+   earns itself only where something interesting is behind it). Scoped to
+   #topbar, not .chip: the same buttons sit inside #sheet on Home, over the
+   sheet's own flat fill, where translucency has nothing to reveal and
+   backdrop-filter is GPU cost for no picture — exactly the split
+   #bottomNav already makes.
+   :not(.on) because #topbar .chip (id + class) would otherwise outrank
+   .chip.on (two classes) and wash the flame fill out of the active chip
+   regardless of source order. The lit chip is meant to be opaque anyway.
+   The @supports fallback goes to --ink, the fill these chips have
+   everywhere else, so a WebView without backdrop-filter renders today's
+   chip rather than a 72%-alpha smear of it. */
+#topbar .chip:not(.on) {
+  background: var(--frost);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #topbar .chip:not(.on) { background: var(--ink); }
+}
+/* the legend dots put ~14px on each of the three coloured chips, taking the
+   row from 278px to 320px. At 390px there is still 46px of slack, but at
+   320px — the narrowest phone this has to survive — Events ran 12px past
+   the screen edge with nothing to scroll it back: #sheet's copy of this
+   same element has overflow-x: auto and #topbar's never needed it before.
+   Measured both widths, not estimated.
+   Full-bleed inside #topbar's own 12px gutter buys back 24px of usable
+   width; that is not enough to fit all four chips at 320px (the row still
+   measures 344px against a 320px box there), so overflow-x is what
+   actually recovers Events — the last chip cuts off at the screen edge,
+   which is the standard "there is more, drag me" affordance, and the row
+   stops scrolling entirely from 344px up. At 390px nothing scrolls.
+   The 4px padding-bottom is not spacing: overflow-x: auto forces overflow-y
+   to auto as well (a visible/auto pair is not a legal computed combination),
+   so without it the box would clip .chip.on's 3px pushable shadow — and the
+   2px it travels on :active — clean off the active chip. */
+#topbar .chip-bar {
+  margin-left: -12px; margin-right: -12px;
+  padding: 0 12px 4px;
+  overflow-x: auto; scrollbar-width: none;
+}
+#topbar .chip-bar::-webkit-scrollbar { display: none; }
 
 /* segmented control — deliberately not chip-styled (single bordered track,
    no gaps, no color-fill) so it can't be mistaken for the filter chips above */
@@ -1120,6 +1203,15 @@ body {
 .empty { text-align: center; color: var(--dim); font-size: 13px; padding: 18px 0 10px; }
 
 /* selected pin + zoom labels */
+/* the selected marker paints above the rest of the cluster. MapLibre appends
+   markers in data order and gives every one position: absolute with no
+   z-index, so paint order is DOM order — measured on the riverside cluster,
+   19 of the 30 markers sit after the selected one, and any of their labels
+   overlapping it draws on top of the distance pill (.m-dist above) and of
+   the scaled-up pin itself. 1 is all it needs: it only has to beat the other
+   markers, which are all auto, and it stays well under #topbar (5) and
+   #sheet (6) so nothing floats over the chrome. */
+.marker.selected { z-index: 1; }
 .marker.selected svg { transform: scale(1.3); transform-origin: bottom center; }
 .marker.selected .m-label { color: var(--flame); }
 #map.labels-hidden .m-label, #map.labels-hidden .m-sub { display: none; }
@@ -1828,21 +1920,28 @@ body {
 /* both corner clusters are flex rows, so the back arrow and the status pill
    sit side by side at top-left instead of on top of each other */
 .vd-hero-tl, .vd-hero-tr {
-  position: absolute; top: 10px; z-index: 2;
+  position: absolute; top: 20px; z-index: 2;
   display: flex; align-items: center; gap: 8px;
 }
-.vd-hero-tl { left: 10px; }
-.vd-hero-tr { right: 10px; }
+.vd-hero-tl { left: 20px; }
+.vd-hero-tr { right: 20px; }
 /* .status-pill is written for a card's photo corner: position:absolute with
    top/left 6px. Inside .vd-hero-tl it has to be an ordinary flex item —
    position:static makes its top/left/z-index inert in one property, and
    every other declaration in that rule (solid fill, size, radius, dark ink
    text) is exactly what's wanted here, so nothing else needs neutralising. */
 .vd-hero-tl .status-pill { position: static; }
-/* fixed hex, not tokens: these sit over a photo, so they must read the same
-   in both themes — same reasoning as .status-pill's own colours */
+/* 40px, not the 34px this was: back is the only way off the venue screen
+   and 34 is under the 44px minimum touch target. Still short of 44, but
+   the button sits over the hero photo with 20px of clear inset around it
+   and nothing else within 8px, so the tappable slop is there even though
+   the painted circle is smaller — going to a literal 44px disc over the
+   photo starts to read as a UI chrome bar. The ✕ at top right shares the
+   class and the same argument: it is the other way out.
+   Fixed hex, not tokens: these sit over a photo, so they must read the same
+   in both themes — same reasoning as .status-pill's own colours. */
 .vd-round {
-  flex-shrink: 0; width: 34px; height: 34px; padding: 0;
+  flex-shrink: 0; width: 40px; height: 40px; padding: 0;
   border: none; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: rgba(19,16,25,.62); color: #F5F1E8;
@@ -1885,7 +1984,7 @@ body {
 
 /* the venue's own vibe tags (migrations/013_vibe.sql) — until now these only
    existed inside the mood chooser. Read-only here: a label, not a filter. */
-.vd-vibes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.vd-vibes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .vd-vibe {
   font-size: 11.5px; font-weight: 500; line-height: 1;
   padding: 6px 10px; border-radius: 999px;
@@ -1958,7 +2057,7 @@ body {
 #dirLbl { display: inline-flex; align-items: center; gap: 6px; }
 
 /* description: first sentence, the rest behind More, expanded in place */
-.vd-desc { margin-top: 14px; font-size: 13px; line-height: 1.55; color: var(--bone); }
+.vd-desc { margin-top: 24px; font-size: 13px; line-height: 1.55; color: var(--bone); }
 .vd-desc-rest { display: none; }
 .vd-desc.open .vd-desc-rest { display: inline; }
 .vd-more {

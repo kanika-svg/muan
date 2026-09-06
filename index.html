@@ -138,11 +138,15 @@
       </button>
       <button class="pill" id="avatarBtn" aria-label="Choose your avatar"><span id="avatarSlot">😊</span></button>
     </div>
+    <!-- the legend dot is a real element rather than a ::before so the
+         [data-filter] colour rules in style.css have something to paint
+         that is not also the chip's own background. All deliberately has
+         none: it isn't a pin colour, it's every pin colour. -->
     <div class="chip-bar" id="chipBar">
       <button class="chip on" data-filter="all">All</button>
-      <button class="chip" data-filter="bar">Bars</button>
-      <button class="chip" data-filter="cafe">Cafes</button>
-      <button class="chip" data-filter="event">Events</button>
+      <button class="chip" data-filter="bar"><span class="chip-dot" aria-hidden="true"></span>Bars</button>
+      <button class="chip" data-filter="cafe"><span class="chip-dot" aria-hidden="true"></span>Cafes</button>
+      <button class="chip" data-filter="event"><span class="chip-dot" aria-hidden="true"></span>Events</button>
     </div>
   </header>
 

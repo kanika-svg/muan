@@ -234,6 +234,7 @@ async function requestLocation() {
     geoDebug('[geo] coarse success');
     updateUserMarker();
     updateLocatePill();
+    updateSelectedDistancePill();
     refineLocation();
     return state.userPos;
   } catch (err) {
@@ -258,6 +259,7 @@ function refineLocation() {
       geoDebug('[geo] refined (high-accuracy)');
       updateUserMarker();
       updateLocatePill();
+      updateSelectedDistancePill();
       if (state.selectedId) {
         const v = venueById(state.selectedId);
         if (v) updateCheckinButton(v);
@@ -3101,6 +3103,33 @@ function updateSelection() {
     .forEach(el => el.classList.remove('selected'));
   const sel = state.markers.find(m => m.id === state.selectedId);
   if (sel) sel.el.classList.add('selected');
+  updateSelectedDistancePill();
+}
+
+/* how far away the selected pin is, on the pin. Distance is the fact that
+   decides whether a place is worth the trip, and it only showed up after
+   the sheet was already open — by which point the map has stopped being
+   what you're looking at.
+   Deliberately only the selected marker: every pin wearing a number is a
+   different screen (a data layer, not a map), and it's the one place where
+   the extra element can't multiply. Deliberately only with a real fix —
+   distanceTo() returns null with no state.userPos or no venue coords
+   (pending venues have neither, see pin_status in CLAUDE.md), and no pill
+   is right where a guessed one would be wrong.
+   Called from updateSelection() for the selection changing, and from
+   requestLocation()/refineLocation() for the position changing underneath
+   a selection that hasn't. */
+function updateSelectedDistancePill() {
+  document.querySelectorAll('.marker .m-dist').forEach(el => el.remove());
+  if (!state.selectedId || !state.userPos) return;
+  const sel = state.markers.find(m => m.id === state.selectedId);
+  if (!sel) return;
+  const d = distanceTo(sel.venue);
+  if (d == null) return;
+  const pill = document.createElement('div');
+  pill.className = 'm-dist';
+  pill.textContent = fmtDist(d);
+  sel.el.appendChild(pill);
 }
 
 /* phase 1 "No.1 tonight" = first venue with a verified event today.
