@@ -22,9 +22,18 @@
      for an unrelated warm-accent illustration. */
   --mc-coffee: #C4835A;
   --mc-glow:   #E8A054;
-  /* one step lighter/darker than whatever's behind a card — resolves
-     against each theme's own --ink3 below, so it only needs setting once */
+  /* the mobile card surface — see .card inside the max-width:767px block,
+     its only consumer. Night keeps the --ink3 step up from the sheet
+     behind it. Day overrides this (and --card-shadow below) in the light
+     block: on cream, a tinted card reads as a tan block sitting on the
+     page, so the card goes lighter than its ground and is separated by a
+     shadow instead of a fill. No longer "set once" for both themes. */
   --surface: var(--ink3);
+  /* mobile card lift, paired with --surface above. Night needs the bright
+     inset top edge plus a dark drop shadow; a warm low-alpha shadow is
+     invisible against ink, which is why day gets its own value rather than
+     sharing one. */
+  --card-shadow: var(--card-edge), var(--card-lift);
   /* raised-surface depth (cards, chips, badges — see the "raised surfaces"
      section below for the full selector list). Gradient stops are the
      existing ink2/ink4 tokens rather than new hex values: they're already
@@ -64,6 +73,12 @@
   --card-fill: linear-gradient(180deg, #FFFDF8 0%, #F7F1E4 100%);
   --card-edge: inset 0 -1px 0 rgba(90,75,45,.07);
   --card-lift: 0 1px 3px rgba(90,75,45,.10), 0 4px 12px rgba(90,75,45,.06);
+  /* mobile card, day: lighter than the sheet behind it (#FBF6E9) rather
+     than the darker --ink3 tan this used to be, separated by one soft
+     shadow instead of the edge+lift stack. See --surface / --card-shadow
+     in :root for why these are per-theme rather than shared. */
+  --surface: #FFFDF8;
+  --card-shadow: 0 6px 20px rgba(90,75,45,.10);
   --frost: rgba(255,252,245,.72);
 }
 :root { --halo: rgba(0,0,0,.9); }
@@ -964,6 +979,14 @@ body {
 
 .s-title { font-size: 17px; font-weight: 700; }
 .s-sub   { font-size: 12px; color: var(--mute); margin-top: 2px; }
+/* Home greeting only. .s-title is shared with the centred sheet headers
+   ("List your venue", "Edit venue", "Pending venues", "Choose your
+   avatar"), which must stay at 17px — so the display size is a modifier on
+   the two Home instances (renderHomeSheet() in app.js) rather than a change
+   to the base rule. The subtitle pairs off .s-greet, not .s-sub, for the
+   same reason. */
+.s-title.s-greet { font-size: 30px; line-height: 1.25; }
+.s-greet + .s-sub { font-size: 15px; font-weight: 500; margin-top: 8px; }
 .lao     { font-family: 'Noto Sans Lao', sans-serif; }
 
 /* weather widget (weatherWidgetHtml() in app.js) — a normal in-flow bar,
@@ -1480,6 +1503,11 @@ body {
 .cel-row:nth-child(1){animation-delay:.15s} .cel-row:nth-child(2){animation-delay:.25s} .cel-row:nth-child(3){animation-delay:.35s}
 .cel-row.cel-new b { color: var(--flame); }
 .cel-badge b { color: var(--gold); }
+/* icon + name stay one flex child so .cel-row's space-between still puts
+   exactly two things on the row (label left, "unlocked" right) — adding the
+   glyph as a third child would have spread the name into the middle. */
+.cel-badge-label { display: inline-flex; align-items: center; gap: 8px; }
+.cel-badge-label svg { display: block; color: var(--gold); }
 .cel-capped { text-align: center; font-size: 11.5px; color: var(--dim); margin: -8px 0 16px; }
 @keyframes cel-slide { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 .cel-done {
@@ -1617,7 +1645,14 @@ body {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
   border-radius:12px; padding:8px 12px; text-align:center;
 }
-.fl-badge-ico { display:block; font-size:18px; }
+/* was font-size:18px, sizing an emoji glyph. Now a 20px stroke SVG (see
+   badgeIcon()/BADGE_ICONS in app.js) — gold, which is exactly the token's
+   reserved use per CLAUDE.md: rewards and badges, nothing else. font-size
+   is dropped rather than left behind, since it no longer sizes anything.
+   margin auto because .fl-badge centres its text and a display:block svg
+   would otherwise sit hard left. */
+.fl-badge-ico { display:block; line-height:0; color: var(--gold); }
+.fl-badge-ico svg { display:block; margin:0 auto; }
 .fl-badge-name { font-size:10.5px; color:var(--mute); }
 .fl-badge.locked { opacity: .45; }
 .fl-badge-prog { font-size: 10px; color: var(--dim); display: block; }
@@ -1814,14 +1849,23 @@ body {
   .vd-hero { height: 260px; min-height: 0; max-height: none; }
 }
 
-/* title block: name, Lao name inline and quieter, then tagline · distance.
+/* title block: Lao name leading, English following, then tagline · distance.
    Distance decides whether someone actually goes, so it reads with the name
    instead of sitting in a row below the fold. */
 .vd-title {
   margin-top: 14px;
-  font-size: 20px; font-weight: 600; line-height: 1.25; color: var(--bone);
+  font-size: 26px; font-weight: 700; line-height: 1.25; color: var(--bone);
 }
-.vd-title-lo { font-size: 14px; font-weight: 500; color: var(--mute); }
+/* the Lao name now leads at the title's own size, weight and colour. It was
+   a 14px/500 --mute span trailing the English one, which made the venue's
+   Lao name a caption in an app whose whole premise is Lao-first. All three
+   former overrides are neutralised explicitly rather than deleted, so the
+   class can't silently inherit a stale value if this rule moves (CSS
+   cascades per property — see CLAUDE.md). Font family still comes from the
+   `lao` class alongside it in the markup. */
+.vd-title-lo { font-size: inherit; font-weight: inherit; color: inherit; }
+/* only the separator is dimmed, never either name */
+.vd-title-sep { color: var(--dim); font-weight: 500; }
 .vd-meta { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--mute); }
 .vd-dot { color: var(--dim); }
 .vd-dim { color: var(--dim); }
@@ -1839,7 +1883,7 @@ body {
    Directions is actually usable — see updateCheckinButton() in app.js,
    which sets both classes on both buttons every time so neither can end up
    wearing neither. Share is icon-only and never primary. */
-.vd-actions { display: flex; gap: 8px; margin-top: 14px; }
+.vd-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .vd-btn {
   flex: 1; min-width: 0; min-height: 44px; padding: 0 12px;
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
@@ -1852,7 +1896,19 @@ body {
 /* background (shorthand) deliberately, not background-color: it has to clear
    the --card-fill gradient .vd-btn-secondary sets, since a button swaps
    between the two classes at runtime */
-.vd-btn-primary { background: var(--flame); color: #131019; box-shadow: var(--card-lift); }
+.vd-btn-primary {
+  background: var(--flame); color: #131019; box-shadow: var(--card-lift);
+  /* the one primary takes a full-width row of its own, above the
+     secondaries — two equal-width buttons side by side made the geometry
+     say "these are peers" while the flame fill said "this one is the
+     action". Keyed off the class, not DOM order, so when
+     updateCheckinButton() moves .vd-btn-primary from Check in to
+     Directions the full-width row moves with it: no re-render, no markup
+     change, and the button that lost primary drops into the row below.
+     order:-1 keeps it visually first wherever it sits in the markup. */
+  flex: 1 0 100%; order: -1;
+  min-height: 52px; font-size: 15px; border-radius: 16px;
+}
 .vd-btn-secondary {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
   color: var(--bone);
@@ -1874,12 +1930,40 @@ body {
   color: var(--flame); cursor: pointer;
 }
 
-/* the quiet group: one divider above the lot, nothing between the rows.
-   Small stroke icons in a fixed gutter (see vdRow()/icoPin() etc. in
-   app.js) — never emoji, which is the treatment this replaced. */
+/* the factual group: one divider above the lot, the rows themselves now
+   cards 16px apart (see .vd-row below). 20px stroke icons in a tinted disc
+   (see vdRow()/icoPin() etc. in app.js) — never emoji, which is the
+   treatment this replaced. */
 .vd-details { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--ink4); }
-.vd-row { display: flex; align-items: flex-start; gap: 11px; padding: 7px 0; font-size: 12.5px; }
-.vd-row-ico { flex: 0 0 16px; padding-top: 2px; line-height: 0; color: var(--dim); }
+/* each fact is its own card rather than a text row in a shared gutter.
+   Hours, contact and parking are what decide whether someone actually
+   leaves the house, and as flat 12.5px rows under a single hairline they
+   read as fine print. Same 16px radius and the same per-theme
+   --surface/--card-shadow tokens as the Home cards, so both screens agree
+   on what a card is. */
+.vd-row {
+  display: flex; align-items: flex-start; gap: 14px;
+  background: var(--surface); border-radius: 16px; padding: 16px;
+  box-shadow: var(--card-shadow);
+  font-size: 12.5px;
+}
+.vd-row + .vd-row { margin-top: 16px; }
+/* 40px tinted disc holding a 20px stroke icon. The tint is the neutral ink
+   step, NOT the mockup's teal and violet: CLAUDE.md reserves teal for
+   open-now status and violet for events, so tinting an Opening Hours or
+   Contact icon with them would give both tokens a second meaning. One step
+   off the card in each theme — --ink4 on night (the card is --ink3 there,
+   so --ink3 would vanish into it), --ink3 on day against the near-white
+   card. align-items is flex-start, not the mockup's centre: these rows run
+   from one line (parking) to a four-line block (signature items, the
+   expanded hours-week), and a centred disc drifts down the taller ones. */
+.vd-row-ico {
+  flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  padding-top: 0; line-height: 0;
+  background: var(--ink4); color: var(--mute);
+}
+[data-theme="light"] .vd-row-ico { background: var(--ink3); }
 .vd-row-ico svg { display: block; }
 .vd-row-main { flex: 1; min-width: 0; color: var(--mute); line-height: 1.5; }
 .vd-row-sub { margin-top: 1px; font-size: 11.5px; color: var(--dim); }
@@ -2459,10 +2543,21 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   }
   .sec-h .dot { width: 5px; height: 5px; opacity: .55; }
 
-  /* ---- cards: raised surface, 16px radius, 12px rhythm ---- */
+  /* ---- cards: raised surface, 16px radius, 16px rhythm ----
+     card-to-card was 12px against .sec-h + .card's 10px, a 2px difference
+     that read as no difference at all — so the header-groups-what-follows
+     effect that gap exists for (see .sec-h + .card) was invisible. 16px
+     restores it; the 10px header-to-first-card gap is deliberately
+     unchanged, since widening both would just re-flatten the contrast. */
   .card {
     background: var(--surface); border: none; border-radius: 16px;
-    margin-top: 12px;
+    /* the base .card rule sets box-shadow: var(--card-edge), var(--card-lift).
+       CSS cascades per property, so overriding `background` above leaves that
+       stack applying — it has to be neutralised explicitly, not assumed gone
+       (see CLAUDE.md). --card-shadow resolves to that same stack on night and
+       to a single soft shadow on day. */
+    box-shadow: var(--card-shadow);
+    margin-top: 16px;
   }
 
   /* row cards (type list, Busy spots/Coming up/Opening soon/Open late via
@@ -2497,10 +2592,11 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   /* desktop card-to-card rhythm, same fix as the mobile Pass 2 rule above:
      .card's base margin-top is 10px, same as .sec-h + .card's 10px
      header-to-first-card gap, so every gap on the panel read as equal.
-     Bumping it here (like mobile's 12px) makes the three gaps — 32px above
-     a header, 10px header-to-first-card, 12px card-to-card — distinct
+     Bumping it here (like mobile's 16px) makes the three gaps — 32px above
+     a header, 10px header-to-first-card, 16px card-to-card — distinct
      again. .sec-h + .card's two-class selector still beats this for the
      first card regardless of source order (see the comment on that rule),
-     so only card-to-card actually changes. */
-  .card { margin-top: 12px; }
+     so only card-to-card actually changes. Was 12px, which sat only 2px
+     off the 10px header gap and so read as the same gap. */
+  .card { margin-top: 16px; }
 }

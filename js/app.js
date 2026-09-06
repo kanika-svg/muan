@@ -1308,7 +1308,7 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
       <div class="fl-card fl-card-badges">
         <div class="fl-badges">
           ${me.badges.map(b => `<div class="fl-badge" title="${esc(b.description||'')}">
-             <span class="fl-badge-ico">${b.icon}</span>
+             <span class="fl-badge-ico">${badgeIcon(b, 20)}</span>
              <span class="fl-badge-name">${esc(b.name)}</span>
            </div>`).join('')}
         </div>
@@ -2925,10 +2925,51 @@ function icoSpoon(size) {
     <path d="M16.5 3c-1.7 1.6-2.5 3.8-2.5 6 0 1.7 1 3 2.5 3s2.5-1.3 2.5-3c0-2.2-.8-4.4-2.5-6Z"/>
     <path d="M16.5 12v9"/></svg>`;
 }
+function icoCompass(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M15.5 8.5l-2 5-5 2 2-5 5-2Z"/></svg>`;
+}
+function icoChair(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M6 11V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5"/>
+    <path d="M4.5 11h15"/><path d="M6.5 14.5h11"/>
+    <path d="M7 14.5V20M17 14.5V20"/></svg>`;
+}
+function icoWaves(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M2 7.5c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0"/>
+    <path d="M2 13c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0"/>
+    <path d="M2 18.5c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0"/></svg>`;
+}
 
-/* one row of the venue sheet's quiet detail group — icon in a fixed-width
-   gutter, everything else in the flow column beside it. A helper rather
-   than repeated markup so a row can never drift into having its own
+/* Badge glyphs, keyed by badge code (the API sends it as `id` — see
+   `b.code AS id` in functions/api/me.js and checkin.js). The badges table
+   carries an `icon` column seeded with emoji (migrations/003_badges.sql),
+   which breaks this project's never-emoji rule and renders differently on
+   every Android build. Overridden here rather than by a migration on
+   purpose: which glyph draws a badge is presentation, not data, so it
+   belongs with the other ico* functions and needs no --remote migration
+   run to ship (see CLAUDE.md's migration rules). Unknown codes fall back to
+   the flame rather than to b.icon, so a badge added server-side can never
+   put an emoji back on the screen. */
+const BADGE_ICONS = {
+  'first-fire': icoFlameNav,
+  'explorer':   icoCompass,
+  'regular':    icoChair,
+  'riverside':  icoWaves,
+  'night-owl':  icoMoon,
+};
+function badgeIcon(b, size) {
+  return (BADGE_ICONS[b.id] || icoFlameNav)(size);
+}
+
+/* one card of the venue sheet's factual detail group — icon in a 40px
+   tinted disc, everything else in the flow column beside it. A helper
+   rather than repeated markup so a row can never drift into having its own
    divider or its own icon size again. */
 function vdRow(icon, main) {
   return `<div class="vd-row"><span class="vd-row-ico" aria-hidden="true">${icon}</span><div class="vd-row-main">${main}</div></div>`;
@@ -4709,7 +4750,7 @@ function renderHomeSheet() {
     const color = f === 'bar' ? 'flame' : 'teal';
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
-      <div class="s-title">${dayGreeting()}, Vientiane</div>
+      <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
       <div class="s-sub lao">${sub}</div>
       ${surpriseMeHtml(f)}
       <div id="chipSentinel"></div>
@@ -4771,7 +4812,7 @@ function renderHomeSheet() {
   }
 
   let html = `
-    <div class="s-title">${dayGreeting()}, Vientiane</div>
+    <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
     <div class="s-sub lao">${sub}</div>
     <div id="chipSentinel"></div>
     <div id="chipSlot"></div>
@@ -5047,18 +5088,18 @@ function openVenue(id) {
       <button type="button" class="vd-more" id="descMore">More</button>` : ''}
     </div>`;
 
-  // ---- the quiet group: everything factual, one divider above it, small
-  // stroke icons (never emoji — same reason the header lost its own), muted
-  // text, no rule between rows
+  // ---- the factual group: one divider above it, each row now its own card
+  // 16px from the next (see .vd-row in style.css), 20px stroke icons in a
+  // tinted disc (never emoji — same reason the header lost its own)
   const detail = [];
-  if (v.area) detail.push(vdRow(icoPin(16), esc(v.area)));
-  detail.push(vdRow(icoClock(16), `
+  if (v.area) detail.push(vdRow(icoPin(20), esc(v.area)));
+  detail.push(vdRow(icoClock(20), `
     <span class="vd-status">${esc(st.label)}</span>
     <span class="vd-dot">·</span>
     <button type="button" class="vd-more" id="hoursToggle">all hours</button>
     <div class="hours-week" id="hoursWeek">${week}</div>`));
-  if (v.parking?.note) detail.push(vdRow(icoParking(16), esc(v.parking.note)));
-  if (v.contact?.phone) detail.push(vdRow(icoPhone(16), `
+  if (v.parking?.note) detail.push(vdRow(icoParking(20), esc(v.parking.note)));
+  if (v.contact?.phone) detail.push(vdRow(icoPhone(20), `
     <a href="tel:${esc(v.contact.phone)}" class="vd-phone">${esc(v.contact.phone_display || v.contact.phone)}</a>
     <div class="vd-row-sub">call to book a table</div>`));
   const links = [];
@@ -5067,8 +5108,8 @@ function openVenue(id) {
   if (v.links?.maps) links.push(`<a href="${esc(v.links.maps)}" target="_blank" rel="noopener">Google Maps</a>`);
   if (v.links?.facebook) links.push(`<a href="${esc(v.links.facebook)}" target="_blank" rel="noopener">Facebook page</a>`);
   if (v.links?.website) links.push(`<a href="${esc(v.links.website)}" target="_blank" rel="noopener">Website</a>`);
-  if (links.length) detail.push(vdRow(icoLink(16), `<div class="vd-links">${links.join('')}</div>`));
-  if (v.signature?.length) detail.push(vdRow(icoSpoon(16), `
+  if (links.length) detail.push(vdRow(icoLink(20), `<div class="vd-links">${links.join('')}</div>`));
+  if (v.signature?.length) detail.push(vdRow(icoSpoon(20), `
     <div class="vd-row-label">Try this · <span class="lao">ລອງອັນນີ້</span></div>
     <div class="v-sig-list">
       ${v.signature.map(it => `
@@ -5081,7 +5122,7 @@ function openVenue(id) {
   let html = `
     <span data-venue-detail hidden></span>
     ${heroHtml}
-    <div class="vd-title">${esc(v.name)}${v.name_lo ? ` <span class="vd-title-lo lao">${esc(v.name_lo)}</span>` : ''}</div>
+    <div class="vd-title">${v.name_lo ? `<span class="vd-title-lo lao">${esc(v.name_lo)}</span><span class="vd-title-sep"> · </span>` : ''}${esc(v.name)}</div>
     <div class="vd-meta">${metaBits.join(' <span class="vd-dot">·</span> ')}</div>
     ${vibes.length ? `<div class="vd-vibes">${vibes.map(t => `<span class="vd-vibe">${esc(t.label)}</span>`).join('')}</div>` : ''}
     ${actionsHtml}
@@ -5508,7 +5549,7 @@ function showCelebration(data) {
         ${data.heat_level && data.heat_level !== data.prev_heat_level ? `<div class="cel-row"><span>Your flame</span><b>${data.heat_level}</b></div>` : ''}
         ${data.first_visit ? '<div class="cel-row cel-new"><span>First visit here</span><b>+bonus</b></div>' : `<div class="cel-row"><span>Visits here</span><b>${data.venue_checkins}</b></div>`}
         ${data.new_badges?.length ? data.new_badges.map(b =>
-          `<div class="cel-row cel-badge"><span>${b.icon} ${esc(b.name)}</span><b>unlocked</b></div>`
+          `<div class="cel-row cel-badge"><span class="cel-badge-label">${badgeIcon(b, 16)}${esc(b.name)}</span><b>unlocked</b></div>`
         ).join('') : ''}
         ${data.new_items?.length ? data.new_items.map(it =>
           `<div class="cel-row cel-badge"><span>${esc(it.name)} unlocked</span><b>new</b></div>`
