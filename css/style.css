@@ -2488,6 +2488,29 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      the same mobile media query as the rest of the screen shell. */
   #app:not([data-screen="map"]) #routeBar,
   #app:not([data-screen="map"]) #trackChip { display: none; }
+
+  /* Sleek puts the route card at the BOTTOM of the map, floating clear of
+     the nav with a gap beneath it — not pinned to the top of the screen the
+     way the desktop bar is (desktop keeps the top placement above: it has no
+     bottom nav, and its docked sheet owns the left edge). #bottomNav is
+     56px + its own safe-area inset tall, so that plus a 12px gap is the
+     offset; it's a constant, not a share of the viewport, so the clearance
+     is identical at every screen height.
+     `top: auto` is not optional: the base rule sets `top`, and an
+     absolutely-positioned box with BOTH top and bottom set stops sizing to
+     its content and stretches to span them — the pill would grow into the
+     nav rather than sit above it. CSS cascades per property, not per rule. */
+  #routeBar {
+    top: auto;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+  }
+  /* ...except with a detail sheet pushed over, where #bottomNav is display:
+     none (see the rule above) — there is no nav to clear, so the same 12px
+     gap measures from the safe area instead, or the pill floats over a
+     68px band of nothing. */
+  #app.sheet-detail #routeBar {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  }
 }
 
 /* ============ venue owner edit form (openVenueEditor() in app.js) ============
