@@ -22,6 +22,17 @@
      for an unrelated warm-accent illustration. */
   --mc-coffee: #C4835A;
   --mc-glow:   #E8A054;
+  /* the page ground behind the cards — #sheet, its sticky chip bar and top
+     cover, and #bottomNav, which all have to paint the SAME colour or the
+     sticky seams between them show (see #sheetTopCover's own note).
+     Sleek item 2 moves day to --ink (#FFFCF5), one step lighter than the
+     --ink2 it used to be, so the card (--surface #FFFDF8) separates from it
+     by its shadow rather than by sitting on a tan step. Night deliberately
+     keeps --ink2: the mockup is a day design and says nothing about night,
+     and dropping night's ground to --ink (#131019) would push the card's
+     --ink3 fill FURTHER from its ground — the opposite of what this change
+     is for — as well as flattening #sheet into the #131019 page behind it. */
+  --ground: var(--ink2);
   /* the mobile card surface — see .card inside the max-width:767px block,
      its only consumer. Night keeps the --ink3 step up from the sheet
      behind it. Day overrides this (and --card-shadow below) in the light
@@ -73,6 +84,7 @@
   --card-fill: linear-gradient(180deg, #FFFDF8 0%, #F7F1E4 100%);
   --card-edge: inset 0 -1px 0 rgba(90,75,45,.07);
   --card-lift: 0 1px 3px rgba(90,75,45,.10), 0 4px 12px rgba(90,75,45,.06);
+  --ground: var(--ink);
   /* mobile card, day: lighter than the sheet behind it (#FBF6E9) rather
      than the darker --ink3 tan this used to be, separated by one soft
      shadow instead of the edge+lift stack. See --surface / --card-shadow
@@ -252,9 +264,29 @@ body {
   #themeBtn .pill-label { display: none; }
   #themeBtn { padding: 0 10px; }
 }
-.chip-bar { display: flex; gap: 8px; margin-top: 8px; }
+/* the row scrolls rather than wrapping or spilling. Needed since Sleek item
+   18 made the labels bilingual: four of them are ~522px wide, which fits
+   neither a 390px phone nor #topbar's 464px at a 900px desktop, and #sheet
+   .chip-bar's own overflow-x (further down) only ever covered the Home
+   copy of the bar, not the one #topbar holds on the map screen and on
+   desktop. padding-bottom is not cosmetic — overflow-x: auto forces
+   overflow-y to `auto` as well, which would otherwise clip the 3px hard
+   shadow under the active chip. */
+.chip-bar {
+  display: flex; gap: 8px; margin-top: 8px;
+  overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;
+}
+.chip-bar::-webkit-scrollbar { display: none; }
+/* flex-shrink/nowrap are load-bearing since Sleek item 18 made the labels
+   bilingual (index.html): .chip-bar is a flex row, so as flex ITEMS the
+   chips were free to shrink below their content width, and four
+   "ທັງໝົດ · All"-length labels no longer fit 390px. They did not overflow
+   into the bar's own overflow-x: auto — they shrank to min-content and
+   wrapped, turning every chip into a 64px two-line block. Pinned at their
+   natural width instead, the row scrolls, which is what the mockup shows. */
 .chip {
   pointer-events: auto;
+  flex-shrink: 0; white-space: nowrap;
   display: inline-flex; align-items: center; gap: 7px;
   background: var(--ink); color: var(--mute); border: 1px solid var(--ink4);
   font-family: var(--font); font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 999px; cursor: pointer;
@@ -1014,7 +1046,7 @@ body {
    until Home/You went to 20px; see its own comment for that drift. */
 #sheet {
   --sheet-pad-x: 14px;
-  background: var(--ink2); border-radius: 24px 24px 0 0;
+  background: var(--ground); border-radius: 24px 24px 0 0;
   padding: 9px var(--sheet-pad-x) calc(env(safe-area-inset-bottom, 0px) + 16px);
   max-height: 44vh; overflow-y: auto; z-index: 6;
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
@@ -1062,6 +1094,10 @@ body {
 
 .s-title { font-size: 17px; font-weight: 700; }
 .s-sub   { font-size: 12px; color: var(--mute); margin-top: 2px; }
+/* Sleek item 8 — the bilingual greeting above the Home headline (see
+   greetEyebrowHtml() in app.js). Home-only markup, so this needs no
+   scoping of its own. */
+.s-eyebrow { font-size: 13px; font-weight: 500; color: var(--dim); }
 /* Home greeting only. .s-title is shared with the centred sheet headers
    ("List your venue", "Edit venue", "Pending venues", "Choose your
    avatar"), which must stay at 17px — so the display size is a modifier on
@@ -1069,7 +1105,11 @@ body {
    to the base rule. The subtitle pairs off .s-greet, not .s-sub, for the
    same reason. */
 .s-title.s-greet { font-size: 30px; line-height: 1.25; }
-.s-greet + .s-sub { font-size: 15px; font-weight: 500; margin-top: 8px; }
+/* colour is Sleek item 3: every piece of secondary text on Home moves from
+   --mute to the lighter --dim the mockup uses throughout. Scoped to the
+   .s-greet pairing, so the .s-sub under the centred sheet headers ("List
+   your venue" etc.) keeps --mute. */
+.s-greet + .s-sub { font-size: 15px; font-weight: 500; margin-top: 8px; color: var(--dim); }
 .lao     { font-family: 'Noto Sans Lao', sans-serif; }
 
 /* weather widget (weatherWidgetHtml() in app.js) — a normal in-flow bar,
@@ -1157,6 +1197,15 @@ body {
 .card .row { display: flex; justify-content: space-between; align-items: center; }
 .t-name { font-size: 15.5px; font-weight: 700; margin-top: 4px; }
 .t-sub  { font-size: 12px; color: var(--mute); margin-top: 2px; line-height: 1.45; }
+
+/* Sleek item 31 — a row card's hours on a line of their own (rowCard() in
+   app.js). --teal is the open-now token and nothing else (CLAUDE.md's
+   design tokens), so only .open takes it: a closed or not-yet-open venue
+   keeps --mute rather than announcing "closed" in the colour that means
+   open. Left free to wrap — a clipped "open until 11:3…" would read worse
+   than two lines, and the card's height comes from its thumbnail anyway. */
+.t-hours { font-size: 14px; font-weight: 700; color: var(--mute); margin-top: 3px; line-height: 1.35; }
+.t-hours.open { color: var(--teal); }
 
 /* pan-x on every horizontal strip nested inside #sheet (.hcards here, plus
    #sheet .chip-bar, .photo-strip and .ed-photos further down): a deliberately
@@ -1467,19 +1516,19 @@ body {
 .sec-h-lo { display: inline-flex; align-items: baseline; gap: 7px; }
 .sec-h-en::before { content: '·'; color: var(--dim); margin-right: 6px; }
 .sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--dim); margin-left: auto; }
-/* On fire / Busy spots headers pair a Lao-script label with an editorial
-   note (see secH() in app.js) — .sec-h was flex/nowrap, so under ~400px the
-   label alone could be wide enough to force the note (or the label itself)
-   onto a second line, growing the header. Drop the note rather than wrap it.
-   That overflow can no longer happen: the phone block below makes .sec-h
-   wrap and gives the Lao label a row to itself, so the note shares line 2
-   with a short English word and fits well inside 320px. The rule is left
-   in as-is rather than lifted in the same pass that changed the layout
-   under it — deleting it is a one-liner and Kar's call, and the only thing
-   it costs today is the editorial note on sub-400px phones. */
-@media (max-width: 400px) {
-  .sec-h .sec-note { display: none; }
-}
+/* Sleek item 22: the .sec-note slot is back on phones. It used to be
+   display:none under 400px, from an era when .sec-h was flex/nowrap and the
+   Lao label alone could push the note onto a second line and grow the
+   header. The phone block below removed that risk when it made .sec-h wrap
+   and gave the Lao label a row of its own — the note now shares line 2 with
+   a short English word and fits inside 320px — so the rule was costing the
+   editorial note on every sub-400px phone for nothing, and is gone.
+   NOTE for whoever reads this against the mockup: the mockup's equivalent
+   slot holds a "ເບິ່ງທັງໝົດ / see all" LINK. This slot holds picks.json's
+   editorial note ("editor's picks this week"). Making it a real see-all
+   needs somewhere for it to go, which On fire — a fully-shown editorial
+   list — does not have yet. Un-hiding was the part that was actually
+   missing. */
 
 .mini-flame { transform-origin: 50% 100%; flex-shrink: 0; }
 .mf-outer, .mf-core { transform-origin: 50% 100%; transform-box: fill-box; }
@@ -2264,7 +2313,7 @@ body {
          went 16px → 20px, so it reads --sheet-pad-x now (see below) */
   #sheet .chip-bar {
     position: sticky; top: 0; z-index: 2;
-    background: var(--ink2);
+    background: var(--ground);
     /* written against --sheet-pad-x, not a literal, for the reason the
        comment above spells out: these must equal #sheet's real padding on
        this screen or the bar stops being full-bleed and scrolled content
@@ -2363,6 +2412,22 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 #bottomNav { display: none; }
 
 @media (max-width: 767px) {
+  /* Sleek items 34/35 — the floating bottom nav's geometry, declared once.
+     Three separate things have to agree with it: the nav's own box, the room
+     #sheet leaves below its list, and #routeBar's 12px clearance above it.
+     They used to agree by three independent literal 56px, which is exactly
+     the kind of drift this file has been bitten by before, and the nav is
+     now two numbers (height + gap) rather than one.
+     --nav-space is what the nav actually occupies measured up from the
+     viewport bottom: the safe-area inset it now floats ABOVE (rather than
+     absorbing as padding, the way a full-bleed bar did), plus the gap, plus
+     its height. Declared on #app because every consumer is a descendant. */
+  #app {
+    --nav-h: 72px;
+    --nav-gap: 8px;
+    --nav-side: 13px;
+    --nav-space: calc(env(safe-area-inset-bottom, 0px) + var(--nav-gap) + var(--nav-h));
+  }
   #app[data-screen="home"] #sheet,
   #app[data-screen="you"] #sheet,
   #app.sheet-detail #sheet {
@@ -2411,7 +2476,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
        14px — enough to give that sheet a horizontal scrollbar of its own. */
     margin-left: calc(-1 * (var(--sheet-pad-x) + 1px));
     margin-right: calc(-1 * (var(--sheet-pad-x) + 1px));
-    background: var(--ink2);
+    background: var(--ground);
     /* translateZ(0) (below) turned the original multi-line flicker into a
        single line at the #chipBar boundary — real progress, but it confirmed
        a seam rather than fixing it: #sheetTopCover and #chipBar are two
@@ -2439,21 +2504,35 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
        compositor promotion without reopening that question. */
     transform: translateZ(0);
   }
-  /* leave room for the bottom nav only when it's actually showing beneath */
+  /* leave room for the bottom nav only when it's actually showing beneath.
+     Grew by 24px when the nav started floating (72 + 8 gap, against the old
+     flush 56) — see --nav-space above, which is the only number to change. */
   #app[data-screen="home"]:not(.sheet-detail) #sheet,
   #app[data-screen="you"]:not(.sheet-detail) #sheet {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px + 56px);
+    padding-bottom: calc(var(--nav-space) + 16px);
   }
   #app[data-screen="map"]:not(.sheet-detail) #sheet { display: none; }
 
   #topbar { display: none; }
   #app[data-screen="map"]:not(.sheet-detail) #topbar { display: block; }
 
+  /* Sleek items 34/35: a floating rounded bar inset from all three edges,
+     not a full-bleed strip welded to the bottom of the screen. Every
+     property of the old rule is restated deliberately rather than
+     overridden, because this file cascades per property and half of them
+     needed to go, not change: the safe-area inset moves from padding
+     (absorbed inside a flush bar) to the bottom offset (floated above it),
+     and the 1px top border goes to `none` — a border on three sides of a
+     rounded floating card would draw a line across nothing. */
   #bottomNav {
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-    height: calc(56px + env(safe-area-inset-bottom, 0px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: var(--ink2); border-top: 1px solid var(--ink4);
+    display: flex; position: fixed; z-index: 20;
+    left: var(--nav-side); right: var(--nav-side);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--nav-gap));
+    height: var(--nav-h);
+    padding-bottom: 0;
+    border-radius: 24px; border-top: none;
+    background: var(--ground);
+    box-shadow: var(--card-shadow);
   }
   /* frosted only where the nav actually floats over the map (data-screen
      "map") — that's the one case with something behind it worth blurring.
@@ -2465,17 +2544,24 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   #app[data-screen="map"] #bottomNav {
     background: var(--frost);
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    box-shadow: var(--card-edge);
+    /* was var(--card-edge) alone — a bright inset top edge was all a bar
+       flush against the screen bottom could use. Now that it floats it
+       needs the drop shadow underneath it too, or it reads as a hole cut
+       in the map rather than a card lying on it. Same token the cards use. */
+    box-shadow: var(--card-shadow);
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    #app[data-screen="map"] #bottomNav { background: var(--ink2); }
+    #app[data-screen="map"] #bottomNav { background: var(--ground); }
   }
   #app.sheet-detail #bottomNav { display: none; }
+  /* Sleek item 4 sizes the label 10.5 -> 12px, item 3 takes the inactive
+     tint to --dim, item 36 makes the label itself bilingual (index.html). */
   #bottomNav .nav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 2px; background: none; border: none; font-family: var(--font);
-    font-size: 10.5px; font-weight: 700; color: var(--mute); cursor: pointer;
+    font-size: 12px; font-weight: 700; color: var(--dim); cursor: pointer;
   }
+  #bottomNav .nav-lb { white-space: nowrap; }
   #bottomNav .nav-item.active { color: var(--flame); }
   #bottomNav .nav-ico { display: flex; }
   #bottomNav .nav-ico svg { display: block; }
@@ -2488,6 +2574,25 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      the same mobile media query as the rest of the screen shell. */
   #app:not([data-screen="map"]) #routeBar,
   #app:not([data-screen="map"]) #trackChip { display: none; }
+
+  /* CARTO's and OpenStreetMap's attribution has to be visible — that is a
+     licence condition, not a style preference (see CLAUDE.md's map note).
+     MapLibre puts the control at the very bottom of #map, where #bottomNav
+     (z-index 20, against the control's 2) covered it outright on mobile:
+     elementFromPoint over the attribution toggle returned a nav button, so
+     it was neither readable nor tappable. Lift it clear of the nav, using
+     the same --nav-space every other bottom-anchored thing reads. Only the
+     Map screen needs it — everywhere else #sheet covers the map entirely. */
+  #app[data-screen="map"] .maplibregl-ctrl-bottom-right {
+    bottom: calc(var(--nav-space) + 4px);
+    /* collapsed (attributionControl: { compact: true } in initMap()) this is
+       just the ⓘ button in the corner and nothing reaches it. EXPANDED it is
+       a ~230px bar, which a centred #routeBar overlaps — and #routeBar's
+       z-index 8 beat this container's 2, so the credit would have gone back
+       under something. 9 puts it above the route pill and still below the
+       nav (20): the one element here that must never be covered wins. */
+    z-index: 9;
+  }
 
   /* Sleek puts the route card at the BOTTOM of the map, floating clear of
      the nav with a gap beneath it — not pinned to the top of the screen the
@@ -2502,7 +2607,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      nav rather than sit above it. CSS cascades per property, not per rule. */
   #routeBar {
     top: auto;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+    bottom: calc(var(--nav-space) + 12px);
   }
   /* ...except with a detail sheet pushed over, where #bottomNav is display:
      none (see the rule above) — there is no nav to clear, so the same 12px
@@ -2754,11 +2859,13 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      that rule's selector: it exists to separate two halves of one line,
      and here there is no longer one line. */
   .sec-h { flex-wrap: wrap; row-gap: 1px; color: var(--bone); }
+  /* Sleek item 4 sizes both halves up (21 -> 26, 13 -> 15) and item 3
+     takes the English half to --dim. */
   .sec-h-lo {
     flex: 0 0 100%;
-    font-size: 21px; font-weight: 700; line-height: 1.35;
+    font-size: 26px; font-weight: 700; line-height: 1.35;
   }
-  .sec-h-en { font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+  .sec-h-en { font-size: 15px; font-weight: 500; line-height: 1.4; color: var(--dim); }
   .sec-h-en::before { content: none; }
 
   /* ---- cards: raised surface, 16px radius, 16px rhythm ----
@@ -2787,9 +2894,60 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      in noticeably more space than they fill. */
   .card:not(.card-big) .photo-wrap { width: 124px; height: 124px; }
 
+  /* Sleek item 4: row-card name 15.5 -> 17, card sub-line -> 15, hero name
+     16 -> 19. Item 3 takes every sub-line to --dim — .card-big .t-sub has
+     to restate the colour because it already sets one, and CSS cascades per
+     property: the .t-sub rule below cannot reach past it. */
+  .t-name { font-size: 17px; }
+  .t-sub  { font-size: 15px; color: var(--dim); }
+
   /* full-width hero cards (Tonight, On fire) */
-  .cb-name { font-size: 16px; font-weight: 600; }
-  .card-big .t-sub { font-size: 13px; color: var(--mute); }
+  .cb-name { font-size: 19px; font-weight: 600; }
+  .card-big .t-sub { font-size: 15px; color: var(--dim); }
+
+  /* Sleek item 30: the thumbnail sits IN the card's left edge — full card
+     height, flush to left/top/bottom, rounded on the left only. Both of
+     those corners are handled by the card's own overflow clip against its
+     16px radius rather than a second radius here that would have to be kept
+     in sync with it.
+     Scoped to .row-card (the class rowCard() in app.js now emits), NOT
+     .card:not(.card-big): the venue sheet's event cards and Coming-up's
+     no-venue card are plain .card too and have text where the photo would
+     be, so zeroing their padding would print it against the card edge. */
+  .card.row-card {
+    padding: 0; gap: 0; align-items: stretch; overflow: hidden;
+  }
+  .card.row-card .photo-wrap { width: 124px; height: 124px; border-radius: 0; }
+  .card.row-card .card-body {
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 14px;
+  }
+
+  /* Sleek item 24: On fire's carousel (ON_FIRE_CAROUSEL in app.js picks
+     this or the vertical stack). Full-bleed, so the next card peeks past
+     the right edge the way the mockup does — negative margins read
+     --sheet-pad-x, the same pattern .chip-bar and #sheetTopCover use,
+     rather than a literal that has drifted in this file before.
+     touch-action: pan-x carries exactly the same real-device caveat as
+     .hcards — see that rule's note. */
+  .fire-rail {
+    display: flex; gap: 14px;
+    overflow-x: auto; scrollbar-width: none;
+    touch-action: pan-x;
+    margin: 10px calc(-1 * var(--sheet-pad-x)) 0;
+    padding: 0 var(--sheet-pad-x) 4px;
+    /* deliberately NOT scroll-snap: with `scroll-snap-align: start` on the
+       cards, Chrome aligns the first card to the SNAPPORT's start edge,
+       which sits outside this rail's own padding-left — it silently
+       scrolled the rail 20px on load and pinned card 1 flush against the
+       screen edge, losing exactly the left inset the padding is here to
+       give. .hcards, the carousel this one is modelled on, has never
+       snapped either. */
+  }
+  .fire-rail::-webkit-scrollbar { display: none; }
+  /* .card's 16px mobile margin-top would push every card down inside the
+     rail; the rail owns that gap instead, at .sec-h + .card's 10px. */
+  .fire-rail > .card { flex: 0 0 262px; margin-top: 0; }
 
   /* ---- surprise me: the one quick action left, full-width now that it's
      not sharing a row with three others ---- */

@@ -473,7 +473,7 @@ async function boot() {
     document.getElementById('locateIcon').innerHTML = icoLocate(15);
     document.getElementById('navHomeIcon').innerHTML = icoHomeNav(21);
     document.getElementById('navMapIcon').innerHTML = icoMapNav(21);
-    document.getElementById('navYouIcon').innerHTML = icoFlameNav(21);
+    document.getElementById('navYouIcon').innerHTML = icoPersonNav(21);
     bindTheme();
     refreshAvatarBtn();
     document.getElementById('avatarBtn').addEventListener('click', openFlameSheet);
@@ -503,10 +503,12 @@ async function boot() {
     // nothing". Deliberately does NOT call renderHomeSheet() to show it —
     // that would replace #sheetInner's whole innerHTML and restart the
     // entrance animation on every card on screen just to reveal one bar.
-    // Instead it inserts the widget's own markup directly, right after the
-    // chip bar (#chipBar on mobile once setSheet() has re-homed it there,
-    // #chipSlot on desktop, which never gets replaced — see setSheet()), so
-    // arriving late only pushes whatever's below it down by the bar's
+    // Instead it inserts the widget's own markup directly, immediately
+    // ABOVE the chip row (Sleek item 12 moved it there): #chipSentinel is
+    // the anchor because it is the one element that is always present and
+    // is never re-homed by placeChips(), unlike #chipBar, which moves
+    // between #topbar and #sheetInner. #chipBar/#chipSlot stay as fallbacks.
+    // Arriving late only pushes whatever's below it down by the bar's
     // height; nothing above it moves. Shown on every Home tab now (Bars/
     // Cafes included — the widget moving into flow means it no longer
     // collides with .surprise-btn there), so no filter check is needed any
@@ -522,9 +524,9 @@ async function boot() {
         state.weather = w;
         if (!w || state.sheetView.type !== 'home') return;
         const inner = document.getElementById('sheetInner');
-        const chipAnchor = inner && inner.querySelector('#chipBar, #chipSlot');
+        const chipAnchor = inner && inner.querySelector('#chipSentinel, #chipBar, #chipSlot');
         if (chipAnchor && !inner.querySelector('.weather-bar')) {
-          chipAnchor.insertAdjacentHTML('afterend', weatherWidgetHtml());
+          chipAnchor.insertAdjacentHTML('beforebegin', weatherWidgetHtml());
         }
       });
 
@@ -2857,6 +2859,16 @@ function icoFlameNav(size) {
     <path d="M12 21c-4 0-7-3-7-7 0-2.8 1.6-5 3-7.2C8.3 8.2 9 10 10 10.5 9.5 7 11 4 12 2c1 2 2.5 5 2 8.5 1-.5 1.7-2.3 2-3.7C17.4 8.8 19 11 19 13.8c0 4.3-3 7.2-7 7.2Z"/></svg>`;
 }
 
+// Sleek item 37: the You tab's icon. Same 24x24 / stroke-2 family as the
+// house and pin beside it — the flame (icoFlameNav above, left in place and
+// one line from being reinstated) was the odd one out in that row.
+function icoPersonNav(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4"/>
+    <path d="M4.5 21c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6"/></svg>`;
+}
+
 function icoSurprise(size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -3300,13 +3312,31 @@ function bigCard(v, sub, photoOverride) {
   const media = photo
     ? `<img class="big-thumb" src="${esc(cloudinaryUrl(photo, 900))}" alt="" loading="lazy">`
     : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, v.type, true)}" alt="" loading="lazy">`;
+  // Sleek item 26: the Lao name leads, with "English name · distance"
+  // beneath it. Every venue in the list carries a name_lo today, but a
+  // submission that arrives without one keeps the card's old single-name
+  // shape rather than leading with an empty line — and its sub-line keeps
+  // the caller's own text, so nothing about that card changes.
+  // Distance comes from distanceTo() rather than the caller's `sub`
+  // (which is venueLine()'s "distance · status") because the status is
+  // already on the photo's pill, and repeating it here is what made the
+  // line too long to also carry a name.
+  const lo = (v.name_lo || '').trim();
+  const enName = esc(v.short_name || v.name);
+  const d = distanceTo(v);
+  const nameHtml = lo
+    ? `<div class="cb-name lao">${esc(lo)}</div>`
+    : `<div class="cb-name">${enName}</div>`;
+  const subHtml = lo
+    ? `${enName}${d != null ? ` · ${fmtDist(d)}` : (sub ? ` · ${sub}` : '')}`
+    : sub;
   // closed venues stay visible, just dimmed (item 1: never hide, someone
   // looking at 4pm for tonight still wants to see a bar that opens at 8)
   return `<div class="card card-big${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
     ${photoWrap(media, v, true)}
     <div class="card-body">
-      <div class="cb-name">${esc(v.short_name || v.name)}</div>
-      <div class="t-sub">${sub}</div>
+      ${nameHtml}
+      <div class="t-sub">${subHtml}</div>
     </div>
   </div>`;
 }
@@ -3326,12 +3356,24 @@ function rowCard(v, extraLine) {
     : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
   // closed venues stay visible, just dimmed (item 1: never hide, someone
   // looking at 4pm for tonight still wants to see a bar that opens at 8)
-  return `<div class="card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
+  // Sleek item 31: the hours get a line of their own, in teal. --teal is
+  // reserved for open-now status (see CLAUDE.md's tokens), so only an open
+  // venue's line takes it — "closed" / "opens 6 pm" stay quiet instead of
+  // borrowing the open colour to say the opposite.
+  // That line now owns the status, so line 2 carries distance-or-area alone
+  // rather than venueLine()'s "distance · status": with the photo's status
+  // pill kept (item 25), the old line would have put three copies of the
+  // same word on one card. Sleek item 30 (.row-card in style.css) is what
+  // makes the thumbnail sit flush in the card's left edge.
+  const d = distanceTo(v);
+  const place = d != null ? fmtDist(d) : esc(v.area || '');
+  return `<div class="card row-card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
     ${photoWrap(thumb, v, false)}
     <div class="card-body">
       <span class="t-name">${esc(v.short_name || v.name)}</span>
       ${extraLine ? `<div class="t-sub">${extraLine}</div>` : ''}
-      <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
+      ${place ? `<div class="t-sub">${place}</div>` : ''}
+      <div class="t-hours${st.open ? ' open' : ''}">${esc(st.label)}</div>
     </div>
   </div>`;
 }
@@ -4737,6 +4779,15 @@ function surpriseMeHtml(filter) {
   </button>`;
 }
 
+/* Sleek item 24: On fire is a horizontal carousel on mobile again — ~262px
+   cards with the next one peeking past the right edge (.fire-rail in
+   style.css). Pass 2 of the mobile redesign had replaced that carousel with
+   a vertical stack; that code is still the only other branch below, so
+   flipping this one constant to false restores it exactly, with nothing to
+   put back. Mobile only either way — desktop's On fire section is unchanged
+   and never reads this. */
+const ON_FIRE_CAROUSEL = true;
+
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
   setSheetView({ type: 'home', venueId: null });
@@ -4788,18 +4839,25 @@ function renderHomeSheet() {
       + `</div>`;
   };
 
-  const sub = isNight() ? 'ຄືນນີ້ໄປໃສດີ?' : 'ມື້ນີ້ໄປໃສດີ?';
+  // Sleek item 10: the subhead pairs Lao with English instead of standing
+  // alone. Only the Lao half carries the `lao` font class — the wrapper used
+  // to be class="s-sub lao", which would now put the English half in Noto
+  // Sans Lao too, so the class moved off the wrapper and onto this span.
+  const sub = isNight()
+    ? '<span class="lao">ຄືນນີ້ໄປໃສດີ?</span> · Where shall we go tonight?'
+    : '<span class="lao">ມື້ນີ້ໄປໃສດີ?</span> · Where shall we go today?';
 
   if (f === 'bar' || f === 'cafe') {
     const color = f === 'bar' ? 'flame' : 'teal';
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
+      ${greetEyebrowHtml()}
       <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
-      <div class="s-sub lao">${sub}</div>
+      <div class="s-sub">${sub}</div>
       ${surpriseMeHtml(f)}
+      ${weatherWidgetHtml()}
       <div id="chipSentinel"></div>
-      <div id="chipSlot"></div>
-      ${weatherWidgetHtml()}`;
+      <div id="chipSlot"></div>`;
     html += secH(color, label);
 
     const cafeTab = state.cafeTab || 'recommended';
@@ -4856,11 +4914,12 @@ function renderHomeSheet() {
   }
 
   let html = `
+    ${greetEyebrowHtml()}
     <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
-    <div class="s-sub lao">${sub}</div>
+    <div class="s-sub">${sub}</div>
+    ${weatherWidgetHtml()}
     <div id="chipSentinel"></div>
-    <div id="chipSlot"></div>
-    ${weatherWidgetHtml()}`;
+    <div id="chipSlot"></div>`;
   let rendered = false;
   const mobile = isMobile();
   // horizontal-scroll carousel (desktop, unchanged) vs. a vertical list of
@@ -4918,8 +4977,9 @@ function renderHomeSheet() {
   const pickVenuesQ = sortEditorial(pickVenues);
   if (showVenueSections && pickVenuesQ.length) {
     rendered = true;
+    const fireCards = pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('');
     html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en), miniFlame()) +
-      pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('') +
+      (mobile && ON_FIRE_CAROUSEL ? `<div class="fire-rail">${fireCards}</div>` : fireCards) +
       `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
@@ -4938,7 +4998,12 @@ function renderHomeSheet() {
       const evSub = `${fmtDate(ev.date)} · ${esc(ev.title)}`;
       if (!v) {
         return mobile
-          ? `<div class="card"><img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy">
+          // .row-card + .photo-wrap so an event with no pinned venue sits in
+          // the same list as rowCard()'s venues instead of being the one
+          // card left with an inset thumbnail once Sleek item 30 made the
+          // rest flush. No .photo-wrap status pill: there is no venue here
+          // to have hours, which is the whole reason this branch exists.
+          ? `<div class="card row-card"><div class="photo-wrap"><img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy"></div>
               <div class="card-body"><span class="t-name">${esc(ev.title)}</span>
               <div class="t-sub">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div></div></div>`
           : `<div class="hcard">
@@ -6112,6 +6177,18 @@ const dayGreeting = () => {
   const day = new Date().getDay();
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return `${names[day]} ${isNight() ? 'night' : ''}`.trim();
+};
+
+// Sleek item 8: a small bilingual greeting above the Home headline. The Lao
+// half is the plain all-purpose ສະບາຍດີ rather than a time-of-day form —
+// that is what the mockup shows, and it is the one greeting that cannot be
+// wrong at any hour; only the English half moves with the clock. The
+// afternoon/evening cut is 17:00, the same hour isNight() uses, so the
+// eyebrow and the headline beneath it never disagree about which it is.
+const greetEyebrowHtml = () => {
+  const h = new Date().getHours();
+  const en = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  return `<div class="s-eyebrow"><span class="lao">ສະບາຍດີ</span> · ${en}</div>`;
 };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
