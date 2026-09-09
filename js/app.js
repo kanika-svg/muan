@@ -5742,10 +5742,18 @@ function initSheetDrag() {
   };
 
   // horizontal filter-swipe only applies to the home list: not while a venue
-  // detail or the avatar sheet is open (#sheet.expanded), not starting on
-  // .hcards (they scroll themselves), and not on #sheetHandle (vertical target)
+  // detail or the avatar sheet is open (#sheet.expanded), not starting on a
+  // horizontal scroller of its own (.hcards on desktop, .fire-rail — On
+  // fire's mobile carousel — since Sleek item 24: both scroll themselves,
+  // and a sideways drag inside one was reaching this handler and changing
+  // the filter tab instead of scrolling the rail), and not on #sheetHandle
+  // (vertical target). Both classes also carry touch-action: pan-x in
+  // style.css so the browser cannot hand a diagonal drag up to #sheet
+  // either — the exclusion and the touch-action are a pair, neither is
+  // sufficient alone.
   const canSwipeX = e => !sheet.classList.contains('expanded')
-    && !e.target.closest('.hcards') && !e.target.closest('#sheetHandle');
+    && !e.target.closest('.hcards') && !e.target.closest('.fire-rail')
+    && !e.target.closest('#sheetHandle');
 
   // touchstart/move/end are delegated on #sheet itself (a static element —
   // only its #sheetInner child's content is replaced on each render)
@@ -5805,7 +5813,8 @@ function initSheetDrag() {
         inner.style.opacity = String(1 - Math.min(0.45, Math.abs(move) / W));
       }
     }
-    // axis === 'none': let the touch fall through to native scrolling (.hcards)
+    // axis === 'none': let the touch fall through to native scrolling
+    // (.hcards, .fire-rail)
   }, { passive: false });
 
   const onEnd = () => {

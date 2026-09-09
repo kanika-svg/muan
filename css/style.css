@@ -11,6 +11,18 @@
   --bone:  #F5F1E8;
   --mute:  #8A8494;
   --dim:   #5A5468;
+  /* secondary text on Home (Sleek item 3 — the greeting sub-line, the
+     eyebrow, section-header English, card sub-lines, inactive bottom-nav
+     labels). Item 3 took all of them from --mute to --dim, which is a day
+     value: on night --dim measures 2.42:1 against --ground and 2.22:1 on a
+     card, under every WCAG threshold including large-text 3:1 — and night
+     is the default after 17:00, so that is the theme most of this app's
+     traffic actually sees. Item 3 is therefore scoped to day, through this
+     token: night stays on --mute (4.84:1 / 4.45:1). Do NOT resolve this to
+     --dim in :root — it exists precisely so the two themes can differ.
+     --dim itself is unchanged and still correct for the non-text uses it
+     has elsewhere (hairline borders, separators, scrollbar-thumb hover). */
+  --secondary: var(--mute);
   --font:  'Space Grotesk', 'Noto Sans Lao', system-ui, sans-serif;
   --pin-bar:   #FF5A3C;
   --pin-cafe:  #1FBF9C;
@@ -69,6 +81,17 @@
   --bone:  #2A2419;
   --mute:  #6B6151;
   --dim:   #9A8F7C;
+  /* day is the theme Sleek item 3 was drawn against — see --secondary in
+     :root. #9A8F7C measures 3.11:1 on --ground and 3.13:1 on --surface:
+     above the 3:1 non-text/large-text floor, but still short of AA's 4.5:1
+     for body copy, and none of this token's consumers are large text by
+     WCAG's definition (the largest is 15px/400, the AA-large cutoff is
+     18.66px normal or 14px bold). So this is an improvement on night's
+     2.42:1, not a pass — deliberately kept because it is the colour the
+     day mockup specifies. If day is ever taken to AA, darken this value
+     rather than the token, so night's --mute is not disturbed: #7A7060
+     would put it at 4.75:1 on --ground. */
+  --secondary: var(--dim);
   --flame: #E8462A;
   --gold:  #B8860B;
   --violet:#6A4BC7;
@@ -1097,7 +1120,7 @@ body {
 /* Sleek item 8 — the bilingual greeting above the Home headline (see
    greetEyebrowHtml() in app.js). Home-only markup, so this needs no
    scoping of its own. */
-.s-eyebrow { font-size: 13px; font-weight: 500; color: var(--dim); }
+.s-eyebrow { font-size: 13px; font-weight: 500; color: var(--secondary); }
 /* Home greeting only. .s-title is shared with the centred sheet headers
    ("List your venue", "Edit venue", "Pending venues", "Choose your
    avatar"), which must stay at 17px — so the display size is a modifier on
@@ -1106,10 +1129,12 @@ body {
    same reason. */
 .s-title.s-greet { font-size: 30px; line-height: 1.25; }
 /* colour is Sleek item 3: every piece of secondary text on Home moves from
-   --mute to the lighter --dim the mockup uses throughout. Scoped to the
-   .s-greet pairing, so the .s-sub under the centred sheet headers ("List
-   your venue" etc.) keeps --mute. */
-.s-greet + .s-sub { font-size: 15px; font-weight: 500; margin-top: 8px; color: var(--dim); }
+   --mute to the lighter --dim the mockup uses throughout — on DAY only, via
+   --secondary (see its note in :root; night keeps --mute, where --dim is
+   below every contrast threshold). Scoped to the .s-greet pairing, so the
+   .s-sub under the centred sheet headers ("List your venue" etc.) keeps
+   --mute in both themes. */
+.s-greet + .s-sub { font-size: 15px; font-weight: 500; margin-top: 8px; color: var(--secondary); }
 .lao     { font-family: 'Noto Sans Lao', sans-serif; }
 
 /* weather widget (weatherWidgetHtml() in app.js) — a normal in-flow bar,
@@ -2555,11 +2580,12 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   }
   #app.sheet-detail #bottomNav { display: none; }
   /* Sleek item 4 sizes the label 10.5 -> 12px, item 3 takes the inactive
-     tint to --dim, item 36 makes the label itself bilingual (index.html). */
+     tint to --secondary (--dim on day, --mute on night — see :root), item
+     36 makes the label itself bilingual (index.html). */
   #bottomNav .nav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 2px; background: none; border: none; font-family: var(--font);
-    font-size: 12px; font-weight: 700; color: var(--dim); cursor: pointer;
+    font-size: 12px; font-weight: 700; color: var(--secondary); cursor: pointer;
   }
   #bottomNav .nav-lb { white-space: nowrap; }
   #bottomNav .nav-item.active { color: var(--flame); }
@@ -2860,12 +2886,13 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      and here there is no longer one line. */
   .sec-h { flex-wrap: wrap; row-gap: 1px; color: var(--bone); }
   /* Sleek item 4 sizes both halves up (21 -> 26, 13 -> 15) and item 3
-     takes the English half to --dim. */
+     takes the English half to --secondary (--dim on day, --mute on night —
+     see :root). */
   .sec-h-lo {
     flex: 0 0 100%;
     font-size: 26px; font-weight: 700; line-height: 1.35;
   }
-  .sec-h-en { font-size: 15px; font-weight: 500; line-height: 1.4; color: var(--dim); }
+  .sec-h-en { font-size: 15px; font-weight: 500; line-height: 1.4; color: var(--secondary); }
   .sec-h-en::before { content: none; }
 
   /* ---- cards: raised surface, 16px radius, 16px rhythm ----
@@ -2895,15 +2922,16 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   .card:not(.card-big) .photo-wrap { width: 124px; height: 124px; }
 
   /* Sleek item 4: row-card name 15.5 -> 17, card sub-line -> 15, hero name
-     16 -> 19. Item 3 takes every sub-line to --dim — .card-big .t-sub has
-     to restate the colour because it already sets one, and CSS cascades per
-     property: the .t-sub rule below cannot reach past it. */
+     16 -> 19. Item 3 takes every sub-line to --secondary (--dim on day,
+     --mute on night — see :root) — .card-big .t-sub has to restate the
+     colour because it already sets one, and CSS cascades per property: the
+     .t-sub rule below cannot reach past it. */
   .t-name { font-size: 17px; }
-  .t-sub  { font-size: 15px; color: var(--dim); }
+  .t-sub  { font-size: 15px; color: var(--secondary); }
 
   /* full-width hero cards (Tonight, On fire) */
   .cb-name { font-size: 19px; font-weight: 600; }
-  .card-big .t-sub { font-size: 15px; color: var(--dim); }
+  .card-big .t-sub { font-size: 15px; color: var(--secondary); }
 
   /* Sleek item 30: the thumbnail sits IN the card's left edge — full card
      height, flush to left/top/bottom, rounded on the left only. Both of
