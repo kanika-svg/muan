@@ -80,17 +80,19 @@
   --ink4:  #DDD2BA;
   --bone:  #2A2419;
   --mute:  #6B6151;
-  --dim:   #9A8F7C;
+  --dim:   #7A7060;
   /* day is the theme Sleek item 3 was drawn against — see --secondary in
-     :root. #9A8F7C measures 3.11:1 on --ground and 3.13:1 on --surface:
-     above the 3:1 non-text/large-text floor, but still short of AA's 4.5:1
-     for body copy, and none of this token's consumers are large text by
-     WCAG's definition (the largest is 15px/400, the AA-large cutoff is
-     18.66px normal or 14px bold). So this is an improvement on night's
-     2.42:1, not a pass — deliberately kept because it is the colour the
-     day mockup specifies. If day is ever taken to AA, darken this value
-     rather than the token, so night's --mute is not disturbed: #7A7060
-     would put it at 4.75:1 on --ground. */
+     :root. Was #9A8F7C, the value the day mockup specifies: 3.11:1 on
+     --ground and 3.13:1 on --surface, above the 3:1 non-text/large-text
+     floor but short of AA's 4.5:1 for body copy — and none of this token's
+     consumers are large text by WCAG's definition (the largest is 15px/400,
+     the AA-large cutoff is 18.66px normal or 14px bold). Darkened to
+     #7A7060: 4.75:1 on --ground, 4.51:1 on the sheet, 4.79:1 on --surface.
+     Darkened HERE rather than at --secondary so night's --mute is not
+     disturbed, which also takes the inline var(--dim) spans in app.js
+     (.hc-sub and the two "coming soon" captions) along with it. Text
+     sitting over --card-fill's lower stop (#F7F1E4) is 4.32:1 — the one
+     place day still lands under AA. */
   --secondary: var(--dim);
   --flame: #E8462A;
   --gold:  #B8860B;
@@ -2139,11 +2141,15 @@ body {
      1.39:1 against the day sheet and 1.25:1 against the night one, which
      is a boundary on paper and not one in the hand. A card can carry an
      edge that faint because it also holds a photo; a lone button has only
-     its outline. --dim is 2.95:1 on day and 2.45:1 on night — near the
-     3:1 WCAG asks for a UI component boundary, still quiet, and already
-     in the palette rather than a new value. One declaration for both
-     themes: night's edge was carried entirely by --card-edge's bright top
-     inset, so it was no better off than day, just less obviously wrong.
+     its outline. --dim is 2.45:1 on night and, since day's --dim was
+     darkened for AA text (see the light block), 4.51:1 on day rather than
+     the 2.95:1 this was chosen at — comfortably past the 3:1 WCAG asks
+     for a UI component boundary on day, near it on night, and already in
+     the palette rather than a new value. Day's outline is now the more
+     definite of the two; if it ever reads as heavier than a secondary
+     button should, give this border its own day value rather than
+     lightening --dim back. One declaration for both themes: night's edge
+     was carried entirely by --card-edge's bright top inset, so it was no better off than day, just less obviously wrong.
      box-sizing: border-box (the reset at the top of this file) keeps the
      44px min-height and the flex widths where they are. */
   border: 1px solid var(--dim);

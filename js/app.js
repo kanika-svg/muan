@@ -5751,8 +5751,18 @@ function initSheetDrag() {
   // style.css so the browser cannot hand a diagonal drag up to #sheet
   // either — the exclusion and the touch-action are a pair, neither is
   // sufficient alone.
+  // ...and not on the sticky chip bar itself. Since Sleek item 18 made the
+  // chip labels bilingual the row is wider than a narrow phone (~344px and
+  // below) and scrolls, and "Events" — the last chip — starts off-screen.
+  // The bar already carries touch-action: pan-x (style.css), but this
+  // handler was still claiming the drag and preventDefault()ing the native
+  // pan, so the filter simply could not be reached on those phones. Being
+  // able to scroll the control wins over being able to change tabs FROM the
+  // control: the chips are tappable, and the swipe still works everywhere
+  // else on the sheet.
   const canSwipeX = e => !sheet.classList.contains('expanded')
     && !e.target.closest('.hcards') && !e.target.closest('.fire-rail')
+    && !e.target.closest('#sheet .chip-bar')
     && !e.target.closest('#sheetHandle');
 
   // touchstart/move/end are delegated on #sheet itself (a static element —
