@@ -53,13 +53,19 @@
      something, but which motif, at what scale, and whether it survives being
      tiled behind body copy is a design decision, not a CSS one. Deliberately
      left as a neutral weave until that decision is made.
-     Applied at every --ground consumer, never at just one: #sheet, its
-     sticky chip bar, #sheetTopCover and #bottomNav all paint this same token
-     precisely so the sticky seams between them are invisible (see
-     #sheetTopCover's note), and a texture on one but not the others would
-     put those seams straight back. `background` is a shorthand and resets
-     background-image, so each of those rules sets this on the line AFTER its
-     own — this file cascades per property (see CLAUDE.md).
+     Applied to the page surface and everything that has to stay seamless
+     with it, never to just one of them: #sheet, its sticky chip bar and
+     #sheetTopCover all paint this same token precisely so the sticky seams
+     between them are invisible (see #sheetTopCover's note), and a texture on
+     one but not the others would put those seams straight back. `background`
+     is a shorthand and resets background-image, so each of those rules sets
+     this on the line AFTER its own — this file cascades per property (see
+     CLAUDE.md).
+     #bottomNav is the deliberate exception. It reads --ground too, but it is
+     a floating control rather than the ground itself, it touches none of the
+     three above, and this thread reads as noise at that size — both of its
+     rules (the base one and the @supports no-backdrop-filter fallback, which
+     sets its own background) are left as plain --ground. See the note there.
      Night runs at a lower alpha on a lighter ink: .035 of a warm grey is
      invisible on #1C1726, and raising the alpha to compensate turns the
      weave into visible banding rather than texture. */
@@ -2678,7 +2684,17 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     height: var(--nav-h);
     padding-bottom: 0;
     border-radius: 24px; border-top: none;
-    background: var(--ground); background-image: var(--weave);
+    /* --ground WITHOUT --weave, unlike the other consumers of this token.
+       The nav is a floating control, not the page surface: the weave is a
+       3%-alpha thread at a 7px pitch, which reads as texture across a full
+       screen and as noise on a 72px bar. It also has nothing to stay
+       seamless with — it floats clear of #sheet on all three sides (see
+       --nav-side/--nav-gap above), so the seam argument that puts the weave
+       on #sheet/#sheetTopCover/.chip-bar does not apply here.
+       `background` is a shorthand and resets background-image to none, so
+       this line alone is the whole opt-out — there is no --weave to
+       neutralise separately. */
+    background: var(--ground);
     box-shadow: var(--card-shadow);
   }
   /* frosted only where the nav actually floats over the map (data-screen
@@ -2698,9 +2714,10 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     box-shadow: var(--card-shadow);
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    #app[data-screen="map"] #bottomNav {
-      background: var(--ground); background-image: var(--weave);
-    }
+    /* untextured for the same reason as the base #bottomNav rule above —
+       and it has to be said again here, because this branch sets its own
+       `background` rather than inheriting that one's. */
+    #app[data-screen="map"] #bottomNav { background: var(--ground); }
   }
   #app.sheet-detail #bottomNav { display: none; }
   /* Sleek item 4 sizes the label 10.5 -> 12px, item 3 takes the inactive
