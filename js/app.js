@@ -3505,9 +3505,15 @@ function mixHex(fromHex, toHex, amount) {
 function venueTileUri(name, type, wide, showLetter = true) {
   const letter = (name || '?').charAt(0).toUpperCase();
   const glyphKey = type === 'cafe' ? 'cafe' : type === 'bar' ? 'bar' : 'venue';
-  const fgVar = type === 'cafe' ? '--teal' : type === 'bar' ? '--flame' : '--violet';
+  // one neutral ink for all three types. This was --teal / --flame / --violet
+  // per type, which meant every venue without a photo printed a saturated
+  // letter and glyph into the list — the same map-token borrowing the chip
+  // dots and the mood cards were doing, and the one with the most instances
+  // on screen. The glyph still differs by type (TILE_GLYPHS above), and the
+  // card carries the venue's name and type in text beside it; on the map,
+  // where a marker has neither, the pin colours are untouched.
   const cs = getComputedStyle(document.documentElement);
-  const fg = cs.getPropertyValue(fgVar).trim() || '#8A8494';
+  const fg = cs.getPropertyValue('--mute').trim() || '#8A8494';
   // light theme gets a hardcoded tan rather than the (near-white) --ink3
   // token — matches the rest of the app's light-theme surface treatment
   const bg1 = state.theme === 'light' ? '#DFD4BC' : (cs.getPropertyValue('--ink3').trim() || '#241E31');
@@ -4830,11 +4836,19 @@ function renderHomeSheet() {
      rather than at the eight call sites — one place that knows the shape.
      A label with no " · " (none today) keeps its single line rather than
      rendering an empty Lao line above it, and only gets the `lao` font class
-     when the leading text is actually Lao. */
-  const secH = (color, label, note, icon) => {
+     when the leading text is actually Lao.
+     Took a `color` token name as its first argument until the accent pass:
+     flame on On fire/Busy spots, violet on Tonight/Coming up/Opening soon,
+     teal on Open late and on the Cafes list — four hues down one scroll, on
+     a mark that is a bullet rather than a key (the section's name is right
+     next to it). The dot is neutral in CSS now (see .sec-h .dot in
+     style.css), so the parameter is gone rather than left in place ignored,
+     which is how a colour argument quietly grows a caller again. `icon`
+     still overrides the dot entirely — On fire passes miniFlame(). */
+  const secH = (label, note, icon) => {
     const [en, lo] = label.split(' · ');
     const lead = lo || en;
-    const mark = icon || `<span class="dot" style="background:var(--${color});"></span>`;
+    const mark = icon || `<span class="dot"></span>`;
     return `<div class="sec-h">`
       + `<span class="sec-h-lo${lo ? ' lao' : ''}">${mark}${lead}</span>`
       + (lo ? `<span class="sec-h-en">${en}</span>` : '')
@@ -4855,7 +4869,6 @@ function renderHomeSheet() {
     : '<span class="lao">ມື້ນີ້ໄປໃສດີ?</span>';
 
   if (f === 'bar' || f === 'cafe') {
-    const color = f === 'bar' ? 'flame' : 'teal';
     const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
     let html = `
       ${greetEyebrowHtml()}
@@ -4864,7 +4877,7 @@ function renderHomeSheet() {
       ${surpriseMeHtml(f)}
       <div id="chipSentinel"></div>
       <div id="chipSlot"></div>`;
-    html += secH(color, label);
+    html += secH(label);
 
     const cafeTab = state.cafeTab || 'recommended';
     if (f === 'cafe') {
@@ -4934,7 +4947,7 @@ function renderHomeSheet() {
 
   if (showEvents && tonight.length) {
     rendered = true;
-    html += secH('violet', 'Tonight · ຄືນນີ້');
+    html += secH('Tonight · ຄືນນີ້');
     for (const ev of tonight) {
       const v = venueById(ev.venue_id);
       const evLine = `${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}`;
@@ -4975,7 +4988,7 @@ function renderHomeSheet() {
 
   if (showEvents && !tonight.length && !upcoming.length) {
     rendered = true;
-    html += secH('violet', 'Tonight · ຄືນນີ້') +
+    html += secH('Tonight · ຄືນນີ້') +
       `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing verified yet — new list every Thursday.</div>`;
   }
 
@@ -4983,7 +4996,7 @@ function renderHomeSheet() {
   if (showVenueSections && pickVenuesQ.length) {
     rendered = true;
     const fireCards = pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('');
-    html += secH('flame', 'On fire · ໄຟລຸກ', esc(state.picks?.note_en), miniFlame()) +
+    html += secH('On fire · ໄຟລຸກ', esc(state.picks?.note_en), miniFlame()) +
       (mobile && ON_FIRE_CAROUSEL ? `<div class="fire-rail">${fireCards}</div>` : fireCards) +
       `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
@@ -4991,14 +5004,14 @@ function renderHomeSheet() {
   const busyVenuesQ = sortEditorial(busyVenues);
   if (showVenueSections && busyVenuesQ.length) {
     rendered = true;
-    html += secH('flame', 'Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
+    html += secH('Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
       sectionWrap(busyVenuesQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, esc(v.area || '')))).join('')) +
       `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
   }
 
   if (showEvents && upcoming.length) {
     rendered = true;
-    html += secH('violet', 'Coming up · ອີເວັນຕໍ່ໄປ') + sectionWrap(upcoming.map(ev => {
+    html += secH('Coming up · ອີເວັນຕໍ່ໄປ') + sectionWrap(upcoming.map(ev => {
       const v = venueById(ev.venue_id);
       const evSub = `${fmtDate(ev.date)} · ${esc(ev.title)}`;
       if (!v) {
@@ -5026,14 +5039,14 @@ function renderHomeSheet() {
   const openingSoonQ = sortForDisplay(openingSoon);
   if (showVenueSections && openingSoonQ.length) {
     rendered = true;
-    html += secH('violet', 'Opening soon · ກຳລັງຈະເປີດ') +
+    html += secH('Opening soon · ກຳລັງຈະເປີດ') +
       sectionWrap(openingSoonQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, esc(v.area || '')))).join(''));
   }
 
   const lateQ = sortForDisplay(late);
   if (showVenueSections && lateQ.length) {
     rendered = true;
-    html += secH('teal', 'Open late · ເປີດເດິກ') +
+    html += secH('Open late · ເປີດເດິກ') +
       sectionWrap(lateQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, openStatus(v).label))).join(''));
   }
 
@@ -5245,7 +5258,7 @@ function openVenue(id) {
   for (const ev of evs) {
     html += `
       <div class="card" style="cursor:default;">
-        <span class="tag violet">${ev.date === todayISO() ? 'TONIGHT' : fmtDate(ev.date)}</span>
+        <span class="tag">${ev.date === todayISO() ? 'TONIGHT' : fmtDate(ev.date)}</span>
         <div style="font-size:13px;font-weight:700;margin-top:3px;">${esc(ev.title)}</div>
         <div class="t-sub">${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}${ev.verified ? '' : ' · unconfirmed'}</div>
       </div>`;

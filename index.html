@@ -138,15 +138,17 @@
       </button>
       <button class="pill" id="avatarBtn" aria-label="Choose your avatar"><span id="avatarSlot">😊</span></button>
     </div>
-    <!-- the legend dot is a real element rather than a ::before so the
-         [data-filter] colour rules in style.css have something to paint
-         that is not also the chip's own background. All deliberately has
-         none: it isn't a pin colour, it's every pin colour. -->
+    <!-- Bars/Cafes/Events each carried a <span class="chip-dot"> painted in
+         that filter's own map-pin colour. Removed — see the note where the
+         .chip-dot rules used to be in style.css. The spans go with the CSS
+         rather than being left in place empty: .chip is a flex row with a
+         gap, so a 0-width child with no fill would still open a gap before
+         the label. -->
     <div class="chip-bar" id="chipBar">
       <button class="chip on" data-filter="all"><span class="lao">ທັງໝົດ</span> · All</button>
-      <button class="chip" data-filter="bar"><span class="chip-dot" aria-hidden="true"></span><span class="lao">ບາຣ໌</span> · Bars</button>
-      <button class="chip" data-filter="cafe"><span class="chip-dot" aria-hidden="true"></span><span class="lao">ຄາເຟ</span> · Cafes</button>
-      <button class="chip" data-filter="event"><span class="chip-dot" aria-hidden="true"></span><span class="lao">ອີເວັນ</span> · Events</button>
+      <button class="chip" data-filter="bar"><span class="lao">ບາຣ໌</span> · Bars</button>
+      <button class="chip" data-filter="cafe"><span class="lao">ຄາເຟ</span> · Cafes</button>
+      <button class="chip" data-filter="event"><span class="lao">ອີເວັນ</span> · Events</button>
     </div>
   </header>
 

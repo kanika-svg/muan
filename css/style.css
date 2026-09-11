@@ -375,23 +375,16 @@ body {
 }
 .chip.on:active { transform: translateY(2px) scale(.97); box-shadow: 0 1px 0 #C6432A; }
 
-/* legend dot — the same three tokens pinSVG() paints markers with (see
-   COLORS in app.js), so the chip row finally says out loud what the pin
-   colours mean. There is one #chipBar in the document, moved between
-   #topbar and #sheet by placeChips(), so map and Home cannot drift apart:
-   they are the same four buttons.
-   On the active chip the dot goes to currentColor (= --ink, the flame
-   chip's own text colour) rather than keeping its hue. Bars is the reason
-   it has to: --pin-bar IS --flame, so a Bars dot on a lit Bars chip is
-   invisible, and letting only that one chip lose its dot would make the
-   row twitch as you tab along it. Inverting all three keeps every chip the
-   same width lit or unlit, and the legend is no longer the point once a
-   filter is on — the map is showing that one colour and nothing else. */
-.chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.chip[data-filter="bar"]   .chip-dot { background: var(--pin-bar); }
-.chip[data-filter="cafe"]  .chip-dot { background: var(--pin-cafe); }
-.chip[data-filter="event"] .chip-dot { background: var(--pin-venue); }
-.chip.on .chip-dot { background: currentColor; }
+/* The chip row had a coloured legend dot per filter — --pin-bar/--pin-cafe/
+   --pin-venue, the same three tokens pinSVG() paints markers with — so it
+   would say out loud what the pin colours mean. Removed: three saturated
+   dots sitting above every screen's content, which is most of what made
+   this app read as five accent hues at once. The pin colours still earn
+   their keep ON the map, where a marker has no text beside it; a chip
+   already says "Bars", so the dot was restating the word next to it in
+   colour. No .chip-dot rule is left here at all, and the spans are gone
+   from index.html — an empty 7px flex child with no fill would still eat
+   its gap. */
 
 /* the map's chips float over the tiles, so they take #routeBar/#bottomNav's
    frosted treatment (see the "frosted glass" note further down for why it
@@ -491,11 +484,18 @@ body {
    is what "no outlines" is really about (see the tucked-away sign's rod,
    drawn as a thin filled rect instead, for the shape where a fill worked
    fine). --- */
-.mc-canopy { fill: var(--pin-cafe); }
+/* canopy and dapple were --pin-cafe (green) and the chair below was
+   --pin-venue (violet) — the map's type tokens, borrowed so a mood card and
+   a marker would read as the same thing. That link is dropped: these cards
+   carry a label and a count, the map pin carries nothing, and the borrowing
+   is what put green and violet on a screen with no map on it. --mute keeps
+   the drawing legible in both themes without adding a hue; the trunk stays
+   --ink4 so canopy and trunk still separate. */
+.mc-canopy { fill: var(--mute); }
 .mc-canopy-1 { opacity: .55; }
 .mc-canopy-2 { opacity: .75; }
 .mc-trunk { fill: var(--ink4); }
-.mc-dapple { fill: var(--pin-cafe); opacity: .25; }
+.mc-dapple { fill: var(--mute); opacity: .25; }
 
 .mc-building { fill: var(--mc-coffee); }
 .mc-glow, .mc-sign { fill: var(--mc-glow); }
@@ -505,7 +505,7 @@ body {
 .mc-saucer { fill: var(--mc-coffee); opacity: .55; }
 .mc-cup { fill: var(--mc-coffee); }
 
-.mc-chair { fill: var(--pin-venue); }
+.mc-chair { fill: var(--mute); }   /* was --pin-venue — see .mc-canopy */
 .mc-book { fill: var(--bone); }
 .mc-book-2 { opacity: .85; }
 .mc-book-3 { opacity: .7; }
@@ -1252,10 +1252,15 @@ body {
   padding-left: 12px; border-left: 1px solid var(--ink4);
 }
 
-.tag { font-size: 10.5px; font-weight: 700; letter-spacing: 1px; }
-.tag.flame  { color: var(--flame); }
-.tag.violet { color: var(--violet); }
-.tag.teal   { color: var(--teal); }
+/* the TONIGHT / date tag on a venue sheet's event card (openVenue() in
+   app.js) — the one and only .tag in the app. It was .tag.violet, one of
+   three colour modifiers (.flame/.violet/.teal) of which only violet ever
+   had a call site. Neutral now: violet is a map token (event pins), and on
+   a card the word "TONIGHT" is already the signal, set in caps above the
+   event's own name. The three modifiers are gone rather than left pointing
+   at accent tokens with nothing using them — that is how a hue finds its
+   way back onto a screen. */
+.tag { font-size: 10.5px; font-weight: 700; letter-spacing: 1px; color: var(--mute); }
 
 /* status pill: sits top-left over a card's photo (see statusPillHtml()/
    photoWrap() in app.js) — open/closed is now an explicit label instead of
@@ -1624,7 +1629,12 @@ body {
   color: var(--mute); text-transform: uppercase;
   margin-top: 32px;
 }
-.sec-h .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; align-self: center; }
+/* background lives here now. secH() in app.js used to pass a token name in
+   and set it inline per section — flame on On fire/Busy spots, violet on
+   Tonight/Coming up/Opening soon, teal on Open late and on the Cafes list —
+   which put four hues on one scroll. The dot is a bullet, not a key: the
+   section's own name is right beside it. */
+.sec-h .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; align-self: center; background: var(--dim); }
 .sec-h .mini-flame { align-self: center; margin: -4px 0; }
 /* the label's two halves, split out of the old single "English · Lao"
    string by secH() in app.js. Desktop keeps them on one line, Lao first,
@@ -1818,8 +1828,12 @@ body {
 .cel-title { font-size: 24px; font-weight: 700; color: var(--bone); margin-top: 6px; }
 .cel-venue { font-size: 14px; color: var(--mute); margin-top: 2px; }
 .cel-embers { margin: 18px 0 14px; }
-.cel-num { font-size: 52px; font-weight: 700; color: var(--gold); }
-.cel-unit { font-size: 16px; color: var(--gold); margin-left: 6px; }
+/* the ember count is coral, not gold. Gold is down to badge glyphs only
+   (.fl-badge-ico, .cel-badge-label svg) — embers are the running total the
+   flame is made of, so they belong to the flame's own colour. Same change
+   on .fl-embers in the You screen. */
+.cel-num { font-size: 52px; font-weight: 700; color: var(--flame); }
+.cel-unit { font-size: 16px; color: var(--flame); margin-left: 6px; }
 .cel-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
 .cel-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -1954,7 +1968,7 @@ body {
 }
 .fl-stage { font-size: 17px; font-weight: 700; color: var(--bone); margin-top: 8px; }
 .fl-sub { font-size: 12px; color: var(--mute); margin-top: 3px; }
-.fl-embers { font-size: 15px; color: var(--gold); margin: 14px 0 4px; }
+.fl-embers { font-size: 15px; color: var(--flame); margin: 14px 0 4px; }  /* was --gold — see .cel-num */
 .fl-embers b { font-size: 22px; }
 /* rhythm strip (renderFlameSheetBody() in app.js) — moved below the flame
    and shrunk to a single row of dots, one per day this month; no numbers,
@@ -2208,10 +2222,15 @@ body {
 /* the venue's own vibe tags (migrations/013_vibe.sql) — until now these only
    existed inside the mood chooser. Read-only here: a label, not a filter. */
 .vd-vibes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+/* read-only labels, so they are outlined rather than filled: a tinted pill
+   reads as something you can press, and these sit directly above .vd-actions,
+   which has real buttons in it. No fill at all — `background: none`, not a
+   quieter tint — since the point is that the row stops being a block of
+   surfaces. */
 .vd-vibe {
   font-size: 11.5px; font-weight: 500; line-height: 1;
   padding: 6px 10px; border-radius: 999px;
-  background: var(--ink3); border: 1px solid var(--ink4); color: var(--mute);
+  background: none; border: 1px solid var(--ink4); color: var(--dim);
 }
 
 /* one primary action. The flame fill lives on whichever of Check in /
@@ -2967,7 +2986,10 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 .ed-save-note {
   text-align: center; font-size: 12.5px; margin-top: 12px; font-weight: 700;
 }
-.ed-save-note-ok { color: var(--teal); }
+/* --teal is the open-now token and nothing else (CLAUDE.md); a save
+   confirmation is not a venue being open. The word "Saved" plus the error
+   variant's flame below is enough to tell the two states apart. */
+.ed-save-note-ok { color: var(--mute); }
 .ed-save-note-error { color: var(--flame); }
 
 /* ============================================================
