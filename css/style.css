@@ -45,6 +45,26 @@
      --ink3 fill FURTHER from its ground — the opposite of what this change
      is for — as well as flattening #sheet into the #131019 page behind it. */
   --ground: var(--ink2);
+  /* a faint woven texture over the ground, so the cream (and the night ink)
+     reads as a surface rather than as flat colour. Pure CSS, no image file:
+     a 45° repeating gradient, 2px of thread every 7px.
+     PLACEHOLDER PATTERN. A real Lao textile motif — a sinh border, a
+     diamond/naga repeat — would be the right thing here and would mean
+     something, but which motif, at what scale, and whether it survives being
+     tiled behind body copy is a design decision, not a CSS one. Deliberately
+     left as a neutral weave until that decision is made.
+     Applied at every --ground consumer, never at just one: #sheet, its
+     sticky chip bar, #sheetTopCover and #bottomNav all paint this same token
+     precisely so the sticky seams between them are invisible (see
+     #sheetTopCover's note), and a texture on one but not the others would
+     put those seams straight back. `background` is a shorthand and resets
+     background-image, so each of those rules sets this on the line AFTER its
+     own — this file cascades per property (see CLAUDE.md).
+     Night runs at a lower alpha on a lighter ink: .035 of a warm grey is
+     invisible on #1C1726, and raising the alpha to compensate turns the
+     weave into visible banding rather than texture. */
+  --weave: repeating-linear-gradient(45deg,
+    rgba(245,241,232,.02) 0 2px, transparent 2px 7px);
   /* the mobile card surface — see .card inside the max-width:767px block,
      its only consumer. Night keeps the --ink3 step up from the sheet
      behind it. Day overrides this (and --card-shadow below) in the light
@@ -66,6 +86,21 @@
   --card-fill: linear-gradient(180deg, var(--ink4) 0%, var(--ink2) 100%);
   --card-edge: inset 0 1px 0 rgba(255,255,255,.09);
   --card-lift: 0 2px 10px rgba(0,0,0,.35);
+  /* layered card (.card-big — the On fire carousel cards and the full-width
+     hero cards): the text plate that lifts over the photo's lower edge, and
+     the card's own outer shadow, strengthened so the whole card reads as
+     lying ON the ground rather than being cut into it.
+     Night's plate steps UP to --ink4 rather than sitting at the card's own
+     --ink3 --surface. The plate overlaps a photo here, and a shadow alone
+     cannot separate one dark surface from a dark image — over a night shot
+     of a bar, --ink3 and the photo are the same value and the plate
+     disappears into it. It has to read as lighter, so: one ink step up plus
+     the bright top edge. Day needs neither — its plate is the near-white
+     card surface itself, which separates from any photo on its own, and
+     there the shadow is what makes it read as lifted rather than inlaid. */
+  --plate: var(--ink4);
+  --plate-shadow: 0 2px 10px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.10);
+  --card-shadow-big: var(--card-edge), 0 6px 20px rgba(0,0,0,.45);
   /* frosted-glass surfaces (bottom nav, route bar) — matches this theme's
      own --ink so the blur reads as "this surface, translucent" rather than
      an unrelated tint. See the "frosted glass" section below. */
@@ -110,12 +145,24 @@
   --card-edge: inset 0 -1px 0 rgba(90,75,45,.07);
   --card-lift: 0 1px 3px rgba(90,75,45,.10), 0 4px 12px rgba(90,75,45,.06);
   --ground: var(--ink);
+  /* see --weave in :root. This is the value the texture was drawn for — a
+     warm grey thread on cream. */
+  --weave: repeating-linear-gradient(45deg,
+    rgba(122,112,96,.035) 0 2px, transparent 2px 7px);
   /* mobile card, day: lighter than the sheet behind it (#FBF6E9) rather
      than the darker --ink3 tan this used to be, separated by one soft
      shadow instead of the edge+lift stack. See --surface / --card-shadow
      in :root for why these are per-theme rather than shared. */
   --surface: #FFFDF8;
   --card-shadow: 0 6px 20px rgba(90,75,45,.10);
+  /* see --plate in :root. Day's plate is the card surface itself — already
+     near-white against any photo — so only the shadow separates it. The big
+     card's outer shadow keeps the geometry the plain card already had and
+     deepens .10 -> .14, since it now has a second shadow inside it to stay
+     louder than. */
+  --plate: var(--surface);
+  --plate-shadow: 0 2px 10px rgba(90,75,45,.12);
+  --card-shadow-big: 0 6px 20px rgba(90,75,45,.14);
   --frost: rgba(255,252,245,.72);
 }
 :root { --halo: rgba(0,0,0,.9); }
@@ -1071,7 +1118,8 @@ body {
    until Home/You went to 20px; see its own comment for that drift. */
 #sheet {
   --sheet-pad-x: 14px;
-  background: var(--ground); border-radius: 24px 24px 0 0;
+  background: var(--ground); background-image: var(--weave);
+  border-radius: 24px 24px 0 0;
   padding: 9px var(--sheet-pad-x) calc(env(safe-area-inset-bottom, 0px) + 16px);
   max-height: 44vh; overflow-y: auto; z-index: 6;
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
@@ -1130,22 +1178,51 @@ body {
    to the base rule. The subtitle pairs off .s-greet, not .s-sub, for the
    same reason. */
 .s-title.s-greet { font-size: 30px; line-height: 1.25; }
-/* colour is Sleek item 3: every piece of secondary text on Home moves from
+/* Home header, row two: the subhead and the weather share one line —
+   subhead left, weather right (.s-subrow, emitted by renderHomeSheet()).
+   Home used to stack four left-aligned text lines before any content at all
+   (eyebrow, 30px headline, a near-full-width bilingual subhead, then a 40px
+   weather bar of its own), all similar in weight and alignment, which read
+   as a document rather than a header. The subhead's English half is gone
+   (see the `sub` const in app.js) and the weather moved up beside what's
+   left, leaving two lines plus weather.
+   The type rules below were `.s-greet + .s-sub` and had to move with the
+   markup: .s-sub gained a wrapper, so that adjacency stopped matching —
+   the same silent fallback "#sheet .s-sub + .chip-bar" lived with for
+   months once #chipSentinel landed between them (see #chipSentinel's note
+   further down). margin-top moves onto the row itself.
+   colour is Sleek item 3: every piece of secondary text on Home moves from
    --mute to the lighter --dim the mockup uses throughout — on DAY only, via
    --secondary (see its note in :root; night keeps --mute, where --dim is
-   below every contrast threshold). Scoped to the .s-greet pairing, so the
-   .s-sub under the centred sheet headers ("List your venue" etc.) keeps
-   --mute in both themes. */
-.s-greet + .s-sub { font-size: 15px; font-weight: 500; margin-top: 8px; color: var(--secondary); }
+   below every contrast threshold). Scoped to .s-subrow, so the .s-sub under
+   the centred sheet headers ("List your venue" etc.) keeps --mute in both
+   themes. */
+.s-subrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.s-subrow .s-sub { font-size: 15px; font-weight: 500; margin-top: 0; color: var(--secondary); }
+/* the weather widget compacted for that shared line. Standing alone it is a
+   40px-tall bar with a 26px icon (.weather-bar below), which would set the
+   height of the whole row and undo the compression. Every property that made
+   it a bar of its own is neutralised explicitly — height, margin, icon size,
+   and the divider between temperature and label — rather than assumed gone,
+   because this file cascades per property (see CLAUDE.md). The icon is
+   resized in CSS instead of by changing weatherIconHtml()'s size argument in
+   app.js, so the markup stays identical whether the widget renders with the
+   sheet or is appended later by boot()'s weather fetch. */
+.s-subrow .weather-bar { height: auto; margin-top: 0; gap: 7px; flex-shrink: 0; }
+.s-subrow .weather-ico svg { width: 20px; height: 20px; }
+.s-subrow .weather-temp { font-size: 15px; }
+.s-subrow .weather-label { font-size: 13px; padding-left: 0; border-left: none; }
 .lao     { font-family: 'Noto Sans Lao', sans-serif; }
 
-/* weather widget (weatherWidgetHtml() in app.js) — a normal in-flow bar,
-   rendered after the chip bar and before the first section header (both
-   render branches in renderHomeSheet() end their template with
-   #chipSlot/#chipSentinel then ${weatherWidgetHtml()}, so it lands right
-   after the actual chip-bar element once #chipSlot is replaced — see
-   setSheet()). Used to be an absolutely-positioned 96px square pinned
-   beside the greeting (float, then an overlay wrapper); moved into flow
+/* weather widget (weatherWidgetHtml() in app.js). No longer a bar of its
+   own: both render branches in renderHomeSheet() now emit it inside
+   .s-subrow, sharing one line with the Home subhead, and .s-subrow's own
+   rules above compact it to fit (see there). What is left here is the
+   widget's shared shape — flow layout, type sizes, the divider — with the
+   bar-sized height/margin that only the standalone form used.
+   Its history is worth keeping, because two of these positions were bugs
+   rather than preferences. It used to be an absolutely-positioned 96px
+   square pinned beside the greeting (float, then an overlay wrapper); moved into flow
    because the chip bar's own full-bleed sticky background (#sheet
    .chip-bar, further down) painted over it once pinned, and it was
    suppressed on Bars/Cafes to avoid colliding with .surprise-btn there —
@@ -1207,6 +1284,14 @@ body {
    block only — the photo (and the pill on it) stay at full opacity so
    the image itself never reads as broken. */
 .card.closed .card-body, .hcard.closed .hc-body, .collage-card.closed .collage-info { opacity: .82; }
+/* ...except on a layered card, where .card-body is no longer a bare text
+   block but an opaque plate sitting over the photo (see .card-big
+   .card-body further down). Fading the plate itself would let 18% of the
+   image ghost through it, which reads as a rendering fault rather than as
+   "closed". The fade moves to the plate's contents, so the text dims by the
+   same .82 and the plate stays opaque. */
+.card.closed.card-big .card-body { opacity: 1; }
+.card.closed.card-big .card-body > * { opacity: .82; }
 
 .card {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
@@ -1617,12 +1702,43 @@ body {
 }
 
 /* full-width photo-led card (Tonight, On fire) — a .card modifier so it
-   inherits .card's hover/active/transition treatment for free */
-.card.card-big { display: block; padding: 0; overflow: hidden; }
+   inherits .card's hover/active/transition treatment for free.
+   box-shadow is set here rather than being left to .card's own: two classes
+   beat one, so this wins over both the desktop .card rule and the mobile
+   one regardless of source order — the same specificity trick `.sec-h +
+   .card` uses above. See --card-shadow-big in :root. */
+.card.card-big { display: block; padding: 0; overflow: hidden; box-shadow: var(--card-shadow-big); }
 .card-big .photo-wrap {
   width: 100%; height: auto; aspect-ratio: 16/9;
 }
-.card-big .card-body { padding: 10px 12px 12px; }
+/* the text plate, lifted over the photo's lower edge so the card reads as
+   two objects — a photo, with a plate lying on it — instead of one flat
+   rectangle with an image at the top of it. The negative top margin is what
+   does it; the side insets leave the photo showing either side of the plate
+   (which is what makes the overlap legible as an overlap), and the bottom
+   margin keeps the plate off the card's own edge so it stays an object on
+   the card rather than a panel welded to its base.
+   position: relative is load-bearing, not decoration. Both the photo wrapper
+   and this are ordinary in-flow blocks, and a replaced element's content
+   paints in a later phase than a later sibling's block background — without
+   this the photo would paint OVER the plate for exactly the strip where they
+   overlap. Positioning the plate moves it into the positioned-descendants
+   phase, after .photo-wrap (itself position: relative) in tree order.
+   Deliberately NOT applied to .card.row-card: its photo is on the left, full
+   card height, so there is no lower photo edge for a plate to lift over.
+   .card-big is overflow: hidden, so the outer few px of the plate's shadow
+   are clipped at the card's rounded corners. That is wanted — it keeps the
+   plate's shadow from bleeding past the card's radius — and the part of the
+   shadow doing the work, the top edge where it meets the photo, is nowhere
+   near the clip. */
+.card-big .card-body {
+  position: relative;
+  margin: -22px 10px 10px;
+  padding: 10px 12px 12px;
+  border-radius: 11px;
+  background: var(--plate);
+  box-shadow: var(--plate-shadow);
+}
 
 /* themed slim scrollbars */
 #sheet { scrollbar-width: thin; scrollbar-color: var(--ink4) transparent; }
@@ -2344,7 +2460,7 @@ body {
          went 16px → 20px, so it reads --sheet-pad-x now (see below) */
   #sheet .chip-bar {
     position: sticky; top: 0; z-index: 2;
-    background: var(--ground);
+    background: var(--ground); background-image: var(--weave);
     /* written against --sheet-pad-x, not a literal, for the reason the
        comment above spells out: these must equal #sheet's real padding on
        this screen or the bar stops being full-bleed and scrolled content
@@ -2507,7 +2623,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
        14px — enough to give that sheet a horizontal scrollbar of its own. */
     margin-left: calc(-1 * (var(--sheet-pad-x) + 1px));
     margin-right: calc(-1 * (var(--sheet-pad-x) + 1px));
-    background: var(--ground);
+    background: var(--ground); background-image: var(--weave);
     /* translateZ(0) (below) turned the original multi-line flicker into a
        single line at the #chipBar boundary — real progress, but it confirmed
        a seam rather than fixing it: #sheetTopCover and #chipBar are two
@@ -2562,7 +2678,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     height: var(--nav-h);
     padding-bottom: 0;
     border-radius: 24px; border-top: none;
-    background: var(--ground);
+    background: var(--ground); background-image: var(--weave);
     box-shadow: var(--card-shadow);
   }
   /* frosted only where the nav actually floats over the map (data-screen
@@ -2582,7 +2698,9 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     box-shadow: var(--card-shadow);
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    #app[data-screen="map"] #bottomNav { background: var(--ground); }
+    #app[data-screen="map"] #bottomNav {
+      background: var(--ground); background-image: var(--weave);
+    }
   }
   #app.sheet-detail #bottomNav { display: none; }
   /* Sleek item 4 sizes the label 10.5 -> 12px, item 3 takes the inactive

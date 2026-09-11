@@ -503,16 +503,19 @@ async function boot() {
     // nothing". Deliberately does NOT call renderHomeSheet() to show it —
     // that would replace #sheetInner's whole innerHTML and restart the
     // entrance animation on every card on screen just to reveal one bar.
-    // Instead it inserts the widget's own markup directly, immediately
-    // ABOVE the chip row (Sleek item 12 moved it there): #chipSentinel is
-    // the anchor because it is the one element that is always present and
-    // is never re-homed by placeChips(), unlike #chipBar, which moves
-    // between #topbar and #sheetInner. #chipBar/#chipSlot stay as fallbacks.
-    // Arriving late only pushes whatever's below it down by the bar's
-    // height; nothing above it moves. Shown on every Home tab now (Bars/
-    // Cafes included — the widget moving into flow means it no longer
-    // collides with .surprise-btn there), so no filter check is needed any
-    // more. Guarded the same as requestLocation() below (still on Home),
+    // Instead it inserts the widget's own markup directly into .s-subrow,
+    // the flex row it now shares with the Home subhead (see renderHomeSheet()
+    // and .s-subrow in style.css) — appended, so it lands on that row's right
+    // edge exactly where the synchronous render would have put it. The row is
+    // always present on Home whether or not weather resolved, and unlike
+    // #chipBar it is never re-homed by placeChips(), so it needs no fallback
+    // anchor chain. Was inserted before #chipSentinel, above the chip row,
+    // back when the widget was a 40px bar of its own; arriving late then
+    // pushed everything below it down by that height, and now moves nothing
+    // at all — the row is already at its final height. Shown on every Home
+    // tab now (Bars/Cafes included — the widget moving into flow means it no
+    // longer collides with .surprise-btn there), so no filter check is
+    // needed any more. Guarded the same as requestLocation() below (still on Home),
     // and against a #sheetInner that's already been re-rendered since this
     // fetch started (a filter switch, or requestLocation() below landing
     // first), which would insert the bar into a *different* screen's content.
@@ -524,9 +527,9 @@ async function boot() {
         state.weather = w;
         if (!w || state.sheetView.type !== 'home') return;
         const inner = document.getElementById('sheetInner');
-        const chipAnchor = inner && inner.querySelector('#chipSentinel, #chipBar, #chipSlot');
-        if (chipAnchor && !inner.querySelector('.weather-bar')) {
-          chipAnchor.insertAdjacentHTML('beforebegin', weatherWidgetHtml());
+        const subRow = inner && inner.querySelector('.s-subrow');
+        if (subRow && !inner.querySelector('.weather-bar')) {
+          subRow.insertAdjacentHTML('beforeend', weatherWidgetHtml());
         }
       });
 
@@ -2800,9 +2803,9 @@ const formatHour12 = h => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'pm' : 'am'}
 // fetch hasn't resolved yet, or failed. Either way, rendering nothing here
 // is the entire failure/absence UI: no placeholder, no error text, no
 // reserved space. This is a normal in-flow element (.weather-bar in
-// style.css) sitting between the chip bar and the first section header
-// (see renderHomeSheet()) — when this returns '', that gap simply doesn't
-// exist, nothing sits there empty.
+// style.css) sitting at the right-hand end of the Home subhead's row
+// (.s-subrow — see renderHomeSheet()) — when this returns '', the row is
+// simply the subhead on its own, with nothing sitting there empty.
 function weatherWidgetHtml() {
   const w = state.weather;
   if (!w) return '';
@@ -4839,13 +4842,17 @@ function renderHomeSheet() {
       + `</div>`;
   };
 
-  // Sleek item 10: the subhead pairs Lao with English instead of standing
-  // alone. Only the Lao half carries the `lao` font class — the wrapper used
-  // to be class="s-sub lao", which would now put the English half in Noto
-  // Sans Lao too, so the class moved off the wrapper and onto this span.
+  // Lao only. Sleek item 10 had paired this with an English restatement
+  // ("· Where shall we go tonight?"), which made it the longest line on the
+  // screen and said nothing the headline directly above it hadn't already
+  // established — dropped so the header reads as two lines plus weather
+  // rather than four stacked full-width paragraphs. The `lao` font class
+  // stays on the span rather than moving back onto the .s-sub wrapper: that
+  // wrapper now shares a flex row with the weather widget (.s-subrow in
+  // style.css), whose English label must not inherit Noto Sans Lao.
   const sub = isNight()
-    ? '<span class="lao">ຄືນນີ້ໄປໃສດີ?</span> · Where shall we go tonight?'
-    : '<span class="lao">ມື້ນີ້ໄປໃສດີ?</span> · Where shall we go today?';
+    ? '<span class="lao">ຄືນນີ້ໄປໃສດີ?</span>'
+    : '<span class="lao">ມື້ນີ້ໄປໃສດີ?</span>';
 
   if (f === 'bar' || f === 'cafe') {
     const color = f === 'bar' ? 'flame' : 'teal';
@@ -4853,9 +4860,8 @@ function renderHomeSheet() {
     let html = `
       ${greetEyebrowHtml()}
       <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
-      <div class="s-sub">${sub}</div>
+      <div class="s-subrow"><div class="s-sub">${sub}</div>${weatherWidgetHtml()}</div>
       ${surpriseMeHtml(f)}
-      ${weatherWidgetHtml()}
       <div id="chipSentinel"></div>
       <div id="chipSlot"></div>`;
     html += secH(color, label);
@@ -4916,8 +4922,7 @@ function renderHomeSheet() {
   let html = `
     ${greetEyebrowHtml()}
     <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
-    <div class="s-sub">${sub}</div>
-    ${weatherWidgetHtml()}
+    <div class="s-subrow"><div class="s-sub">${sub}</div>${weatherWidgetHtml()}</div>
     <div id="chipSentinel"></div>
     <div id="chipSlot"></div>`;
   let rendered = false;
@@ -5738,7 +5743,10 @@ function initSheetDrag() {
     if (e.target.closest('#sheetHandle')) return true;
     if (sheet.classList.contains('collapsed')) return true;
     if (sheet.scrollTop > 0) return false;
-    return !!e.target.closest('.s-title, .s-sub');
+    // .s-subrow, not just .s-sub: the subhead now shares its row with the
+    // weather widget, so the gap between them is the row's own box and a
+    // drag starting there would otherwise fall through to "not a handle".
+    return !!e.target.closest('.s-title, .s-subrow, .s-sub');
   };
 
   // horizontal filter-swipe only applies to the home list: not while a venue
