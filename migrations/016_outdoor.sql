@@ -1,0 +1,31 @@
+-- outdoor: is this venue exposed to the weather? Rooftops, open-air decks,
+-- riverside terraces, a garden or courtyard with no indoor room to retreat
+-- to, street-food rows and the night market. Not "has some outdoor seating"
+-- — a cafe with a couple of pavement tables and a full indoor floor is
+-- outdoor = 0, because rain doesn't stop you going.
+--
+-- Tri-state, so INTEGER and nullable rather than the NOT NULL DEFAULT 0 that
+-- `verified` uses:
+--   1    — exposed; rain is a reason to check before you go
+--   0    — fully indoors, or enough indoors that rain doesn't matter
+--   NULL — nobody has looked yet. Read as "indoors" everywhere, but it is
+--          NOT the same value as 0 and must not be collapsed into it: the
+--          rain note on a card (js/app.js) is skipped entirely for NULL, so
+--          an unaudited venue never claims either way. Every existing row
+--          is NULL after this migration; Kar fills them in by hand.
+--
+-- Kar-only, exactly like `vibe` (migrations/013_vibe.sql): deliberately NOT
+-- added to SIMPLE_FIELDS in functions/api/_venue-validation.js, so neither
+-- the owner submission POST (functions/api/venues.js) nor the owner PATCH
+-- (functions/api/venues/[id].js) will accept it from a request body. There
+-- is still no admin write endpoint for arbitrary venue fields — Kar sets it
+-- directly against D1 — so validateOutdoor() in _venue-validation.js exists
+-- for whenever there is one, next to validateVibe() which is there for the
+-- same reason.
+--
+-- Why it exists: the Home weather widget only earns its space if it changes
+-- a decision, and in Vientiane the only weather question that does is "will
+-- it rain". That question is only actionable against venues you can't sit
+-- in when it does. See weatherWidgetHtml() and outdoorNoteHtml() in
+-- js/app.js.
+ALTER TABLE venues ADD COLUMN outdoor INTEGER;

@@ -45,7 +45,7 @@ async function handleGet(context) {
     const rows = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
               description, photos, hours, hours_note, contact, parking, links,
-              verified, status, source, signature, pin_status, vibe
+              verified, status, source, signature, pin_status, vibe, outdoor
        FROM venues WHERE pin_status != 'rejected' ORDER BY rowid`
     ).all();
 
@@ -76,6 +76,13 @@ async function handleGet(context) {
       if (r.status !== null) v.status = r.status;
       if (r.signature !== null) v.signature = JSON.parse(r.signature);
       if (r.vibe !== null) v.vibe = JSON.parse(r.vibe);
+      // outdoor is tri-state and the third state is carried by ABSENCE, the
+      // same convention contact/parking/status use above: 1 -> true, 0 ->
+      // false, NULL -> field omitted entirely. It must not come through as
+      // `false`, because the client's rain note distinguishes "we checked,
+      // it's indoors" from "nobody has looked" — see outdoorNoteHtml() in
+      // js/app.js and migrations/016_outdoor.sql.
+      if (r.outdoor !== null) v.outdoor = !!r.outdoor;
       return v;
     });
 

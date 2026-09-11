@@ -5,9 +5,10 @@
 // hourly forecast (temperature, humidity, wind, etc.) the widget never
 // shows — passing that through would just be dead weight on every request,
 // and it's the kind of shape a client bug could start depending on by
-// accident. This endpoint reduces it to exactly the four fields the widget
-// reads: current temp, current condition code, day/night, and the highest
-// rain probability in the next 6 hours with the hour it peaks.
+// accident. This endpoint reduces it to exactly what the widget reads:
+// current temp, current condition code, day/night, and three numbers about
+// rain in the next 6 hours — how likely at its worst, when it peaks, and
+// when it starts.
 //
 // Same Cache API + TTL pattern as functions/api/venues.js's GET handler —
 // weather doesn't change fast enough to justify hitting Open-Meteo on every
@@ -50,16 +51,33 @@ export async function onRequest(context) {
       throw new Error('unexpected upstream shape');
     }
 
-    // "the hour it peaks" — hourly.time is already local wall-clock (the
-    // &timezone=Asia/Vientiane param above), e.g. "2026-08-16T20:00", so the
-    // hour is a plain substring, not something to round-trip through Date()
-    // and risk the *server's* timezone leaking in instead of Vientiane's.
-    let peakChance = 0, peakHour = null;
+    // hourly.time is already local wall-clock (the &timezone=Asia/Vientiane
+    // param above), e.g. "2026-08-16T20:00", so the hour is a plain
+    // substring, not something to round-trip through Date() and risk the
+    // *server's* timezone leaking in instead of Vientiane's.
+    //
+    // Two different hours, and the difference is the whole point of
+    // precip_start_hour existing. peakHour is where the probability is
+    // HIGHEST in the window; startHour is the FIRST hour it crosses
+    // RAIN_LIKELY. Given 6pm 55%, 7pm 60%, 8pm 80%, the peak is 8pm but
+    // rain is likely from 6pm — and the widget's copy is "rain likely from
+    // <hour>", which is an onset, not a peak. Reading peakHour for that
+    // sentence told people they had two more hours than they had.
+    // RAIN_LIKELY must stay in step with RAIN_LIKELY_PCT in js/app.js: the
+    // client decides whether to show the rain treatment at all from
+    // precip_chance, and this decides which hour that sentence names. If
+    // the two drifted apart the widget could say "rain likely" with no hour
+    // to name, or name an hour for a forecast it then decided was fine.
+    const RAIN_LIKELY = 50;
+    let peakChance = 0, peakHour = null, startHour = null;
     for (let i = 0; i < hourlyTimes.length; i++) {
       const chance = hourlyChance[i] ?? 0;
       if (chance > peakChance) {
         peakChance = chance;
         peakHour = Number(hourlyTimes[i].slice(11, 13));
+      }
+      if (startHour === null && chance >= RAIN_LIKELY) {
+        startHour = Number(hourlyTimes[i].slice(11, 13));
       }
     }
 
@@ -70,6 +88,7 @@ export async function onRequest(context) {
       is_day: !!cur.is_day,
       precip_chance: peakChance,
       precip_peak_hour: peakHour,
+      precip_start_hour: startHour,
     };
 
     const response = Response.json(body, {

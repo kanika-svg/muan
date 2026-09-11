@@ -1203,7 +1203,7 @@ body {
    below every contrast threshold). Scoped to .s-subrow, so the .s-sub under
    the centred sheet headers ("List your venue" etc.) keeps --mute in both
    themes. */
-.s-subrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.s-subrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .s-subrow .s-sub { font-size: 15px; font-weight: 500; margin-top: 0; color: var(--secondary); }
 /* the weather widget compacted for that shared line. Standing alone it is a
    40px-tall bar with a 26px icon (.weather-bar below), which would set the
@@ -1218,6 +1218,29 @@ body {
 .s-subrow .weather-ico svg { width: 20px; height: 20px; }
 .s-subrow .weather-temp { font-size: 15px; }
 .s-subrow .weather-label { font-size: 13px; padding-left: 0; border-left: none; }
+/* rain is the one weather fact in Vientiane that changes a plan, so when it
+   is falling or likely the widget stops being a quiet tail on the subhead's
+   line and becomes its own thing (see weatherWidgetHtml() in app.js, which
+   swaps the markup, and rainState(), which decides).
+   flex-basis:100% against .s-subrow's flex-wrap above is what puts it on its
+   own line — no second container and no change to where renderHomeSheet()
+   or boot()'s late weather fetch insert it, both of which still just drop
+   the widget into .s-subrow. flex-shrink from the compact rule is overridden
+   back to 0 via the `flex` shorthand here; the height/margin/gap
+   neutralisations above still apply and are still wanted, so they are left
+   alone rather than restated (this file cascades per property — the
+   shorthand does reset flex-shrink, which is why it is called out).
+   The wash is the same flame tint .surprise-btn uses. It is a fourth home
+   for coral after the primary action, the active chip and the ember count —
+   deliberate: this is the one line on Home that should make someone change
+   what they were going to do. */
+.s-subrow .weather-bar.weather-rain {
+  flex: 0 0 100%;
+  gap: 8px; padding: 8px 12px; border-radius: 12px;
+  background: rgba(255,90,60,.16); color: var(--flame);
+}
+.s-subrow .weather-rain .weather-ico svg { width: 18px; height: 18px; }
+.weather-rain-text { font-size: 13.5px; font-weight: 700; line-height: 1.35; }
 .lao     { font-family: 'Noto Sans Lao', sans-serif; }
 
 /* weather widget (weatherWidgetHtml() in app.js). No longer a bar of its
@@ -1329,6 +1352,28 @@ body {
    than two lines, and the card's height comes from its thumbnail anyway. */
 .t-hours { font-size: 14px; font-weight: 700; color: var(--mute); margin-top: 3px; line-height: 1.35; }
 .t-hours.open { color: var(--teal); }
+/* "open-air · may close in rain" on a card, while rain is a factor (see
+   outdoorNoteHtml() in app.js). Deliberately the quietest line on the card —
+   11.5px against the sub-line's 15px, and never louder than it. It is a
+   caveat, not a warning: the venue is still listed, still in its normal
+   position, and someone reading Home in a downpour may be planning tomorrow
+   night. Giving it the flame the weather bar wears would read as "avoid",
+   which is a stronger claim than a forecast can support.
+   --secondary, not the --dim this started as. --dim would have been one
+   step quieter than the sub-line in both themes, which is the hierarchy this
+   line wants — but --dim measures 2.22:1 on a night card, and an 11.5px
+   caveat is exactly the kind of text that has to survive being read at arm's
+   length on a phone in the rain. --secondary is the token that already
+   exists for this trade-off (--dim on day, --mute on night; see its note in
+   :root), so the note keeps its intended day colour and only the night value
+   moves. The size difference carries the hierarchy on its own.
+   Shared by every card shape — .card/.row-card/.card-big bodies, .hc-body,
+   and .collage-info over a photo — so it carries no background or margin
+   that assumes one of them. */
+.t-note { font-size: 11.5px; color: var(--secondary); margin-top: 3px; line-height: 1.35; }
+/* the collage card's text sits over a photo scrim where --dim disappears;
+   its own .collage-desc has the same problem and solves it the same way */
+.collage-info .t-note { color: rgba(245,241,232,.72); }
 
 /* pan-x on every horizontal strip nested inside #sheet (.hcards here, plus
    #sheet .chip-bar, .photo-strip and .ed-photos further down): a deliberately

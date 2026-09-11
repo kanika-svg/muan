@@ -78,6 +78,16 @@ file/variable names) intentionally remain "muan" — do not rename them.
   ~60 chars>", "source": "observed" | "venue page" | "venue told us" }.
   Omit the field entirely rather than guessing — a wrong parking note
   sends someone circling the block.
+- Optional "outdoor" field on a venue: true = exposed to the weather
+  (rooftop, open-air, riverside, a garden or courtyard with nowhere indoors
+  to sit it out), false = indoors enough that rain doesn't change the plan.
+  Kar-only, like vibe — not in SIMPLE_FIELDS, so no owner write path can
+  set it. ABSENT/null is a third state and must never be collapsed into
+  false: it means nobody has looked, and the "open-air · may close in rain"
+  note on a card is skipped entirely for it, so an unaudited venue never
+  claims either way. Don't guess this from a photo or a name — a venue
+  wrongly marked outdoor tells people it might be shut when it isn't.
+  See migrations/016_outdoor.sql.
 - pin_status: "placed" (real, Kar-confirmed lat/lng) or "pending" (owner
   submission awaiting Kar setting real coordinates by hand — see
   functions/api/pending.js). A pending venue has lat/lng NULL — never a

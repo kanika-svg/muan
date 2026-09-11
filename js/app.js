@@ -2806,27 +2806,110 @@ const formatHour12 = h => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'pm' : 'am'}
 // style.css) sitting at the right-hand end of the Home subhead's row
 // (.s-subrow — see renderHomeSheet()) — when this returns '', the row is
 // simply the subhead on its own, with nothing sitting there empty.
+// 50% is a judgment call, not a value Open-Meteo hands back pre-labeled —
+// "more likely than not", which is the point at which a forecast is worth
+// changing a plan over. Must stay in step with RAIN_LIKELY in
+// functions/api/weather.js, which uses the same number to pick which hour
+// precip_start_hour names; see the note there for what drifting apart does.
+const RAIN_LIKELY_PCT = 50;
+
+// the one place that decides whether rain is a factor right now: 'now' if it
+// is already falling, 'likely' if it probably will within the forecast
+// window, null otherwise. Two callers with two very different jobs — the
+// widget's own copy, and outdoorNoteHtml() deciding whether an open-air
+// venue's card says anything at all — and they must never disagree, which
+// they would the moment each re-derived "is it raining" from state.weather
+// on its own.
+//
+// "already falling" comes from the CURRENT condition code, not from the
+// hourly probability: if cat is 'rain' or 'thunder' that is what is
+// happening, and pairing a thunder icon with "rain likely 9pm" contradicts
+// itself. precip_chance is only consulted once we know it is dry now.
+function rainState() {
+  const w = state.weather;
+  if (!w) return null;
+  const cat = weatherCategory(w.code);
+  if (cat === 'rain' || cat === 'thunder') return 'now';
+  if (w.precip_chance >= RAIN_LIKELY_PCT) return 'likely';
+  return null;
+}
+
+// the hour the rain is expected to START, not the hour it peaks.
+// precip_start_hour is the field that actually answers "from when"; it was
+// added to /api/weather for this sentence (see the RAIN_LIKELY note there).
+// precip_peak_hour is the fallback for exactly one case and it is a real
+// one: /api/weather caches for an hour, so for up to an hour after this
+// ships a client can be handed a body written by the old code, with a peak
+// hour and no start hour. Naming the peak is wrong-but-close; naming
+// nothing is worse than either, so the peak stands in until the cache turns
+// over. `?? ` and not `||` — hour 0 is midnight, not missing.
+function rainFromHour() {
+  const w = state.weather;
+  if (!w) return null;
+  return w.precip_start_hour ?? w.precip_peak_hour ?? null;
+}
+
 function weatherWidgetHtml() {
   const w = state.weather;
   if (!w) return '';
   const cat = weatherCategory(w.code);
-  // "rain likely <hour>" is a forecast hedge for conditions that AREN'T
-  // rain/thunder right now — if it already is (cat is 'rain' or 'thunder'),
-  // that's what's actually happening, and pairing a thunder icon with "rain
-  // likely 9pm" text would just contradict itself. 50% is a judgment call,
-  // not a value Open-Meteo hands back pre-labeled — picked as "more likely
-  // than not" for a one-line hedge that still has to say "likely", never
-  // "will" (see CLAUDE.md's data-integrity rules: this is exactly the kind
-  // of claim that must stay a probability, not a fact).
-  const alreadyWet = cat === 'rain' || cat === 'thunder';
-  const rainy = !alreadyWet && w.precip_chance >= 50 && w.precip_peak_hour != null;
-  const label = rainy ? `rain likely ${formatHour12(w.precip_peak_hour)}` : (WEATHER_LABELS[cat] || 'cloudy');
+  const rain = rainState();
+
+  // Rain changes the widget's character, not just its text. Dry, it is one
+  // quiet line beside the subhead saying a temperature nobody acts on. Wet,
+  // it is the only weather fact in Vientiane that changes a plan, so it
+  // takes a line of its own and wears the flame (.weather-rain in
+  // style.css, which is what makes it break onto that line).
+  if (rain) {
+    const from = rainFromHour();
+    // "from <hour>" is an onset, and the forecast window's first entry is
+    // the hour we are already standing in — so a start hour equal to the
+    // current hour would render "rain likely from 10pm" at 10:40pm, which
+    // reads as forty minutes of warning that do not exist. Say "within the
+    // hour" instead. No hour at all (a stale cached body with neither
+    // field) degrades to the vaguer line rather than to no line.
+    const enNow = 'raining now';
+    const enSoon = from == null ? 'rain likely later'
+      : from === new Date().getHours() ? 'rain likely within the hour'
+      : `rain likely from ${formatHour12(from)}`;
+    // ຝົນຕົກຢູ່ = "rain is falling" (ຢູ່ marks it as happening now).
+    // ຝົນອາດຕົກ = "rain may fall" — ອາດ is the hedge, and it is doing the
+    // same job "likely" does in the English half. See the report on why
+    // this is ອາດ and not ຈະ.
+    const lo = rain === 'now' ? 'ຝົນຕົກຢູ່' : 'ຝົນອາດຕົກ';
+    const en = rain === 'now' ? enNow : enSoon;
+    return `
+      <div class="weather-bar weather-rain">
+        <div class="weather-ico">${weatherIconHtml(cat, w.is_day, 20)}</div>
+        <div class="weather-rain-text"><span class="lao">${lo}</span> · ${esc(en)}</div>
+      </div>`;
+  }
+
   return `
     <div class="weather-bar">
       <div class="weather-ico">${weatherIconHtml(cat, w.is_day, 26)}</div>
       <div class="weather-temp">${Math.round(w.temp_c)}&deg;</div>
-      <div class="weather-label">${esc(label)}</div>
+      <div class="weather-label">${esc(WEATHER_LABELS[cat] || 'cloudy')}</div>
     </div>`;
+}
+
+// the small note an open-air venue's card carries while rain is a factor.
+// Every condition here is a deliberate "say nothing" rather than a default:
+//
+//   - v.outdoor !== true covers both false (audited, indoors) and the field
+//     being absent (nobody has looked — see migrations/016_outdoor.sql,
+//     which is every venue on the day this ships). Absent must not fall
+//     through to a note; a venue that has never been checked would then be
+//     telling people it might shut.
+//   - rainState() null means dry and staying dry, and an open-air rooftop
+//     on a clear evening is a reason to go, not a warning.
+//
+// Deliberately does NOT hide or reorder anything — the list is unchanged
+// and this is one neutral line on the card, because someone reading Home in
+// the rain may well be planning tomorrow.
+function outdoorNoteHtml(v) {
+  if (v.outdoor !== true || !rainState()) return '';
+  return '<div class="t-note">open-air &middot; may close in rain</div>';
 }
 // Open-Meteo's terms ask for attribution wherever the data shows — same
 // small dim treatment as the OpenStreetMap routing credit (#routeAttribution
@@ -3301,6 +3384,7 @@ function sectionCard(v, sub, photoOverride, sub2) {
       <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
       <div class="hc-sub" style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
       ${sub2 ? `<div class="hc-sub" style="font-size:10.5px;color:var(--dim);">${esc(sub2)}</div>` : ''}
+      ${outdoorNoteHtml(v)}
     </div>
   </div>`;
 }
@@ -3340,6 +3424,7 @@ function bigCard(v, sub, photoOverride) {
     <div class="card-body">
       ${nameHtml}
       <div class="t-sub">${subHtml}</div>
+      ${outdoorNoteHtml(v)}
     </div>
   </div>`;
 }
@@ -3377,6 +3462,7 @@ function rowCard(v, extraLine) {
       ${extraLine ? `<div class="t-sub">${extraLine}</div>` : ''}
       ${place ? `<div class="t-sub">${place}</div>` : ''}
       <div class="t-hours${st.open ? ' open' : ''}">${esc(st.label)}</div>
+      ${outdoorNoteHtml(v)}
     </div>
   </div>`;
 }
@@ -3863,6 +3949,7 @@ function collageCardHtml(v) {
         <div class="collage-name">${esc(v.short_name || v.name)}</div>
         <div class="collage-status">${esc(collageStatusLine(v))}</div>
         ${descLine ? `<div class="collage-desc">${esc(descLine)}</div>` : ''}
+        ${outdoorNoteHtml(v)}
         ${facts.length ? `<div class="collage-facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
       </div>
     </div>`;
@@ -4917,6 +5004,7 @@ function renderHomeSheet() {
               <div class="card-body">
                 <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
                 <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
+                ${outdoorNoteHtml(v)}
               </div>
             </div>`;
         }

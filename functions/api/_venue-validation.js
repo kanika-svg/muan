@@ -18,6 +18,14 @@ export const VENUE_TYPES = ['bar', 'cafe', 'venue'];
 // (see validateVibe below). Deliberately not in SIMPLE_FIELDS: vibe is set
 // by Kar directly against D1, never by an owner — see migrations/013_vibe.sql.
 export const VIBE_TAGS = ['under-trees', 'tucked-away', 'for-coffee', 'settle-in'];
+// `outdoor` is Kar-only for the same reason and by the same mechanism as
+// vibe: not in SIMPLE_FIELDS, so no owner write path will look at it. Worth
+// spelling out because "add it to the writable-field whitelist, Kar only"
+// has no literal home in this codebase — SIMPLE_FIELDS is the *owner*
+// whitelist, and putting outdoor in it would do the exact opposite of
+// Kar-only. There is no admin field-write endpoint yet (only the
+// pending-review approve/reject actions), so Kar sets it against D1 directly
+// and validateOutdoor below is here for whenever that endpoint exists.
 export const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500, hours_note: 80 };
 export const MAX_PARKING_NOTE = 60;
@@ -78,6 +86,22 @@ export function validateVibe(vibe, errors) {
     return undefined;
   }
   return out.length ? out : null;
+}
+
+// tri-state, and null is a real value here rather than "field absent": null
+// means nobody has audited this venue, which the client treats as indoors
+// but must be able to tell apart from a deliberate false (see
+// migrations/016_outdoor.sql and outdoorNoteHtml() in js/app.js). So this
+// accepts exactly true/false/null and rejects everything else — notably the
+// strings "true"/"false" and 1/0, which a form post would hand over and
+// which would otherwise sail through a truthiness check with 0 and "false"
+// landing on opposite sides. Same "no write path calls this today" status as
+// validateVibe above: it is here so a future Kar-only admin endpoint has one
+// definition to use instead of inventing a second one.
+export function validateOutdoor(outdoor, errors) {
+  if (outdoor === null || outdoor === true || outdoor === false) return outdoor;
+  errors.outdoor = 'must be true, false or null';
+  return undefined;
 }
 
 export function validateContact(contact, errors) {

@@ -35,12 +35,18 @@ const SCHEMA_NOTES =
   "not in the stored value). " +
   "vibe: 0-4 tags from a fixed vocabulary (under-trees, tucked-away, " +
   "for-coffee, settle-in — see VIBE_TAGS in functions/api/_venue-validation.js), " +
-  "Kar-set only. Omitted/null = not yet tagged.";
+  "Kar-set only. Omitted/null = not yet tagged. " +
+  "outdoor: true = exposed to the weather (rooftop, open-air, riverside, " +
+  "garden/courtyard with nowhere indoors to sit it out), false = indoors " +
+  "enough that rain doesn't change the plan. Kar-set only. OMITTED = not " +
+  "yet audited, which is not the same as false: the rain note on a card is " +
+  "shown only for true and skipped entirely when the field is absent, so an " +
+  "unchecked venue never claims either way. See migrations/016_outdoor.sql.";
 
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a
 // multi-line value doesn't survive that quoting intact
-const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status, vibe FROM venues ORDER BY rowid;";
+const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status, vibe, outdoor FROM venues ORDER BY rowid;";
 
 // mirrors functions/api/venues.js's row -> JSON reassembly exactly; if that
 // shape ever changes, change it there and here together
@@ -69,6 +75,10 @@ function rowToVenue(r) {
   if (r.status !== null) v.status = r.status;
   if (r.signature !== null) v.signature = JSON.parse(r.signature);
   if (r.vibe !== null) v.vibe = JSON.parse(r.vibe);
+  // omitted when NULL, boolean when set — same absence-carries-the-third-
+  // state convention functions/api/venues.js uses, which this function has
+  // to mirror exactly (see the note above rowToVenue)
+  if (r.outdoor !== null) v.outdoor = !!r.outdoor;
   return v;
 }
 
