@@ -138,7 +138,30 @@
   --flame: #E8462A;
   --gold:  #B8860B;
   --violet:#6A4BC7;
-  --teal:  #12876B;
+  /* Was #12876B. Darkened, and the open status pill's label went white with
+     it — the two changes are one decision, because on day this token is a
+     FILL behind a label as often as it is a colour of text, and those two
+     jobs want it moved in opposite directions.
+     The pill (.status-pill.open) is the fill case. Its label was #131019 at
+     4.22:1 on #12876B, under AA's 4.5:1 for 11px/700. Darkening cannot fix
+     that: ink needs the fill at luminance >= 0.2011 and #12876B is already
+     at 0.1852, so the ink route means going LIGHTER, not darker. White is
+     the other way round — it needs <= 0.1833, which #12876B misses by a
+     hair (4.46:1). #0F7A60 sits at 0.1487: white reads 5.29:1.
+     .t-hours.open is the text case, and it is why lightening was the wrong
+     branch even though it would have kept the ink label. Teal text on a day
+     card was 4.39:1 / 3.97:1 against --card-fill's two stops; it is now
+     5.20:1 / 4.70:1, clearing AA for normal text rather than only passing
+     on the 14px/700 large-text exemption it was relying on.
+     Hue is 165.4 deg against the old 165.6 — this is the same colour with
+     the lightness taken out, not a slide toward green, which starts around
+     160 deg. Saturation is 0.78, marginally up from 0.76.
+     It is the same value as this theme's --pin-cafe. That is not a merge:
+     the two tokens keep their own names and meanings (CLAUDE.md — --teal is
+     open-now status only), they already share a value on night (#1FBF9C),
+     and either can move without the other. If they need to be told apart by
+     eye, #0E7159 is the same hue two steps darker (white 5.96:1). */
+  --teal:  #0F7A60;
   --pin-bar:   #D93A1F;
   --pin-cafe:  #0F7A60;
   --pin-venue: #5B3DB0;
@@ -1299,7 +1322,13 @@ body {
    forcing the flex item wider than .s-subrow can give it */
 .weather-dry-text { min-width: 0; }
 .weather-dry-now { font-size: 14px; font-weight: 700; line-height: 1.25; }
-.weather-dry-read { font-size: 10px; color: var(--dim); line-height: 1.3; margin-top: 1px; }
+/* --secondary, not --dim. This is secondary text on Home, which is the exact
+   set --secondary was introduced for (see its note in :root): it resolves to
+   --dim on day, which is the value this line was specified as and looks
+   identical there, and to --mute on night, where --dim measures 2.42:1
+   against --ground — below every WCAG threshold including the 3:1 large-text
+   floor, and night is the default after 17:00. --mute is 4.84:1. */
+.weather-dry-read { font-size: 10px; color: var(--secondary); line-height: 1.3; margin-top: 1px; }
 
 /* the TONIGHT / date tag on a venue sheet's event card (openVenue() in
    app.js) — the one and only .tag in the app. It was .tag.violet, one of
@@ -1320,9 +1349,12 @@ body {
    a green that is in no token was the one place that colour was invented.
    It used to be #33E0B4 — a bright mint, never a token, not a --teal-bright
    or any other named variable, just a literal in this one declaration.
-   Contrast of the #131019 label on it: 11.17:1 on the old mint, 8.06:1 on
-   night's --teal #1FBF9C, 4.22:1 on day's #12876B — see the note on .open
-   below. Solid fill (not colored text over one shared
+   .soon and .closed are still literals and so do NOT follow the theme: they
+   are the same #FF7A5C and #D8D2E0 in both, which is intended (both are
+   pale fills that carry the #131019 label at 7.34:1 and 12.74:1 whichever
+   theme is on) but does mean the three pills no longer shift as a set —
+   .open now changes with the theme and the other two do not.
+   Solid fill (not colored text over one shared
    translucent scrim, the previous approach) so all three states carry the
    same visual weight — the earlier version read as three different
    treatments in a list because pale grey text on a dim scrim and bold
@@ -1339,17 +1371,16 @@ body {
   padding: 3px 7px; border-radius: 6px;
   color: #131019;
 }
-/* the label stays #131019 (set on .status-pill above) rather than turning
-   white: ink measures 8.06:1 on night's --teal and 4.22:1 on day's, white
-   measures 2.34:1 and 4.46:1 on the same two. Ink wins on night outright,
-   and on day the two are within 0.3 of each other and BOTH land under AA's
-   4.5:1 for 11px/700 (which is not large text — AA-large starts at 14px
-   bold). Day's --teal is the thing that is short, not the choice of label
-   colour, so this does not chase it with a second text colour: ink needs
-   the day token at luminance >= 0.2011 against its 0.1852 to clear 4.5:1.
-   Flagged, not silently fixed — --teal is a shared token and lightening it
-   is a call for whoever owns it, not a side effect of a pill. */
+/* the label colour is the one thing on this pill that has to know about the
+   theme, because --teal is light on night and dark on day and no single
+   label colour clears AA on both. Ink on night's #1FBF9C is 8.06:1 (white
+   would be 2.34:1); white on day's #0F7A60 is 5.29:1 (ink would be 3.56:1).
+   So ink stays the default, set on .status-pill above, and day overrides it
+   — the only themed thing about any of the three pills, and only because
+   the fill behind it is the one that moved. See --teal in the day block for
+   why the token was darkened rather than lightened. */
 .status-pill.open   { background: var(--teal); }
+[data-theme="light"] .status-pill.open { color: #fff; }
 .status-pill.soon   { background: #FF7A5C; }
 .status-pill.closed { background: #D8D2E0; }
 
