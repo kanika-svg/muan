@@ -69,6 +69,11 @@ const state = {
 
 const isMobile = () => window.innerWidth < 768;
 
+/* "1 place" / "2 places" — the You screen's counts all go through this.
+   "1 places · 1 check-ins" shipped because every count there was
+   interpolated raw next to a hard-coded plural noun. */
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
 // wraps every state.sheetView assignment so the mobile "pushed-over detail
 // view" chrome (hides the bottom nav, lets #sheet cover the full screen —
 // see the mobile screen-shell CSS in style.css) always stays in sync with
@@ -145,6 +150,20 @@ function leaveVenue(screen, viaPopstate) {
 function maybeRecenterMap() {
   if (!state.map || state.selectedId || state.currentRouteGeometry) return;
   state.map.easeTo({ center: HOME_VIEW.center, zoom: HOME_VIEW.zoom });
+}
+
+// the You screen's "Open the map" invitation button (see flameInviteHtml()).
+// Mobile has a Map screen to switch to, and does exactly what a Map tab tap
+// does — including the resize + recentre, since arriving from You is always
+// a fresh arrival. Desktop has no screens: the map is already on the page
+// beside the sheet, so the only thing in the way is the You sheet itself,
+// and going Home clears it.
+function goToMap() {
+  if (!isMobile()) { renderHomeSheet(); return; }
+  setMobileScreen('map');
+  setSheetView({ type: 'map', venueId: null });
+  if (!state.map) return;
+  requestAnimationFrame(() => { state.map.resize(); maybeRecenterMap(); });
 }
 
 /* ---------- geolocation ---------- */
@@ -791,22 +810,41 @@ const AVATARS = ['#E8B98A|#1C1726','#C98E6B|#131019','#E8B98A|#7C5CE0','#C98E6B|
 
 /* items mark places visited, not consumption — computed from checkins, never stored */
 const ITEMS = [
-  { id:'coffee', type:'cafe',  need:3,  name:'Coffee cup',   name_lo:'ຈອກກາເຟ' },
-  { id:'beer',   type:'bar',   need:3,  name:'Beer mug',     name_lo:'ຈອກເບຍ' },
-  { id:'ticket', type:'venue', need:3,  name:'Ticket stub',  name_lo:'ປີ້' },
-  { id:'crown',  type:'any',   need:20, name:'Explorer cap', name_lo:'ໝວກນັກສຳຫຼວດ' },
+  { id:'coffee', type:'cafe',  need:3,  name:'Coffee cup',   name_lo:'ຈອກກາເຟ', where:'cafés' },
+  { id:'beer',   type:'bar',   need:3,  name:'Beer mug',     name_lo:'ຈອກເບຍ', where:'bars' },
+  { id:'ticket', type:'venue', need:3,  name:'Ticket stub',  name_lo:'ປີ້', where:'markets' },
+  { id:'crown',  type:'any',   need:20, name:'Explorer cap', name_lo:'ໝວກນັກສຳຫຼວດ', where:'places' },
 ];
 
-function earnedItems(venueCounts) {
+/* distinct venues visited per type — the unit items are earned in (a second
+   visit to the same cafe never counts twice). `any` is the distinct-venue
+   total, and can share this object with the real types because no venue is
+   ever of type 'any'. */
+function visitedTypeCounts(venueCounts) {
   const visitedIds = Object.keys(venueCounts);
-  const counts = { cafe:0, bar:0, venue:0 };
+  const counts = { cafe:0, bar:0, venue:0, any: visitedIds.length };
   visitedIds.forEach(id => {
     const v = venueById(id);
     if (v && counts[v.type] !== undefined) counts[v.type]++;
   });
-  return ITEMS.filter(it => it.type === 'any'
-    ? visitedIds.length >= it.need
-    : counts[it.type] >= it.need);
+  return counts;
+}
+
+/* every item with its progress, locked ones included — the You screen draws
+   the empty slots too, since a reward nobody can see isn't a reward: the
+   old screen only ever passed earned ids to avatarSVG(), so a new user's
+   chibi was bare with nothing on screen saying what would fill it. `have`
+   is clamped to `need` so a 40-venue explorer reads "20/20", not "40/20". */
+function itemProgress(venueCounts) {
+  const counts = visitedTypeCounts(venueCounts);
+  return ITEMS.map(it => {
+    const have = Math.min(counts[it.type], it.need);
+    return { ...it, have, earned: have >= it.need };
+  });
+}
+
+function earnedItems(venueCounts) {
+  return itemProgress(venueCounts).filter(it => it.earned);
 }
 
 /* must stay in sync with RIVERSIDE_VENUES in functions/api/checkin.js */
@@ -855,6 +893,27 @@ const ITEM_LAYERS = {
     <path d="M12 8 C12 3 16 1 22 1 C28 1 32 3 32 8 L32 9.5 C26 6.5 18 6.5 12 9.5 Z" fill="var(--gold)"/>
   </g>`,
 };
+
+/* the same ITEM_LAYERS drawings, cropped to just that item, so the You
+   screen's slot chips and the chibi can never show two different pictures
+   of one item — each box is the layer's own bbox in the 44x44 avatar
+   space, padded a touch so a stroke isn't clipped at the edge */
+const ITEM_VIEWBOX = {
+  ticket: '11 27.5 9.5 9.5',
+  beer:   '9 34 10.5 9',
+  coffee: '27 34 10.5 9',
+  crown:  '11 0 22 11',
+};
+
+/* one item drawn on its own, for the slot chips. Locked slots use the same
+   artwork and are dimmed by .fl-item.locked in CSS rather than by a second
+   set of greyed drawings — one picture per item, so a slot and the chibi
+   can't drift apart. */
+function itemIconSVG(id, size) {
+  return `<svg viewBox="${ITEM_VIEWBOX[id]}" width="${size}" height="${size}" aria-hidden="true">
+    ${ITEM_LAYERS[id]}
+  </svg>`;
+}
 
 function avatarSVG(i, size, itemIds) {
   itemIds = itemIds || [];
@@ -945,30 +1004,62 @@ async function uploadAvatarFile(file) {
 }
 
 // wired fresh on every renderFlameSheetBody() render, same as the sheet's
-// other buttons — #pfpBtn/#pfpFile/#pfpErr are only present in that markup
+// other buttons — #pfpBtn/#pfpLink/#pfpFile/#pfpErr are only present in
+// that markup. Two triggers now that the avatar is a single slot: the
+// avatar itself (#pfpBtn) and the "Add a photo"/"Change photo" link under
+// it (#pfpLink), both opening the same file input.
 function wirePfpUpload() {
   const btn = document.getElementById('pfpBtn');
+  const link = document.getElementById('pfpLink');
   const file = document.getElementById('pfpFile');
   const err = document.getElementById('pfpErr');
   if (!btn || !file) return;
-  btn.addEventListener('click', () => { err.textContent = ''; file.value = ''; file.click(); });
+  const pick = () => { err.textContent = ''; file.value = ''; file.click(); };
+  btn.addEventListener('click', pick);
+  link?.addEventListener('click', pick);
   file.addEventListener('change', async () => {
     const f = file.files[0];
     if (!f) return;
     if (!f.type.startsWith('image/')) { err.textContent = 'images only'; return; }
     if (f.size > MAX_AVATAR_BYTES) { err.textContent = 'must be 4MB or smaller'; return; }
     btn.disabled = true;
+    if (link) link.disabled = true;
     err.textContent = 'Uploading…';
     try {
       const url = await uploadAvatarFile(f);
       applyAvatarUrl(url);
-      openFlameSheet();  // re-renders the You screen header with the new photo
+      openFlameSheet();  // re-renders the You screen with the new photo
     } catch (e) {
       err.textContent = e.message || 'upload failed';
       btn.disabled = false;
+      if (link) link.disabled = false;
     }
   });
 }
+
+// clears the photo and falls back to the chibi — /api/me/avatar has always
+// accepted { public_id: null } for this, but with the old two-avatar card
+// there was nothing to fall back TO (the chibi was already on screen under
+// the photo), so nothing ever called it. Now that one slot holds both,
+// removing the photo is the only way back to the chibi.
+async function removeAvatarPhoto() {
+  const err = document.getElementById('pfpErr');
+  if (err) err.textContent = 'Removing…';
+  try {
+    const r = await fetch('/api/me/avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ public_id: null }),
+    });
+    const data = await r.json().catch(() => null);
+    if (!data || !data.ok) throw new Error(data?.error || 'could not remove photo');
+    applyAvatarUrl(null);
+    openFlameSheet();
+  } catch (e) {
+    if (err) err.textContent = e.message || 'could not remove photo';
+  }
+}
+
 function openAvatarSheet() {
   toggleSheet(false);
   setSheetView({ type: 'avatar', venueId: null });
@@ -1240,9 +1331,126 @@ function renderFlameIntro(flameHtml, onDone) {
   });
 }
 
-// the normal flame-sheet content (calendar, flame, stage, embers, badges) —
-// split out of openFlameSheet() so renderFlameIntro()'s "Got it" can hand
-// off into it directly
+// how many check-ins it takes before the You screen stops inviting and
+// starts reporting. Below this, the flame card is an invitation (what a
+// check-in does, plus a way to the map) and the stats line is absent
+// entirely: a screen that opens with "1 place · 1 check-in" and "your flame
+// has cooled" is a scoreboard reading zero, which is the worst thing to
+// hand someone who hasn't been given a reason to check in yet.
+const FLAME_INVITE_BELOW = 3;
+
+// the invitation that replaces the flame card below FLAME_INVITE_BELOW.
+// The flame is still here — small, unlit, dimmed — because it's what the
+// rest of the screen is about; what it is NOT allowed to do is carry a heat
+// line. "your flame has cooled" is a sentence about a habit that lapsed,
+// and nobody with two check-ins has a habit to lapse yet.
+function flameInviteHtml(flameHtml, totalCheckins) {
+  const first = totalCheckins === 0;
+  const left = FLAME_INVITE_BELOW - totalCheckins;
+  return `
+    <div class="fl-card fl-card-flame fl-card-invite">
+      <div class="fl-flame fl-flame-invite" data-heat="cold">
+        ${flameHtml}
+      </div>
+      <div class="fl-invite-title">${first ? 'Light your first flame' : 'Keep it going'}</div>
+      <div class="fl-invite-lines">
+        <div class="fl-invite-line">Check in when you get somewhere — a bar, a caf&eacute;, anywhere on the map.</div>
+        <div class="fl-invite-line">${first
+          ? 'Your first check-in lights the flame and starts collecting embers.'
+          : `${plural(left, 'more check-in', 'more check-ins')} and it burns on its own.`}</div>
+      </div>
+      <button class="btn fl-invite-btn" data-go-map>Open the map</button>
+    </div>`;
+}
+
+// the normal flame card: heat, stage, embers, and one line of rhythm. Only
+// reached at FLAME_INVITE_BELOW check-ins or more, so every string in here
+// is safe to say about someone who actually goes out.
+//
+// The rhythm line replaces the old 30-dot month strip. Thirty identical
+// dots with one ring on today said nothing a glance could read — no day
+// numbers, no week markers, no scale — so it was decoration; the same data
+// as a sentence ("3 nights out in September") is the thing the dots were
+// standing in for.
+function flameCardHtml(me, flameHtml, stageLabels, stageLo, heatLines, monthName) {
+  const nights = me.checkin_days.length;
+  return `
+    <div class="fl-card fl-card-flame">
+      <div class="fl-flame" data-heat="${me.heat_level}">
+        ${flameHtml}
+        <div class="fl-streak">${me.streak_months}</div>
+      </div>
+      <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
+      <div class="fl-sub">${esc(heatLines[me.heat_level] || '')}</div>
+      ${me.embers_total > 0 ? `<div class="fl-embers"><b>${me.embers_total}</b> embers</div>` : ''}
+      <div class="fl-rhythm">${nights
+        ? `<b>${nights}</b> ${nights === 1 ? 'night' : 'nights'} out in ${monthName}`
+        : `no nights out yet in ${monthName}`}</div>
+    </div>`;
+}
+
+// the identity card — ONE avatar, not two. The chibi IS the avatar until a
+// photo is set, at which point the photo takes the same slot; the two used
+// to be stacked in this card (a "+" placeholder above, the chibi below),
+// which read as two unrelated pictures of the same person and left no way
+// to tell which one other people would see.
+//
+// Under it, both "what you've collected" rows: earned badges first, then
+// the item slots (locked ones included, with what unlocks them). Badges lead
+// because they are the scarce half and the half that was invisible — they
+// used to be a third card below a 290px flame card, off the bottom of every
+// phone. Measured on a 400x860 viewport: badges now sit ~180px clear of the
+// bottom nav, where they were ~70px under it.
+function identityCardHtml(me, avatarIndex, items) {
+  const earnedIds = items.filter(it => it.earned).map(it => it.id);
+  const chibi = avatarIndex !== null ? avatarSVG(+avatarIndex, 96, earnedIds) : '😊';
+  return `
+    <div class="fl-card fl-card-id">
+      <button type="button" class="fl-avatar" id="pfpBtn"
+        aria-label="${me.avatar_url ? 'Change your photo' : 'Add a photo'}">
+        ${me.avatar_url
+          ? `<img class="fl-avatar-photo" src="${esc(cloudinaryAvatarUrl(me.avatar_url, 192))}" alt="">`
+          : chibi}
+      </button>
+      ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
+      ${me.total_checkins > 0
+        ? `<div class="fl-id-summary">${plural(me.venues_explored, 'place', 'places')} · ${plural(me.total_checkins, 'check-in', 'check-ins')}</div>`
+        : ''}
+      <input type="file" id="pfpFile" accept="image/*" hidden>
+      <div class="fl-pfp-err" id="pfpErr"></div>
+      <div class="fl-avatar-actions">
+        <button class="fl-avatar-link" id="pfpLink">${me.avatar_url ? 'Change photo' : 'Add a photo'}</button>
+        ${me.avatar_url
+          ? `<button class="fl-avatar-link" data-remove-pfp>Remove photo</button>`
+          : `<button class="fl-avatar-link" data-open-avatar>Change avatar</button>`}
+      </div>
+
+      ${me.badges?.length ? `
+      <div class="fl-collect-h">Badges</div>
+      <div class="fl-badges">
+        ${me.badges.map(b => `<div class="fl-badge" title="${esc(b.description||'')}">
+           <span class="fl-badge-ico">${badgeIcon(b, 20)}</span>
+           <span class="fl-badge-name">${esc(b.name)}</span>
+         </div>`).join('')}
+      </div>` : ''}
+
+      <div class="fl-collect-h">Avatar items</div>
+      <div class="fl-items-row">
+        ${items.map(it => `<div class="fl-item ${it.earned ? '' : 'locked'}">
+            <span class="fl-item-ico">${itemIconSVG(it.id, 18)}</span>
+            <span class="fl-item-name">${esc(it.name)}</span>
+            <span class="fl-item-req">${it.earned
+              ? 'earned'
+              : `visit ${it.need} ${esc(it.where)}${it.have ? ` · ${it.have}/${it.need}` : ''}`}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// the normal You screen — the flame (or an invitation in its place), the
+// identity card, then the plain owner/admin rows. Split out of
+// openFlameSheet() so renderFlameIntro()'s "Got it" can hand off into it
+// directly.
 function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues: [] }, pendingVenuesResult = { ok: true, venues: [] }) {
   const stageLabels = { ember:'Ember', flicker:'Flicker', flame:'Flame', blaze:'Blaze', naga:'Naga fire' };
   const stageLo = { ember:'ຖ່ານໄຟ', flicker:'ໄຟວິບວັບ', flame:'ແປວໄຟ', blaze:'ໄຟລຸກ', naga:'ໄຟນາກ' };
@@ -1254,72 +1462,20 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
     roaring: 'roaring 🔥'
   };
 
-  // "rhythm strip": one dot per day this month, filled on a check-in day —
-  // a quick sense of pattern, not a centrepiece, so no day-of-week
-  // alignment or numbers like the old full grid had
-  const now = new Date();
-  const yearMonth = me.month;
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const checkinSet = new Set(me.checkin_days);
-  let calDots = '<div class="fl-cal-dots">';
-  for (let d=1; d<=daysInMonth; d++) {
-    const iso = `${yearMonth}-${String(d).padStart(2,'0')}`;
-    const lit = checkinSet.has(iso);
-    const today = d === now.getDate();
-    calDots += `<span class="fl-dot ${lit?'lit':''} ${today?'today':''}"></span>`;
-  }
-  calDots += '</div>';
-
-  const monthName = now.toLocaleString('en',{month:'long'});
-  const i = localStorage.getItem('muan-avatar');
-
-  const venueCounts = me.venue_counts || {};
-  const earnedIds = earnedItems(venueCounts).map(it => it.id);
-  const noCheckins = me.total_checkins === 0;
+  const monthName = new Date().toLocaleString('en',{month:'long'});
+  const avatarIndex = localStorage.getItem('muan-avatar');
+  const items = itemProgress(me.venue_counts || {});
+  // the one branch the whole screen turns on — see FLAME_INVITE_BELOW
+  const inviting = me.total_checkins < FLAME_INVITE_BELOW;
 
   setSheet(`
     <div class="fl-wrap">
 
-      <div class="fl-card fl-card-id">
-        <div class="fl-id-row">
-          <button type="button" class="fl-pfp" id="pfpBtn" aria-label="${me.avatar_url ? 'Change your photo' : 'Add a photo'}">
-            ${me.avatar_url
-              ? `<img src="${esc(cloudinaryAvatarUrl(me.avatar_url, 112))}" alt="">`
-              : `<span class="fl-pfp-add">+</span>`}
-          </button>
-          <div class="fl-id-text">
-            ${me.handle ? `<div class="fl-handle">@${esc(me.handle)}</div>` : ''}
-            <div class="fl-id-summary">${me.venues_explored} places · ${me.total_checkins} check-ins</div>
-          </div>
-        </div>
-        <input type="file" id="pfpFile" accept="image/*" hidden>
-        <div class="fl-pfp-err" id="pfpErr"></div>
+      ${inviting
+        ? flameInviteHtml(flameHtml, me.total_checkins)
+        : flameCardHtml(me, flameHtml, stageLabels, stageLo, heatLines, monthName)}
 
-        <div class="fl-avatar-big">${i !== null ? avatarSVG(+i, 96, earnedIds) : '😊'}</div>
-        <button class="fl-avatar-link" data-open-avatar>Change avatar</button>
-      </div>
-
-      <div class="fl-card fl-card-flame">
-        <div class="fl-flame" data-heat="${me.heat_level}">
-          ${flameHtml}
-          <div class="fl-streak">${noCheckins ? '' : me.streak_months}</div>
-        </div>
-        <div class="fl-stage">${stageLabels[me.phai_stage]} · <span class="lao">${stageLo[me.phai_stage]}</span></div>
-        <div class="fl-sub">${noCheckins ? 'light your first flame — check in anywhere' : esc(heatLines[me.heat_level] || '')}</div>
-        ${me.embers_total > 0 ? `<div class="fl-embers"><b>${me.embers_total}</b> embers</div>` : ''}
-        <div class="fl-month">${monthName}</div>
-        ${calDots}
-      </div>
-
-      ${me.badges?.length ? `
-      <div class="fl-card fl-card-badges">
-        <div class="fl-badges">
-          ${me.badges.map(b => `<div class="fl-badge" title="${esc(b.description||'')}">
-             <span class="fl-badge-ico">${badgeIcon(b, 20)}</span>
-             <span class="fl-badge-name">${esc(b.name)}</span>
-           </div>`).join('')}
-        </div>
-      </div>` : ''}
+      ${identityCardHtml(me, avatarIndex, items)}
 
       <div class="fl-links">
         ${!myVenuesResult.ok ? `
@@ -1350,6 +1506,8 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
   if (sheet) sheet.scrollTop = 0;
   pauseFlameIfReducedMotion();
   document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
+  document.querySelector('[data-go-map]')?.addEventListener('click', goToMap);
+  document.querySelector('[data-remove-pfp]')?.addEventListener('click', removeAvatarPhoto);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
   wirePfpUpload();
   document.querySelector('[data-list-venue]')?.addEventListener('click', openVenueSubmitForm);
@@ -3528,7 +3686,7 @@ function cloudinaryUrl(stored, width) {
 }
 
 // profile pictures only: square, centre-cropped to `size` — the circular
-// mask itself is CSS (border-radius:50%, see .fl-pfp/#avatarSlot img), not
+// mask itself is CSS (border-radius:50%, see .fl-avatar/#avatarSlot img), not
 // baked into this transform, so the same stored photo works at any size
 function cloudinaryAvatarUrl(stored, size) {
   if (typeof stored !== 'string') return stored;

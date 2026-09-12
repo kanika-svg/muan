@@ -1934,42 +1934,71 @@ body {
 }
 .fl-card + .fl-card { margin-top: 20px; }
 
-/* Card 1: identity — photo + handle/summary side by side, chibi beneath */
-.fl-card-id { text-align: left; }
-.fl-id-row { display: flex; align-items: center; gap: 12px; }
-.fl-id-text { min-width: 0; }
-.fl-id-summary { font-size: 12.5px; color: var(--mute); margin-top: 2px; }
-.fl-card-id .fl-avatar-big { margin-top: 14px; }
+/* Identity card — ONE avatar slot, centred, with the handle and (only once
+   there is something to count) the stats line under it. The old card had a
+   56px "+" photo placeholder in a left-aligned row AND a 96px chibi below
+   it: two avatars, one person, no way to tell which one anyone else sees.
+   Now the chibi fills the slot until a photo is uploaded, and the photo
+   takes the same slot when there is one — see identityCardHtml() in app.js. */
+.fl-card-id { text-align: center; }
+.fl-id-summary { font-size: 12.5px; color: var(--mute); margin-top: 3px; }
 
-/* profile picture — separate from .fl-avatar-big (the chibi); see
-   wirePfpUpload()/renderFlameSheetBody() in app.js. Tap to add one, or to
-   replace the one already there. 56px per Card 1's compact identity row. */
-.fl-pfp {
-  width: 56px; height: 56px; flex-shrink: 0; border-radius: 50%; overflow: hidden;
+/* the single avatar slot: 96px, round, tap to add or replace the photo.
+   The chibi svg is drawn at 96 by avatarSVG() and sits flush; a photo is
+   cropped to the circle by object-fit. */
+.fl-avatar {
+  width: 96px; height: 96px; margin: 0 auto; border-radius: 50%; overflow: hidden;
   border: none; padding: 0; cursor: pointer; background: var(--ink3);
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; font-size: 44px;
 }
-.fl-pfp img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.fl-pfp-add { font-size: 20px; color: var(--mute); line-height: 1; }
-.fl-pfp-err { font-size: 11px; color: var(--mute); margin-top: 4px; min-height: 14px; }
-.fl-handle { font-size: 12px; font-weight: 700; color: var(--mute); }
+.fl-avatar svg { display: block; }
+.fl-avatar-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* no reserved height: an upload error is rare, and 18px of permanent
+   blank in the middle of the identity card cost more than the small
+   reflow when one actually appears */
+.fl-pfp-err { font-size: 11px; color: var(--mute); min-height: 0; }
+.fl-pfp-err:not(:empty) { margin-top: 6px; }
+.fl-handle { font-size: 12px; font-weight: 700; color: var(--mute); margin-top: 8px; }
 
-/* Card 2: the flame — centrepiece, tallest card */
+/* the two text actions under the avatar, side by side — .fl-avatar-link's
+   own `display:block; margin:14px auto 0` is what centres it when it stands
+   alone further down the screen, so both are overridden here rather than
+   relying on the flex parent to win a fight it would only half win (see
+   CLAUDE.md on per-property cascade) */
+.fl-avatar-actions { display: flex; justify-content: center; gap: 4px; }
+.fl-avatar-actions .fl-avatar-link { display: inline-block; margin: 6px 0 0; }
+
+/* "Avatar items" / "Badges" — small section headings inside the identity
+   card, so neither row is a bare strip of chips with nothing naming it */
+.fl-collect-h {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--mute); margin-top: 13px; text-align: center;
+}
+
+/* The flame card — first on the screen now, not second, because it is the
+   only card that changes with what you did. Below FLAME_INVITE_BELOW
+   check-ins it renders as .fl-card-invite instead (see flameInviteHtml()
+   in app.js).
+   .fl-card-badges and .fl-avatar-big are gone with the card they belonged
+   to: badges moved inside the identity card (above the fold, where they
+   were not before) and the chibi is now .fl-avatar, the one avatar slot. */
 .fl-card-flame { text-align: center; }
 
-/* Card 3: badges — .fl-badges' own margin-top is for the old flowing
-   layout; inside its own card that gap is redundant */
-.fl-card-badges { text-align: center; }
-.fl-card-badges .fl-badges { margin-top: 0; }
-
-/* below the cards: plain rows, not a card — manage/list-venue/admin links */
-.fl-links { text-align: left; }
-.fl-signout {
-  display: block; margin: 10px auto 0; background: none; border: none;
-  color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;
+/* the invitation state: smaller, unlit flame and a way to the map, in place
+   of a stage/heat/embers readout that would all read zero */
+.fl-invite-title { font-size: 19px; font-weight: 700; color: var(--bone); margin-top: 10px; }
+.fl-invite-lines { max-width: 280px; margin: 8px auto 0; }
+.fl-invite-line { font-size: 13px; line-height: 1.5; color: var(--mute); margin-top: 8px; }
+/* the one primary action on the You screen — same flame fill and solid
+   bottom edge as .btn-checkin.ready, since it's the same ask ("go do the
+   thing") one step earlier. .btn's base is display:flex with no size of its
+   own, so height, padding and the centring margin all belong here. */
+.fl-invite-btn {
+  height: 46px; margin: 16px auto 0; padding: 0 22px; font-size: 14px;
+  background: var(--flame); color: var(--ink); box-shadow: 0 4px 0 #C6432A;
 }
-.fl-avatar-big { display: flex; justify-content: center; margin-bottom: 6px; }
-.fl-avatar-big svg { display: block; }
+.fl-invite-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #C6432A; }
+
 /* sized to assets/flame.svg's own ratio (viewBox 500x690); the svg child
    fills this box (its own width/height="100%" attrs get overridden by the
    rule below) so it scales without distortion via the default
@@ -1988,6 +2017,22 @@ body {
 .fl-flame[data-heat="warm"]    { transform: scale(.92); }
 .fl-flame[data-heat="burning"] { transform: scale(1);   filter: saturate(1.1) brightness(1.05); }
 .fl-flame[data-heat="roaring"] { transform: scale(1.1); filter: saturate(1.25) brightness(1.12); }
+
+/* the invitation's flame: smaller and dimmer than even a cold one, so it
+   reads as "not lit yet" rather than "gone out". Two-class selector because
+   it has to outrank .fl-flame[data-heat="cold"] above (0,2,0), and both
+   transform AND filter are restated rather than just transform — the cold
+   rule sets both, and overriding one leaves the other in force (CLAUDE.md). */
+.fl-flame.fl-flame-invite[data-heat="cold"] {
+  /* shrunk by the BOX, not by transform: a scaled-down flame still occupies
+     the full 101x140, and those 44 dead pixels were pushing the item slots
+     under the bottom nav on the invitation screen. transform is restated as
+     none for the same reason filter is restated at all — the cold rule sets
+     both and overriding one leaves the other (CLAUDE.md). 69x96 keeps
+     assets/flame.svg's 101:140 ratio. */
+  width: 69px; height: 96px; transform: none;
+  filter: saturate(.35) brightness(.8); opacity: .75;
+}
 
 /* first-run intro card (renderFlameIntro() in app.js) — the flame animates
    cold -> burning over ~1.2s rather than .fl-flame's usual .6s, since here
@@ -2015,19 +2060,19 @@ body {
 .fl-sub { font-size: 12px; color: var(--mute); margin-top: 3px; }
 .fl-embers { font-size: 15px; color: var(--flame); margin: 14px 0 4px; }  /* was --gold — see .cel-num */
 .fl-embers b { font-size: 22px; }
-/* rhythm strip (renderFlameSheetBody() in app.js) — moved below the flame
-   and shrunk to a single row of dots, one per day this month; no numbers,
-   no day-of-week alignment, just a quick sense of pattern */
-.fl-month { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--mute); margin-top: 16px; }
-.fl-cal-dots {
-  display: flex; justify-content: space-between; align-items: center;
-  max-width: 260px; margin: 8px auto 0;
-}
-.fl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); flex-shrink: 0; }
-.fl-dot.lit { background: var(--flame); }
-.fl-dot.today { outline: 2px solid var(--flame); outline-offset: 2px; }
+/* the rhythm line (flameCardHtml() in app.js) — replaces the 30-dot month
+   strip and its .fl-month label. The strip was 30 identical 6px dots with
+   one ring on today: no day numbers, no week markers, nothing naming the
+   scale, so it read as decoration rather than as data, and a month with
+   three check-ins looked much like a month with none. One sentence carries
+   the same number and can actually be read. .fl-month/.fl-cal-dots/.fl-dot
+   are removed with it — nothing else used them. */
+.fl-rhythm { font-size: 12.5px; color: var(--mute); margin-top: 14px; }
+.fl-rhythm b { font-size: 16px; color: var(--bone); }
 
-.fl-badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; }
+/* both collection rows live inside the identity card now, under
+   .fl-collect-h headings, so their old top margins are the heading's job */
+.fl-badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:8px; }
 .fl-badge {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
   border-radius:12px; padding:8px 12px; text-align:center;
@@ -2041,16 +2086,34 @@ body {
 .fl-badge-ico { display:block; line-height:0; color: var(--gold); }
 .fl-badge-ico svg { display:block; margin:0 auto; }
 .fl-badge-name { font-size:10.5px; color:var(--mute); }
-.fl-badge.locked { opacity: .45; }
-.fl-badge-prog { font-size: 10px; color: var(--dim); display: block; }
-.fl-items-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
+
+/* avatar item slots — all four are always drawn, earned or not. The locked
+   ones are the point: an unlocked-items-only row meant a new user's chibi
+   was bare with nothing on screen saying anything could ever go on it, so
+   the whole exploration reward was invisible until it had already been
+   won. Locked slots are dimmed and carry the unlock line instead of a
+   placeholder, and four fit two-up on the narrowest phone. */
+.fl-items-row {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; margin-top: 8px;
+}
+@media (min-width: 380px) { .fl-items-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .fl-item {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
-  border-radius:12px; padding:8px 12px; text-align:center;
+  border-radius:12px; padding:8px 5px; text-align:center;
+  /* the grid stretches these to a shared height already; this stops the one
+     chip whose name wraps ("Explorer cap") from setting that height for all
+     four and leaving three of them half empty */
+  display:flex; flex-direction:column; justify-content:flex-start;
 }
-.fl-item-name { display:block; font-size:11px; font-weight:700; color:var(--bone); }
-.fl-item.locked { opacity:.5; }
-.fl-item-req { display:block; font-size:9.5px; color:var(--dim); margin-top:2px; }
+.fl-item-ico { display:block; line-height:0; margin-bottom:4px; }
+.fl-item-ico svg { display:block; margin:0 auto; }
+.fl-item-name { display:block; font-size:10.5px; line-height:1.25; font-weight:700; color:var(--bone); }
+/* greyed, not hidden: the artwork still shows through at .45 so you can see
+   what you'd be getting. `filter` desaturates the gold/amber fills so a
+   locked slot never reads as a lit one at a glance. */
+.fl-item.locked { opacity:.45; filter: grayscale(1); }
+.fl-item-req { display:block; font-size:9.5px; line-height:1.35; color:var(--dim); margin-top:2px; }
 .fl-avatar-link {
   display: block; margin: 14px auto 0; background: none; border: none;
   color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;

@@ -1,4 +1,5 @@
 import { sessionCookie } from '../_auth.js';
+import { pickHandle } from '../_handle.js';
 
 const GOOGLE_CLIENT_ID = '768624583305-553qrbhib2mqbbi10ifsr18b8uqu4uvk.apps.googleusercontent.com';
 
@@ -27,15 +28,10 @@ export async function onRequest(context) {
 
     let user = await db.prepare('SELECT id FROM users WHERE google_sub = ?').bind(info.sub).first();
     if (!user) {
-      const trimmedName = (info.name || '').trim();
-      const trimmedEmailPrefix = (info.email ? info.email.split('@')[0] : '').trim();
-      const base = (trimmedName || trimmedEmailPrefix || 'friend').slice(0, 20);
-      let handle = base, n = 1;
-      while (await db.prepare('SELECT 1 FROM users WHERE handle = ?').bind(handle).first()) {
-        n++;
-        handle = base.slice(0, 20 - String(n).length) + n;
-        if (n > 99) { handle = 'friend' + Date.now().toString().slice(-6); break; }
-      }
+      // slugified, not the raw Google display name — see _handle.js for why
+      // "@Kanika luangmuninthone" was never a usable handle
+      const handle = await pickHandle(info, async (h) =>
+        !!(await db.prepare('SELECT 1 FROM users WHERE handle = ?').bind(h).first()));
 
       let inserted;
       try {
