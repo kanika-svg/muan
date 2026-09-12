@@ -1,4 +1,4 @@
-// A handle is a public name people type and read — "@kanika-luangmuninth",
+// A handle is a public name people type and read — "@kanika-luangmunintho",
 // not "@Kanika luangmuninthone". New accounts used to take the raw Google
 // display name verbatim, spaces, capitals and all (see auth/google.js), so
 // the You screen showed an @-handle nobody could type, that sorted and
