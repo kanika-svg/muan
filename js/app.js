@@ -1203,13 +1203,6 @@ async function injectEmptyIcons() {
   });
 }
 
-function miniFlame() {
-  return `<svg class="mini-flame" width="18" height="22" viewBox="0 0 72 88" aria-hidden="true">
-    <path class="mf-outer" d="M36 4 C31 21 15 29 15 47 C15 59 23 67 29 73 L36 88 L43 73 C49 67 57 59 57 47 C57 34 49 29 45 18 C43 27 38 29 36 26 C39 18 39 11 36 4 Z" fill="var(--flame)"/>
-    <path class="mf-core" d="M36 34 C33 44 27 48 27 56 C27 64 31 69 36 69 C41 69 45 64 45 56 C45 49 41 45 38 38 C37 42 36 42 36 40 Z" fill="var(--gold)"/>
-  </svg>`;
-}
-
 async function openFlameSheet() {
   // every route into signing in lands here (the avatar pill, the You tab,
   // a 401 from check-in), so this one line is enough to have the sign-in
@@ -2953,7 +2946,52 @@ function weatherIconHtml(cat, isDay, size) {
   if (cat === 'thunder') return icoThunder(size);
   return icoRain(size);
 }
-const WEATHER_LABELS = { clear: 'clear', 'partly-cloudy': 'partly cloudy', cloudy: 'cloudy', rain: 'rain', thunder: 'storms' };
+// The dry widget's condition word is Lao now, not English — the whole
+// header above it is Lao-first (see the `sub` const in renderHomeSheet()),
+// and "clear" was the one English word wedged into that block. Only the
+// three dry categories are here: rain and thunder never reach this map,
+// they go down weatherWidgetHtml()'s rain branch, which has its own
+// already-reviewed Lao (ຝົນຕົກຢູ່ / ຝົນອາດຕົກ).
+//
+// TODO(lao): every string in this map needs a native-speaker check before
+// it can be treated as verified — they are first-pass words, not confirmed
+// copy. Each carries the English it is meant to say, so a wrong one is
+// corrected here in one line rather than by rebuilding the widget. This
+// replaced a WEATHER_LABELS map of exactly those English words, which had
+// no other caller once the widget went Lao and so went with it.
+const WEATHER_LABELS_LO = {
+  clear: 'ແຈ້ງ',                    // TODO(lao): check — intended "clear/bright"
+  'partly-cloudy': 'ມີເມກບາງສ່ວນ',  // TODO(lao): check — intended "partly cloudy"
+  cloudy: 'ມີເມກ',                  // TODO(lao): check — intended "cloudy/overcast"
+};
+
+// at or above this, the temperature is the story and the sky is not
+const HOT_C = 33;
+
+// the second line of the dry widget: what the weather means for going out.
+// "26° clear" is a fact nobody acts on; this is the sentence that fact was
+// standing in for, which is the only reason the widget is worth a glance.
+//
+// Order matters. Heat outranks the sky — 34° under a clear sky is not "fine
+// for sitting outside", it is too hot to walk far, and that is true whether
+// the sun is out or behind cloud. Below HOT_C, only a genuinely clear sky
+// gets the encouraging line, split day/night because a rooftop after dark
+// and a pavement table at noon are different invitations.
+//
+// 'partly-cloudy' deliberately reads as cloudy, not clear: WMO folds both
+// "mainly clear" and "partly cloudy" into it (see weatherCategory()), so
+// half of what lands here genuinely is cloud, and "mild out" is never wrong
+// for either — while "fine for sitting outside" under thickening cloud is.
+// One line to move it if that turns out too cautious in practice.
+//
+// No lower temperature bound: Vientiane's cool season still sits well above
+// anywhere "fine for sitting outside" stops being true, and inventing a
+// cold threshold would mean inventing the copy that goes with it.
+function weatherReadHtml(cat, tempC, isDay) {
+  if (tempC >= HOT_C) return 'too hot to walk far';
+  if (cat === 'clear') return isDay ? 'fine for sitting outside' : 'good night for a rooftop';
+  return 'mild out';
+}
 // "8pm", not "20:00" or "8:00pm" — matches the one-line, glance-length copy
 // the card is built for
 const formatHour12 = h => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'pm' : 'am'}`;
@@ -3043,11 +3081,25 @@ function weatherWidgetHtml() {
       </div>`;
   }
 
+  // Dry. Was an icon, a temperature and an English condition word on one
+  // line — "26° clear", which is a reading off an instrument, not a reason
+  // to look. It is a small card now: a neutral disc holding the glyph, the
+  // temperature and Lao condition together on top, and underneath, in the
+  // quietest type on the row, what that weather means for going out (see
+  // weatherReadHtml()). The disc is neutral rather than tinted because the
+  // dry widget is context, not a signal — rain is the state that is allowed
+  // to wear a colour, and it still does, on the branch above.
+  //
+  // Still inside .s-subrow with no wrapper of its own, so it keeps its place
+  // beside the subhead exactly as before; .s-subrow's compacting rules in
+  // style.css are what fit it there.
   return `
-    <div class="weather-bar">
-      <div class="weather-ico">${weatherIconHtml(cat, w.is_day, 26)}</div>
-      <div class="weather-temp">${Math.round(w.temp_c)}&deg;</div>
-      <div class="weather-label">${esc(WEATHER_LABELS[cat] || 'cloudy')}</div>
+    <div class="weather-bar weather-dry">
+      <div class="weather-disc">${weatherIconHtml(cat, w.is_day, 17)}</div>
+      <div class="weather-dry-text">
+        <div class="weather-dry-now">${Math.round(w.temp_c)}&deg; &middot; <span class="lao">${WEATHER_LABELS_LO[cat] || WEATHER_LABELS_LO.cloudy}</span></div>
+        <div class="weather-dry-read">${esc(weatherReadHtml(cat, w.temp_c, w.is_day))}</div>
+      </div>
     </div>`;
 }
 
@@ -3094,9 +3146,12 @@ function icoMapNav(size) {
     <path d="M12 21s-7-5.686-7-11a7 7 0 1 1 14 0c0 5.314-7 11-7 11z"/>
     <circle cx="12" cy="10" r="2.5"/></svg>`;
 }
-// deliberately a plain single-path outline, not the detailed miniFlame
-// (mf-outer/mf-core layered SVG) used elsewhere — that turns to mush at nav
-// icon size
+// deliberately a plain single-path outline. There used to be a detailed
+// two-path flame (miniFlame(), a coral outer with a gold core) and this one
+// existed because that one turned to mush at nav-icon size — the same
+// reason it has now been dropped from the On fire header too, leaving this
+// as the app's only small flame mark. The big profile flame is a separate
+// thing again: assets/flame.svg, loaded by flameSvg(), and untouched.
 function icoFlameNav(size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -5088,12 +5143,19 @@ function renderHomeSheet() {
      a mark that is a bullet rather than a key (the section's name is right
      next to it). The dot is neutral in CSS now (see .sec-h .dot in
      style.css), so the parameter is gone rather than left in place ignored,
-     which is how a colour argument quietly grows a caller again. `icon`
-     still overrides the dot entirely — On fire passes miniFlame(). */
-  const secH = (label, note, icon) => {
+     which is how a colour argument quietly grows a caller again.
+     An `icon` argument outranking the dot went the same way, and for the
+     same reason. Its only caller was On fire, which passed miniFlame() — an
+     18x22px render of a 72x88 drawing whose whole construction is a gold
+     core path overlapping a coral outer path, so at that size the two
+     collapse into one another and the detail turns to mush. The header says
+     "On fire" in words; the flame was the only section mark in the app that
+     differed from the rest, and a mark that differs is a mark that has to be
+     read. Every header takes the same dot now. */
+  const secH = (label, note) => {
     const [en, lo] = label.split(' · ');
     const lead = lo || en;
-    const mark = icon || `<span class="dot"></span>`;
+    const mark = `<span class="dot"></span>`;
     return `<div class="sec-h">`
       + `<span class="sec-h-lo${lo ? ' lao' : ''}">${mark}${lead}</span>`
       + (lo ? `<span class="sec-h-en">${en}</span>` : '')
@@ -5242,7 +5304,7 @@ function renderHomeSheet() {
   if (showVenueSections && pickVenuesQ.length) {
     rendered = true;
     const fireCards = pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('');
-    html += secH('On fire · ໄຟລຸກ', esc(state.picks?.note_en), miniFlame()) +
+    html += secH('On fire · ໄຟລຸກ', esc(state.picks?.note_en)) +
       (mobile && ON_FIRE_CAROUSEL ? `<div class="fire-rail">${fireCards}</div>` : fireCards) +
       `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
