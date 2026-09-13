@@ -956,133 +956,59 @@ function applyAvatarUrl(url) {
   refreshAvatarBtn();
 }
 
-const MAX_AVATAR_BYTES = 4 * 1024 * 1024;
+/* ---------- on-demand code chunks ----------
+   Same idea as loadGoogleSignIn() below, applied to this app's own code:
+   inject a <script> the first time something actually needs it, and cache the
+   promise so a second caller waits on the same load instead of starting a
+   second one.
 
-// uploads straight to Cloudinary via the same signed-upload mechanism the
-// venue photo uploader uses (see /api/upload-signature's { target: 'avatar'}
-// branch, scoped to this user's own paisaidee/users/<id>/ folder), then
-// saves the resulting public id server-side — /api/me/avatar rejects
-// anything not actually in that folder, same ownership check as venue
-// photos have
-async function uploadAvatarFile(file) {
-  const sigRes = await fetch('/api/upload-signature', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target: 'avatar' }),
+   Why this exists: js/app.js was 323KB and was the only thing between the
+   page and the first venue — index.html has already fetched data/venues.json
+   and the stylesheets before app.js has finished downloading (see the head
+   script), so on a phone the whole critical path was this one file's
+   download, parse and compile. 59KB of it — 18% — was the avatar picker, the
+   two owner forms, the admin pending queue and the photo uploader: code that
+   lives entirely on the You screen and that most visitors will never reach.
+   None of it is on the boot path, so none of it needs to be in the file that
+   gates first paint.
+
+   The chunks are CLASSIC scripts, not modules. Classic scripts share one
+   global lexical scope, so the moved code still resolves esc(), setSheet(),
+   state, openFlameSheet() and everything else out of app.js by name and not
+   a line of it had to change. A module would have needed an export/import
+   list threaded through ~1300 lines, which is exactly the kind of full-block
+   rewrite that hides silent edits.
+
+   Two rules follow from that and are load-bearing:
+     1. Nothing may reference a chunk's symbols until its promise resolves.
+        The only references are the call sites in renderFlameSheetBody().
+     2. A chunk must never execute twice — its top-level `const`s would
+        throw on redeclaration. Hence the cache. It is cleared only on
+        `onerror`, which fires when the script never ran at all, so a retry
+        after a dropped connection is safe and a retry after a successful
+        load is impossible. */
+const CHUNKS = Object.create(null);
+function loadChunk(name) {
+  if (CHUNKS[name]) return CHUNKS[name];
+  CHUNKS[name] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `js/${name}.js`;
+    s.onload = () => resolve();
+    s.onerror = () => { delete CHUNKS[name]; reject(new Error(`${name}.js failed to load`)); };
+    document.head.appendChild(s);
   });
-  const sig = await sigRes.json().catch(() => null);
-  if (!sig || !sig.ok) throw new Error(sig?.error || 'could not start upload');
-
-  const form = new FormData();
-  form.append('file', file);
-  form.append('api_key', sig.api_key);
-  form.append('signature', sig.signature);
-  for (const [key, value] of Object.entries(sig.params)) form.append(key, value);
-
-  const uploadResult = await new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`);
-    xhr.onload = () => {
-      let data;
-      try { data = JSON.parse(xhr.responseText); } catch (e) { reject(new Error('upload failed')); return; }
-      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-      else reject(new Error(data?.error?.message || 'upload failed'));
-    };
-    xhr.onerror = () => reject(new Error('connection error during upload'));
-    xhr.send(form);
-  });
-
-  const publicId = `v${uploadResult.version}/${uploadResult.public_id}`;
-  const saveRes = await fetch('/api/me/avatar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ public_id: publicId }),
-  });
-  const saved = await saveRes.json().catch(() => null);
-  if (!saved || !saved.ok) throw new Error(saved?.error || 'could not save photo');
-  return saved.avatar_url;
+  return CHUNKS[name];
 }
 
-// wired fresh on every renderFlameSheetBody() render, same as the sheet's
-// other buttons — #pfpBtn/#pfpLink/#pfpFile/#pfpErr are only present in
-// that markup. Two triggers now that the avatar is a single slot: the
-// avatar itself (#pfpBtn) and the "Add a photo"/"Change photo" link under
-// it (#pfpLink), both opening the same file input.
-function wirePfpUpload() {
-  const btn = document.getElementById('pfpBtn');
-  const link = document.getElementById('pfpLink');
-  const file = document.getElementById('pfpFile');
-  const err = document.getElementById('pfpErr');
-  if (!btn || !file) return;
-  const pick = () => { err.textContent = ''; file.value = ''; file.click(); };
-  btn.addEventListener('click', pick);
-  link?.addEventListener('click', pick);
-  file.addEventListener('change', async () => {
-    const f = file.files[0];
-    if (!f) return;
-    if (!f.type.startsWith('image/')) { err.textContent = 'images only'; return; }
-    if (f.size > MAX_AVATAR_BYTES) { err.textContent = 'must be 4MB or smaller'; return; }
-    btn.disabled = true;
-    if (link) link.disabled = true;
-    err.textContent = 'Uploading…';
-    try {
-      const url = await uploadAvatarFile(f);
-      applyAvatarUrl(url);
-      openFlameSheet();  // re-renders the You screen with the new photo
-    } catch (e) {
-      err.textContent = e.message || 'upload failed';
-      btn.disabled = false;
-      if (link) link.disabled = false;
-    }
+/* Runs fn once the chunk is there. On a failed load it says so in the place
+   the user was looking rather than doing nothing at all — a dead button is
+   the worst outcome of a split like this and it is the one that would not
+   show up in testing on a fast connection. */
+function withChunk(name, fn, failEl) {
+  return loadChunk(name).then(fn).catch(err => {
+    console.warn('[muan]', err.message);
+    if (failEl) failEl.textContent = "Couldn't load that — check your connection and try again.";
   });
-}
-
-// clears the photo and falls back to the chibi — /api/me/avatar has always
-// accepted { public_id: null } for this, but with the old two-avatar card
-// there was nothing to fall back TO (the chibi was already on screen under
-// the photo), so nothing ever called it. Now that one slot holds both,
-// removing the photo is the only way back to the chibi.
-async function removeAvatarPhoto() {
-  const err = document.getElementById('pfpErr');
-  if (err) err.textContent = 'Removing…';
-  try {
-    const r = await fetch('/api/me/avatar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ public_id: null }),
-    });
-    const data = await r.json().catch(() => null);
-    if (!data || !data.ok) throw new Error(data?.error || 'could not remove photo');
-    applyAvatarUrl(null);
-    openFlameSheet();
-  } catch (e) {
-    if (err) err.textContent = e.message || 'could not remove photo';
-  }
-}
-
-function openAvatarSheet() {
-  toggleSheet(false);
-  setSheetView({ type: 'avatar', venueId: null });
-  const cur = localStorage.getItem('muan-avatar');
-  setSheet(`<div id="avatarSheet" data-venue-detail hidden></div>
-    <div class="s-title" style="text-align:center;">Choose your avatar</div>
-    <div class="s-sub lao" style="text-align:center;">ເລືອກໂຕແທນຂອງເຈົ້າ</div>
-    <div class="av-grid">` +
-    AVATARS.map((_, i) =>
-      `<button class="av-opt ${String(i)===cur?'sel':''}" data-av="${i}">${avatarSVG(i, 44)}</button>`
-    ).join('') +
-    `</div>
-    <div style="text-align:center;font-size:11.5px;color:var(--mute);margin-top:14px;">your avatar joins check-ins, streaks & comments soon 🔥</div>
-    <div class="btn-row"><button class="btn btn-back" data-back-flame style="flex:1;">Done</button></div>`);
-  const sheet = document.getElementById('sheet');
-  if (sheet) sheet.scrollTop = 0;
-  document.querySelectorAll('.av-opt').forEach(b => b.addEventListener('click', () => {
-    localStorage.setItem('muan-avatar', b.dataset.av);
-    document.querySelectorAll('.av-opt').forEach(x => x.classList.remove('sel'));
-    b.classList.add('sel');
-    refreshAvatarBtn();
-  }));
-  document.querySelector('[data-back-flame]')?.addEventListener('click', openFlameSheet);
 }
 
 // Google Identity Services used to be a plain <script async defer> in
@@ -1209,6 +1135,11 @@ async function openFlameSheet() {
   // script downloading in parallel with the /api/me read below instead of
   // starting a round trip later, once initGoogleSignIn() asks for it
   loadGoogleSignIn();
+  // and the same for this app's own You-screen code: js/avatar.js is 6KB and
+  // is needed by every signed-in render of this screen, so start it here, in
+  // parallel with the /api/me read below, rather than when
+  // renderFlameSheetBody() reaches for it. See loadChunk() for the split.
+  loadChunk('avatar').catch(() => {});
   toggleSheet(false);
   setSheetView({ type: 'flame', venueId: null });
   setMobileScreen('you');
@@ -1498,1211 +1429,50 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
   const sheet = document.getElementById('sheet');
   if (sheet) sheet.scrollTop = 0;
   pauseFlameIfReducedMotion();
-  document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
   document.querySelector('[data-go-map]')?.addEventListener('click', goToMap);
-  document.querySelector('[data-remove-pfp]')?.addEventListener('click', removeAvatarPhoto);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
-  wirePfpUpload();
-  document.querySelector('[data-list-venue]')?.addEventListener('click', openVenueSubmitForm);
-  document.querySelectorAll('[data-manage-venue]').forEach(el => el.addEventListener('click', () => {
+
+  /* The avatar picker and the profile-photo upload are js/avatar.js now, so
+     their handlers cannot be attached until it has loaded. openFlameSheet()
+     kicked that load off at the same moment it started the /api/me round
+     trip this screen is rendered from (same trick as loadGoogleSignIn()), so
+     by here it is normally already resolved and this .then() runs in the
+     same task — but it is a promise either way, so the screen paints first
+     and these three controls go live a moment later rather than the whole
+     screen waiting on 6KB. */
+  const pfpErr = document.getElementById('pfpErr');
+  withChunk('avatar', () => {
+    document.querySelector('[data-open-avatar]')?.addEventListener('click', openAvatarSheet);
+    document.querySelector('[data-remove-pfp]')?.addEventListener('click', removeAvatarPhoto);
+    wirePfpUpload();
+  }, pfpErr);
+
+  /* js/owner.js is the big one (53KB) and most people who open You are not
+     owners, so it is NOT fetched just because this screen rendered. It is
+     fetched on the tap, and prefetched only for the people who have a button
+     that needs it — an owner with venues, or an admin with a pending queue.
+     For them it is warm by the time they reach it; for everyone else it is
+     never downloaded at all. */
+  const listBtn = document.querySelector('[data-list-venue]');
+  const manageBtns = document.querySelectorAll('[data-manage-venue]');
+  const adminBtn = document.querySelector('[data-admin-pending]');
+  if (manageBtns.length || adminBtn) loadChunk('owner').catch(() => {});
+
+  listBtn?.addEventListener('click', () => withChunk('owner', () => openVenueSubmitForm()));
+  manageBtns.forEach(el => el.addEventListener('click', () => {
     const v = myVenuesResult.venues.find(mv => mv.id === el.dataset.manageVenue);
-    if (v) openVenueEditor(v);
+    if (v) withChunk('owner', () => openVenueEditor(v));
   }));
-  document.querySelector('[data-admin-pending]')?.addEventListener('click', () => openAdminPendingSheet(pendingVenuesResult.venues));
+  adminBtn?.addEventListener('click', () => withChunk('owner', () => openAdminPendingSheet(pendingVenuesResult.venues)));
   // both the "couldn't load your venues" and "pending venues couldn't load"
   // states retry the same way: re-run the whole fetch+render cycle, since
   // both come from the same Promise.all in openFlameSheet()
   document.querySelectorAll('[data-retry-flame]').forEach(el => el.addEventListener('click', openFlameSheet));
 }
 
-/* ---------- venue owner dashboard: edit form ---------- */
-// server-side whitelist/validation lives in functions/api/venues/[id].js —
-// this form only needs to produce values in the shape that endpoint expects
-// and show its errors back inline; it is not the source of truth for what's
-// allowed to be written.
-const ED_DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
-const ED_DAY_LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
-const MAX_SIG_ITEMS = 3;
-const MAX_SIG_NAME = 60;
-const MAX_SIG_NOTE = 80;
-const MAX_PHOTOS = 8;
-const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
-
-// stored "HH:MM-HH:MM" (close hour may run to 27 for past-midnight, see
-// data/venues.json's _schema_notes) -> plain 24h clock for two
-// <input type="time"> elements, which can't represent hours past 23:59
-function edSplitHourRange(str) {
-  if (!str) return null;
-  const [a, b] = str.split('-');
-  const mod = (hhmm) => {
-    const [h, m] = hhmm.split(':').map(Number);
-    return String(h % 24).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-  };
-  return { open: mod(a), close: mod(b) };
-}
-
-// the reverse: two plain-clock times back into the stored convention — if
-// close reads earlier than open, it's assumed to run past midnight (matches
-// how every overnight venue in the data is already authored, e.g. baron's
-// "20:00-27:00"), so there is no separate "closes after midnight" toggle
-function edBuildHourRange(openStr, closeStr) {
-  const toMins = s => { const [h,m] = s.split(':').map(Number); return h*60+m; };
-  const openMins = toMins(openStr);
-  let closeMins = toMins(closeStr);
-  if (closeMins <= openMins) closeMins += 1440;
-  const fmt = mins => String(Math.floor(mins/60)).padStart(2,'0') + ':' + String(mins%60).padStart(2,'0');
-  return `${openStr}-${fmt(closeMins)}`;
-}
-
-// "0205236087" / "020 5236 6087" / already "+8562052366087" -> the +856
-// form for storage, keeping whatever the owner typed as phone_display
-// verbatim (CLAUDE.md: "phone_display is how locals write it")
-function edDeriveLaoPhone(raw) {
-  const trimmed = (raw || '').trim();
-  const digits = trimmed.replace(/\D/g, '');
-  if (!digits) return { phone: '', phone_display: '' };
-  let national = digits;
-  if (national.startsWith('856')) national = national.slice(3);
-  else if (national.startsWith('0')) national = national.slice(1);
-  return { phone: '+856' + national, phone_display: trimmed };
-}
-
-// three fixed rows regardless of how many items the venue currently has —
-// clearing a row's name is how an owner deletes that item (readState()
-// below drops any row with a blank name), matching the server's
-// validateSignature() in functions/api/venues/[id].js
-function edSigRowHtml(idx, item) {
-  return `
-    <div class="ed-sig-row" data-sig-idx="${idx}">
-      <input type="text" class="ed-input ed-sig-name" placeholder="Item name" maxlength="${MAX_SIG_NAME}" value="${esc(item.name || '')}">
-      <div class="ed-sig-sub">
-        <input type="number" inputmode="numeric" class="ed-input ed-sig-price" placeholder="Price (kip)" min="0" step="1000" value="${item.price != null ? item.price : ''}">
-        <input type="text" class="ed-input ed-sig-note" placeholder="Note (optional)" maxlength="${MAX_SIG_NOTE}" value="${esc(item.note || '')}">
-      </div>
-    </div>`;
-}
-
-function edPhotoRowHtml(url, idx, total) {
-  const isMain = idx === 0;
-  return `
-    <div class="ed-photo${isMain ? ' ed-photo-main' : ''}" data-photo-url="${esc(url)}" draggable="true">
-      <img src="${esc(cloudinaryUrl(url, 200))}" alt="">
-      ${isMain ? '<div class="ed-photo-main-label">Main photo — shown on cards and the map</div>' : ''}
-      <div class="ed-photo-actions">
-        <button type="button" class="ed-photo-up" ${idx === 0 ? 'disabled' : ''} aria-label="Move earlier">↑</button>
-        <button type="button" class="ed-photo-down" ${idx === total - 1 ? 'disabled' : ''} aria-label="Move later">↓</button>
-        ${!isMain ? '<button type="button" class="ed-photo-main-btn" aria-label="Make main photo" title="Make main">★</button>' : ''}
-        <button type="button" class="ed-photo-remove" aria-label="Remove">✕</button>
-      </div>
-      <div class="ed-photo-confirm" hidden>
-        <span>Remove this photo?</span>
-        <button type="button" class="ed-photo-confirm-yes">Remove</button>
-        <button type="button" class="ed-photo-confirm-no">Cancel</button>
-      </div>
-    </div>`;
-}
-
-function edRenderPhotos(container, photos, onChange) {
-  container.innerHTML = photos.length
-    ? photos.map((p, i) => edPhotoRowHtml(p, i, photos.length)).join('')
-    : '<div class="ed-photos-empty">No photos yet</div>';
-
-  // desktop drag-to-reorder, kept alongside the up/down arrows rather than
-  // replacing them: arrows are the baseline (keyboard-accessible, and the
-  // only one that works on mobile — native HTML5 drag doesn't), this is an
-  // extra affordance for anyone who reaches for it with a mouse
-  let dragFrom = null;
-
-  container.querySelectorAll('.ed-photo').forEach((row, i) => {
-    row.querySelector('.ed-photo-up')?.addEventListener('click', () => {
-      if (i === 0) return;
-      [photos[i-1], photos[i]] = [photos[i], photos[i-1]];
-      edRenderPhotos(container, photos, onChange);
-      onChange();
-    });
-    row.querySelector('.ed-photo-down')?.addEventListener('click', () => {
-      if (i === photos.length - 1) return;
-      [photos[i], photos[i+1]] = [photos[i+1], photos[i]];
-      edRenderPhotos(container, photos, onChange);
-      onChange();
-    });
-    // the action people actually want — one tap instead of dragging (or
-    // walking a photo to the front one ↑ at a time)
-    row.querySelector('.ed-photo-main-btn')?.addEventListener('click', () => {
-      const [moved] = photos.splice(i, 1);
-      photos.unshift(moved);
-      edRenderPhotos(container, photos, onChange);
-      onChange();
-    });
-
-    // remove is a two-step confirm, not one tap — this used to delete
-    // whatever an owner just uploaded on a single misclick
-    const confirmBox = row.querySelector('.ed-photo-confirm');
-    row.querySelector('.ed-photo-remove')?.addEventListener('click', () => { confirmBox.hidden = false; });
-    row.querySelector('.ed-photo-confirm-no')?.addEventListener('click', () => { confirmBox.hidden = true; });
-    row.querySelector('.ed-photo-confirm-yes')?.addEventListener('click', () => {
-      photos.splice(i, 1);
-      edRenderPhotos(container, photos, onChange);
-      onChange();
-    });
-
-    // tap the photo itself (not a button) to view it full size
-    row.querySelector('img')?.addEventListener('click', () => openLightbox(photos, i));
-
-    row.addEventListener('dragstart', (e) => {
-      dragFrom = i;
-      row.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    row.addEventListener('dragend', () => {
-      dragFrom = null;
-      container.querySelectorAll('.ed-photo').forEach(r => r.classList.remove('dragging', 'drag-over'));
-    });
-    row.addEventListener('dragover', (e) => {
-      if (dragFrom === null || dragFrom === i) return;
-      e.preventDefault();
-      row.classList.add('drag-over');
-    });
-    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
-    row.addEventListener('drop', (e) => {
-      if (dragFrom === null || dragFrom === i) return;
-      e.preventDefault();
-      const [moved] = photos.splice(dragFrom, 1);
-      photos.splice(i, 0, moved);
-      edRenderPhotos(container, photos, onChange);
-      onChange();
-    });
-  });
-}
-
-/* ---------- owner-form field labels (Lao + English) ---------- */
-// Lao labels on the two owner-facing forms only (List your venue / Edit
-// venue) — the rest of the app stays as-is; CLAUDE.md's "Lao-first, English
-// supports" already governs the browsing UI's bilingual headers, this is a
-// separate, narrower fix for a specific evidenced problem: the first real
-// owner submission (Sunin) came in with short/description both null, "."
-// typed into parking to get past it, and her own Facebook link pasted into
-// the Website field too — she said afterwards she didn't know what "short
-// name" or "tagline" meant.
-//
-// TODO(kar): every `lo` string below is my best-attempt translation, not
-// checked by a native Lao speaker — please review this whole block in one
-// pass before any of it ships. Two entries (`website`, and the "optional"
-// marker text used across every optional field) were given to me verbatim
-// and don't need re-checking; everything else does.
-const OWNER_FIELD_LABELS = {
-  name:        { lo: 'ຊື່ຮ້ານ',        en: 'Name' },
-  short_name:  { lo: 'ຊື່ຫຍໍ້',         en: 'Short name — shown on cards instead of the full name' },
-  name_lo:     { lo: 'ຊື່ພາສາລາວ',      en: 'Lao name' },
-  type:        { lo: 'ປະເພດ',          en: 'Type' },
-  area:        { lo: 'ເຂດ',            en: 'Area' },
-  short:       { lo: 'ຄຳຂວັນສັ້ນ',      en: 'Short tagline — one line shown on your card' },
-  description: { lo: 'ຄຳອະທິບາຍ',       en: 'Description' },
-  signature:   { lo: 'ເມນູເດັ່ນ',       en: 'Signature items — up to 3, shown as "Try this"' },
-  photos:      { lo: 'ຮູບພາບ',         en: 'Photos' },
-  hours:       { lo: 'ໂມງເປີດ-ປິດ',     en: 'Hours' },
-  phone:       { lo: 'ເບີໂທ',          en: 'Phone' },
-  parking:     { lo: 'ບ່ອນຈອດລົດ',      en: 'Parking note' },
-  facebook:    { lo: 'ລິ້ງເຟສບຸກ',      en: 'Facebook link' },
-  website:     { lo: 'ເວັບໄຊ (ບໍ່ແມ່ນ Facebook)', en: 'Website — not Facebook' },
-  maps_url:    { lo: 'ລິ້ງ Google Maps', en: 'Google Maps link' },
-};
-
-// mirrors the server's actual requirement — name, type, area, maps_url
-// (see REQUIRED_SIMPLE_FIELDS in functions/api/_venue-validation.js and the
-// maps_url check in functions/api/venues.js's handlePost). Every other
-// field renders the optional marker instead — the concrete fix for the
-// "typed '.' into parking to get past it" problem, since nothing on the
-// old form told her she could just leave it blank.
-const REQUIRED_FIELD_KEYS = new Set(['name', 'type', 'area', 'maps_url']);
-
-function edLabelHtml(key, forId) {
-  const l = OWNER_FIELD_LABELS[key];
-  const marker = REQUIRED_FIELD_KEYS.has(key)
-    ? '<span class="ed-label-req">ຈຳເປັນ / required</span>'
-    : '<span class="ed-label-opt">ບໍ່ຈຳເປັນ / optional</span>';
-  return `<label class="ed-label"${forId ? ` for="${forId}"` : ''}>
-      <span class="ed-label-lo lao">${l.lo}</span>
-      <span class="ed-label-en">${l.en}</span>
-      ${marker}
-    </label>`;
-}
-
-// the first real submission (Sunin) had her Facebook link pasted into
-// Website too — nudge, don't block: names what's wrong and offers a
-// one-click move, but only when it's safe (the Facebook field is still
-// empty), so a move can never silently overwrite a link already there.
-// Shared by both owner forms (prefix 'sub'/'ed') via matching element ids.
-function wireFacebookWebsiteGuard(root, prefix) {
-  const site = root.querySelector(`#${prefix}Website`);
-  const fb = root.querySelector(`#${prefix}Facebook`);
-  const warn = root.querySelector(`#${prefix}WebsiteWarn`);
-  const moveBtn = root.querySelector(`#${prefix}WebsiteMove`);
-  if (!site || !fb || !warn) return;
-  const isFacebookUrl = v => /facebook\.com|fb\.me/i.test(v);
-  const check = () => {
-    warn.hidden = !isFacebookUrl(site.value);
-    if (moveBtn) moveBtn.hidden = !!fb.value.trim();
-  };
-  site.addEventListener('input', check);
-  fb.addEventListener('input', check);
-  moveBtn?.addEventListener('click', () => {
-    fb.value = site.value.trim();
-    site.value = '';
-    site.dispatchEvent(new Event('input'));
-    fb.dispatchEvent(new Event('input'));
-  });
-  check();
-}
-
-/* ---------- "List your venue" — owner submission ---------- */
-// same field set as openVenueEditor() below (reuses edSigRowHtml, the hour-
-// row markup, edDeriveLaoPhone/edBuildHourRange), minus Photos — there's no
-// venue id yet for Cloudinary's folder scoping (see upload-signature.js) —
-// plus a required Google Maps link, since that's the only lead Kar has to
-// go place the pin from. No lat/lng input exists here or anywhere else;
-// POST /api/venues always inserts pin_status 'pending' with lat/lng NULL.
-// On success this hands off straight into openVenueEditor() for the venue
-// it just created, since photos and further edits happen there.
-function openVenueSubmitForm() {
-  toggleSheet(false);
-  setSheetView({ type: 'venue-submit', venueId: null });
-
-  const hoursRowsHtml = ED_DAY_ORDER.map(day => `
-    <div class="ed-hrow" data-day="${day}">
-      <label class="ed-hrow-toggle">
-        <input type="checkbox" class="ed-hopen">
-        <span>${ED_DAY_LABELS[day]}</span>
-      </label>
-      <div class="ed-hrow-times" hidden>
-        <input type="time" class="ed-hfrom" value="17:00">
-        <span class="ed-hdash">–</span>
-        <input type="time" class="ed-hto" value="23:00">
-      </div>
-    </div>`).join('');
-
-  const sigRowsHtml = [0, 1, 2].map(i => edSigRowHtml(i, {})).join('');
-
-  setSheet(`
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <button class="sheet-x" data-back-manage aria-label="Back">←</button>
-      <div class="s-title" style="flex:1;text-align:center;">List your venue</div>
-      <span style="width:32px;flex-shrink:0;"></span>
-    </div>
-    <div class="ed-hint" style="margin:4px 0 10px;">
-      This adds your place to the list right away. It won't show a pin on the map until we confirm the location from your Maps link below.
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('name', 'subName')}
-      <input type="text" class="ed-input" id="subName" maxlength="100">
-      <div class="ed-err" data-err-for="name"></div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('short_name', 'subShortName')}
-      <input type="text" class="ed-input" id="subShortName" maxlength="40" placeholder="Sathiti">
-      <div class="ed-err" data-err-for="short_name"></div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('name_lo', 'subNameLo')}
-      <input type="text" class="ed-input lao" id="subNameLo" maxlength="60">
-      <div class="ed-err" data-err-for="name_lo"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('type', null)}
-      <div class="seg ed-type-seg" id="subTypeSeg">
-        <button type="button" class="seg-btn ed-type-btn on" data-type="bar">Bar</button>
-        <button type="button" class="seg-btn ed-type-btn" data-type="cafe">Café</button>
-        <button type="button" class="seg-btn ed-type-btn" data-type="venue">Venue</button>
-      </div>
-      <div class="ed-err" data-err-for="type"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('area', 'subArea')}
-      <input type="text" class="ed-input" id="subArea" maxlength="80" placeholder="Rue Hengboun, Ban Anou">
-      <div class="ed-err" data-err-for="area"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('short', 'subShort')}
-      <input type="text" class="ed-input" id="subShort" maxlength="120" placeholder="Belgian beer bar on the riverfront, big bottle list">
-      <div class="ed-err" data-err-for="short"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('description', 'subDescription')}
-      <textarea class="ed-textarea" id="subDescription" maxlength="500" rows="4" placeholder="Specialty coffee house on Hengboun run by a competition barista — Champion of the Savannakhet Aeropress 2025 and third in the Vientiane Moka Pot Battle."></textarea>
-      <div class="ed-charcount"><span id="subDescCount">0</span>/500</div>
-      <div class="ed-err" data-err-for="description"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('signature', null)}
-      <div class="ed-sig-list" id="subSigList">${sigRowsHtml}</div>
-      <div class="ed-err" data-err-for="signature"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('hours', null)}
-      <div class="ed-hours" id="subHours">${hoursRowsHtml}</div>
-      <div class="ed-err" data-err-for="hours"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('phone', 'subPhone')}
-      <input type="tel" class="ed-input" id="subPhone" placeholder="020 5236 6087">
-      <div class="ed-hint" id="subPhonePreview"></div>
-      <div class="ed-err" data-err-for="contact"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('parking', 'subParkingNote')}
-      <input type="text" class="ed-input" id="subParkingNote" maxlength="60" placeholder="e.g. free lot behind the building">
-      <div class="ed-err" data-err-for="parking"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('facebook', 'subFacebook')}
-      <input type="url" class="ed-input" id="subFacebook" placeholder="https://facebook.com/...">
-      <div class="ed-err" data-err-for="links"></div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('website', 'subWebsite')}
-      <input type="url" class="ed-input" id="subWebsite" placeholder="https://...">
-      <div class="ed-fb-warn" id="subWebsiteWarn" hidden>
-        <span>That looks like a Facebook link — Facebook goes in the field above.</span>
-        <button type="button" class="ed-fb-warn-move" id="subWebsiteMove">Move it</button>
-      </div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('maps_url', 'subMapsUrl')}
-      <input type="url" class="ed-input" id="subMapsUrl" placeholder="https://maps.google.com/...">
-      <div class="ed-hint">This is how we place your pin — there's no other way to set it yet.</div>
-      <div class="ed-err" data-err-for="maps_url"></div>
-    </div>
-
-    <div class="ed-save-note" id="subSaveNote" hidden></div>
-    <div class="btn-row"><button class="btn btn-go" id="subSaveBtn" style="flex:1;">Submit</button></div>
-    <div class="ed-hint" style="text-align:center;">You'll add photos in the next step</div>
-  `);
-
-  const sheet = document.getElementById('sheet');
-  if (sheet) sheet.scrollTop = 0;
-  document.querySelector('[data-back-manage]')?.addEventListener('click', openFlameSheet);
-
-  wireVenueSubmitForm();
-}
-
-function wireVenueSubmitForm() {
-  const root = document.getElementById('sheetInner');
-  const saveBtn = document.getElementById('subSaveBtn');
-  const saveNote = document.getElementById('subSaveNote');
-
-  wireFacebookWebsiteGuard(root, 'sub');
-
-  root.querySelectorAll('.ed-type-btn').forEach(btn => btn.addEventListener('click', () => {
-    root.querySelectorAll('.ed-type-btn').forEach(b => b.classList.remove('on'));
-    btn.classList.add('on');
-  }));
-
-  root.querySelectorAll('.ed-hrow').forEach(row => {
-    const toggle = row.querySelector('.ed-hopen');
-    const times = row.querySelector('.ed-hrow-times');
-    toggle.addEventListener('change', () => { times.hidden = !toggle.checked; });
-  });
-
-  root.querySelector('#subPhone').addEventListener('input', (e) => {
-    const { phone } = edDeriveLaoPhone(e.target.value);
-    document.getElementById('subPhonePreview').textContent = phone ? `Saves as ${phone}` : '';
-  });
-
-  root.querySelector('#subDescription').addEventListener('input', (e) => {
-    document.getElementById('subDescCount').textContent = e.target.value.length;
-  });
-
-  const clearErrors = () => root.querySelectorAll('.ed-err').forEach(e => e.textContent = '');
-
-  const readState = () => {
-    const type = root.querySelector('.ed-type-btn.on')?.dataset.type || 'bar';
-    const hours = {};
-    root.querySelectorAll('.ed-hrow').forEach(row => {
-      const day = row.dataset.day;
-      const open = row.querySelector('.ed-hopen').checked;
-      if (!open) { hours[day] = null; return; }
-      const from = row.querySelector('.ed-hfrom').value;
-      const to = row.querySelector('.ed-hto').value;
-      hours[day] = (from && to) ? edBuildHourRange(from, to) : null;
-    });
-    const { phone, phone_display } = edDeriveLaoPhone(root.querySelector('#subPhone').value);
-    const parkingNote = root.querySelector('#subParkingNote').value.trim();
-    const signature = [];
-    root.querySelectorAll('.ed-sig-row').forEach(row => {
-      const name = row.querySelector('.ed-sig-name').value.trim();
-      if (!name) return;
-      const priceRaw = row.querySelector('.ed-sig-price').value.trim();
-      const note = row.querySelector('.ed-sig-note').value.trim();
-      const item = { name };
-      if (priceRaw !== '') item.price = Math.round(Number(priceRaw));
-      if (note) item.note = note;
-      signature.push(item);
-    });
-    return {
-      name: root.querySelector('#subName').value.trim(),
-      short_name: root.querySelector('#subShortName').value.trim(),
-      name_lo: root.querySelector('#subNameLo').value.trim(),
-      type,
-      area: root.querySelector('#subArea').value.trim(),
-      short: root.querySelector('#subShort').value.trim(),
-      description: root.querySelector('#subDescription').value,
-      hours,
-      contact: phone ? { phone, phone_display } : null,
-      parking: parkingNote ? { note: parkingNote, source: 'venue told us' } : null,
-      links: {
-        facebook: root.querySelector('#subFacebook').value.trim(),
-        website: root.querySelector('#subWebsite').value.trim(),
-      },
-      maps_url: root.querySelector('#subMapsUrl').value.trim(),
-      signature: signature.length ? signature : null,
-    };
-  };
-
-  saveBtn.addEventListener('click', async () => {
-    clearErrors();
-    saveNote.hidden = true;
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = `${loadingRing(16)}Submitting…`;
-    const body = readState();
-    try {
-      const res = await fetch('/api/venues', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => null);
-      if (!data) throw new Error('bad response');
-
-      if (!data.ok) {
-        if (data.errors) {
-          for (const [field, msg] of Object.entries(data.errors)) {
-            const el = root.querySelector(`[data-err-for="${field}"]`);
-            if (el) el.textContent = msg;
-          }
-        }
-        saveNote.hidden = false;
-        saveNote.className = 'ed-save-note ed-save-note-error';
-        saveNote.textContent = data.errors ? 'Fix the highlighted fields and try again.' : (data.error || 'Could not submit — try again.');
-        saveBtn.textContent = 'Submit';
-        saveBtn.disabled = false;
-        return;
-      }
-
-      // straight into the normal dashboard editor — photos and any further
-      // edits happen there from here on
-      openVenueEditor(data.venue, { justSubmitted: true });
-    } catch (e) {
-      saveNote.hidden = false;
-      saveNote.className = 'ed-save-note ed-save-note-error';
-      saveNote.textContent = 'Connection error — try again.';
-      saveBtn.textContent = 'Submit';
-      saveBtn.disabled = false;
-    }
-  });
-}
-
-function openVenueEditor(venue, opts = {}) {
-  toggleSheet(false);
-  setSheetView({ type: 'venue-edit', venueId: venue.id });
-
-  const hours = venue.hours || {};
-  const contact = venue.contact || {};
-  const parking = venue.parking || {};
-  const links = venue.links || {};
-  const sig = venue.signature || [];
-  const sigRowsHtml = [0, 1, 2].map(i => edSigRowHtml(i, sig[i] || {})).join('');
-
-  const hoursRowsHtml = ED_DAY_ORDER.map(day => {
-    const range = edSplitHourRange(hours[day]);
-    const isOpen = !!range;
-    return `
-      <div class="ed-hrow" data-day="${day}">
-        <label class="ed-hrow-toggle">
-          <input type="checkbox" class="ed-hopen" ${isOpen ? 'checked' : ''}>
-          <span>${ED_DAY_LABELS[day]}</span>
-        </label>
-        <div class="ed-hrow-times" ${isOpen ? '' : 'hidden'}>
-          <input type="time" class="ed-hfrom" value="${range ? range.open : '17:00'}">
-          <span class="ed-hdash">–</span>
-          <input type="time" class="ed-hto" value="${range ? range.close : '23:00'}">
-        </div>
-      </div>`;
-  }).join('');
-
-  const descLen = (venue.description || '').length;
-
-  setSheet(`
-    <span data-venue-detail hidden></span>
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <button class="sheet-x" data-back-manage aria-label="Back">←</button>
-      <div class="s-title" style="flex:1;text-align:center;">Edit venue</div>
-      <span style="width:32px;flex-shrink:0;"></span>
-    </div>
-
-    ${venue.pin_status === 'rejected' ? `
-    <div class="ed-rejected-note">
-      <b>Not approved.</b> ${esc(venue.rejection_reason || '')}
-      <div>Fix what's above and it'll be reviewed again.</div>
-    </div>` : ''}
-
-    ${opts.justSubmitted && !venue.short && !venue.description ? `
-    <div class="ed-empty-note" id="edEmptyNote">
-      <span>Your venue will look empty without a short tagline or description below — add them when you can.</span>
-      <button type="button" class="ed-empty-note-close" id="edEmptyNoteClose" aria-label="Dismiss">×</button>
-    </div>` : ''}
-
-    <div class="ed-field">
-      ${edLabelHtml('name', 'edName')}
-      <input type="text" class="ed-input" id="edName" value="${esc(venue.name)}" maxlength="100">
-      <div class="ed-err" data-err-for="name"></div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('short_name', 'edShortName')}
-      <input type="text" class="ed-input" id="edShortName" value="${esc(venue.short_name || '')}" maxlength="40" placeholder="Sathiti">
-      <div class="ed-err" data-err-for="short_name"></div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('name_lo', 'edNameLo')}
-      <input type="text" class="ed-input lao" id="edNameLo" value="${esc(venue.name_lo || '')}" maxlength="60">
-      <div class="ed-err" data-err-for="name_lo"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('type', null)}
-      <div class="seg ed-type-seg" id="edTypeSeg">
-        <button type="button" class="seg-btn ed-type-btn ${venue.type==='bar'?'on':''}" data-type="bar">Bar</button>
-        <button type="button" class="seg-btn ed-type-btn ${venue.type==='cafe'?'on':''}" data-type="cafe">Café</button>
-        <button type="button" class="seg-btn ed-type-btn ${venue.type==='venue'?'on':''}" data-type="venue">Venue</button>
-      </div>
-      <div class="ed-err" data-err-for="type"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('area', 'edArea')}
-      <input type="text" class="ed-input" id="edArea" value="${esc(venue.area || '')}" maxlength="80" placeholder="Rue Hengboun, Ban Anou">
-      <div class="ed-err" data-err-for="area"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('short', 'edShort')}
-      <input type="text" class="ed-input" id="edShort" value="${esc(venue.short || '')}" maxlength="120" placeholder="Belgian beer bar on the riverfront, big bottle list">
-      <div class="ed-err" data-err-for="short"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('description', 'edDescription')}
-      <textarea class="ed-textarea" id="edDescription" maxlength="500" rows="4" placeholder="Specialty coffee house on Hengboun run by a competition barista — Champion of the Savannakhet Aeropress 2025 and third in the Vientiane Moka Pot Battle.">${esc(venue.description || '')}</textarea>
-      <div class="ed-charcount"><span id="edDescCount">${descLen}</span>/500</div>
-      <div class="ed-err" data-err-for="description"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('signature', null)}
-      <div class="ed-sig-list" id="edSigList">${sigRowsHtml}</div>
-      <div class="ed-err" data-err-for="signature"></div>
-    </div>
-
-    <div class="ed-field" id="edPhotoField">
-      ${edLabelHtml('photos', null)}
-      <div class="ed-photo-nudge" id="edPhotoNudge" hidden>
-        <span>Add a few photos so people know what to expect</span>
-        <button type="button" class="ed-photo-nudge-close" id="edPhotoNudgeClose" aria-label="Dismiss">×</button>
-      </div>
-      <div class="ed-photos" id="edPhotos"></div>
-      <input type="file" id="edPhotoFile" accept="image/*" multiple hidden>
-      <button type="button" class="ed-photo-add" id="edPhotoAddBtn">+ Add photo</button>
-      <div class="ed-photo-progress" id="edPhotoProgress" hidden>
-        <div class="ed-photo-progress-track"><div class="ed-photo-progress-bar" id="edPhotoProgressBar"></div></div>
-        <div class="ed-photo-progress-label" id="edPhotoProgressLabel">Uploading… ${uploadPctHtml(0)}</div>
-      </div>
-      <div class="ed-err" data-err-for="upload"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('hours', null)}
-      <div class="ed-hours" id="edHours">${hoursRowsHtml}</div>
-      <div class="ed-err" data-err-for="hours"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('phone', 'edPhone')}
-      <input type="tel" class="ed-input" id="edPhone" value="${esc(contact.phone_display || '')}" placeholder="020 5236 6087">
-      <div class="ed-hint" id="edPhonePreview">${contact.phone ? 'Saves as ' + esc(contact.phone) : ''}</div>
-      <div class="ed-err" data-err-for="contact"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('parking', 'edParkingNote')}
-      <input type="text" class="ed-input" id="edParkingNote" value="${esc(parking.note || '')}" maxlength="60" placeholder="e.g. free lot behind the building">
-      <div class="ed-err" data-err-for="parking"></div>
-    </div>
-
-    <div class="ed-field">
-      ${edLabelHtml('facebook', 'edFacebook')}
-      <input type="url" class="ed-input" id="edFacebook" value="${esc(links.facebook || '')}" placeholder="https://facebook.com/...">
-      <div class="ed-err" data-err-for="links"></div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('website', 'edWebsite')}
-      <input type="url" class="ed-input" id="edWebsite" value="${esc(links.website || '')}" placeholder="https://...">
-      <div class="ed-fb-warn" id="edWebsiteWarn" hidden>
-        <span>That looks like a Facebook link — Facebook goes in the field above.</span>
-        <button type="button" class="ed-fb-warn-move" id="edWebsiteMove">Move it</button>
-      </div>
-    </div>
-    <div class="ed-field">
-      ${edLabelHtml('maps_url', 'edMapsUrl')}
-      <input type="url" class="ed-input" id="edMapsUrl" value="${esc(links.maps || '')}" placeholder="https://maps.google.com/...">
-      <div class="ed-hint">Changing this asks us to double-check your map pin.</div>
-      <div class="ed-err" data-err-for="maps_url"></div>
-    </div>
-
-    <div class="ed-save-note" id="edSaveNote" hidden></div>
-    <div class="btn-row"><button class="btn btn-go" id="edSaveBtn" disabled style="flex:1;">Save</button></div>
-  `);
-
-  const sheet = document.getElementById('sheet');
-  if (sheet) sheet.scrollTop = 0;
-  document.querySelector('[data-back-manage]')?.addEventListener('click', openFlameSheet);
-
-  wireVenueEditor(venue, opts);
-}
-
-function wireVenueEditor(venue, opts = {}) {
-  const root = document.getElementById('sheetInner');
-  const saveBtn = document.getElementById('edSaveBtn');
-  const saveNote = document.getElementById('edSaveNote');
-  let photosState = (venue.photos || []).slice();
-
-  wireFacebookWebsiteGuard(root, 'ed');
-
-  const readState = () => {
-    const type = root.querySelector('.ed-type-btn.on')?.dataset.type || venue.type;
-    const hours = {};
-    root.querySelectorAll('.ed-hrow').forEach(row => {
-      const day = row.dataset.day;
-      const open = row.querySelector('.ed-hopen').checked;
-      if (!open) { hours[day] = null; return; }
-      const from = row.querySelector('.ed-hfrom').value;
-      const to = row.querySelector('.ed-hto').value;
-      hours[day] = (from && to) ? edBuildHourRange(from, to) : null;
-    });
-    const { phone, phone_display } = edDeriveLaoPhone(root.querySelector('#edPhone').value);
-    const parkingNote = root.querySelector('#edParkingNote').value.trim();
-    return {
-      name: root.querySelector('#edName').value.trim(),
-      short_name: root.querySelector('#edShortName').value.trim(),
-      name_lo: root.querySelector('#edNameLo').value.trim(),
-      type,
-      area: root.querySelector('#edArea').value.trim(),
-      short: root.querySelector('#edShort').value.trim(),
-      description: root.querySelector('#edDescription').value,
-      hours,
-      contact: phone ? { phone, phone_display } : null,
-      parking: parkingNote ? { note: parkingNote, source: 'venue told us' } : null,
-      links: {
-        facebook: root.querySelector('#edFacebook').value.trim(),
-        website: root.querySelector('#edWebsite').value.trim(),
-      },
-      maps_url: root.querySelector('#edMapsUrl').value.trim(),
-      photos: photosState.slice(),
-      signature: readSignature(),
-    };
-  };
-
-  // blank-name rows are dropped, same rule as the server's
-  // validateSignature() — clearing a row's name is how an owner deletes
-  // that item, not a separate "delete" control
-  function readSignature() {
-    const items = [];
-    root.querySelectorAll('.ed-sig-row').forEach(row => {
-      const name = row.querySelector('.ed-sig-name').value.trim();
-      if (!name) return;
-      const priceRaw = row.querySelector('.ed-sig-price').value.trim();
-      const note = row.querySelector('.ed-sig-note').value.trim();
-      const item = { name };
-      if (priceRaw !== '') item.price = Math.round(Number(priceRaw));
-      if (note) item.note = note;
-      items.push(item);
-    });
-    return items.length ? items : null;
-  }
-
-  // baseline snapshot, taken from the just-rendered (unedited) DOM — see
-  // edSplitHourRange()/edDeriveLaoPhone()'s comments for why this round-
-  // trips to exactly the stored values with zero edits made. Kept as a
-  // parsed object (not a JSON string) so a standalone photo upload (see
-  // wireVenuePhotoUpload() below) can re-baseline just the photos field
-  // without disturbing the dirty/clean state of any other in-progress edit.
-  let baselineState = readState();
-
-  const clearErrors = () => root.querySelectorAll('.ed-err').forEach(e => e.textContent = '');
-
-  const refreshDirty = () => {
-    saveBtn.disabled = JSON.stringify(readState()) === JSON.stringify(baselineState);
-  };
-
-  edRenderPhotos(document.getElementById('edPhotos'), photosState, refreshDirty);
-
-  // owners land here straight from a successful submission, and the submit
-  // form has nowhere to add photos yet (no venue id to attach them to) — so
-  // the first real owner submission (Sunin) went out with zero photos and
-  // no indication that a next step existed. Draw the eye to it once, here.
-  if (opts.justSubmitted && photosState.length === 0) {
-    const nudge = document.getElementById('edPhotoNudge');
-    if (nudge) {
-      nudge.hidden = false;
-      document.getElementById('edPhotoNudgeClose')?.addEventListener('click', () => { nudge.hidden = true; });
-    }
-    const photoField = document.getElementById('edPhotoField');
-    if (photoField) {
-      photoField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      photoField.classList.add('ed-photo-highlight');
-      setTimeout(() => photoField.classList.remove('ed-photo-highlight'), 1600);
-    }
-  }
-
-  document.getElementById('edEmptyNoteClose')?.addEventListener('click', () => {
-    document.getElementById('edEmptyNote').hidden = true;
-  });
-
-  root.querySelectorAll('.ed-type-btn').forEach(btn => btn.addEventListener('click', () => {
-    root.querySelectorAll('.ed-type-btn').forEach(b => b.classList.remove('on'));
-    btn.classList.add('on');
-    refreshDirty();
-  }));
-
-  root.querySelectorAll('.ed-hrow').forEach(row => {
-    const toggle = row.querySelector('.ed-hopen');
-    const times = row.querySelector('.ed-hrow-times');
-    toggle.addEventListener('change', () => {
-      times.hidden = !toggle.checked;
-      refreshDirty();
-    });
-    row.querySelector('.ed-hfrom').addEventListener('change', refreshDirty);
-    row.querySelector('.ed-hto').addEventListener('change', refreshDirty);
-  });
-
-  root.querySelector('#edPhone').addEventListener('input', (e) => {
-    const { phone } = edDeriveLaoPhone(e.target.value);
-    const preview = document.getElementById('edPhonePreview');
-    preview.textContent = phone ? `Saves as ${phone}` : '';
-    refreshDirty();
-  });
-
-  root.querySelector('#edDescription').addEventListener('input', (e) => {
-    document.getElementById('edDescCount').textContent = e.target.value.length;
-    refreshDirty();
-  });
-
-  root.querySelectorAll('#edName, #edShortName, #edNameLo, #edArea, #edShort, #edParkingNote, #edFacebook, #edWebsite, #edMapsUrl')
-    .forEach(el => el.addEventListener('input', refreshDirty));
-
-  root.querySelectorAll('.ed-sig-name, .ed-sig-price, .ed-sig-note')
-    .forEach(el => el.addEventListener('input', refreshDirty));
-
-  wireVenuePhotoUpload(venue, root, photosState, () => {
-    edRenderPhotos(document.getElementById('edPhotos'), photosState, refreshDirty);
-    baselineState.photos = photosState.slice();
-    refreshDirty();
-  });
-
-  saveBtn.addEventListener('click', async () => {
-    clearErrors();
-    saveNote.hidden = true;
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = `${loadingRing(16)}Saving…`;
-    const body = readState();
-    try {
-      const res = await fetch(`/api/venues/${encodeURIComponent(venue.id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => null);
-      if (!data) throw new Error('bad response');
-
-      if (!data.ok) {
-        if (data.errors) {
-          for (const [field, msg] of Object.entries(data.errors)) {
-            const el = root.querySelector(`[data-err-for="${field}"]`);
-            if (el) el.textContent = msg;
-          }
-        }
-        saveNote.hidden = false;
-        saveNote.className = 'ed-save-note ed-save-note-error';
-        saveNote.textContent = data.errors ? 'Fix the highlighted fields and try again.' : (data.error || 'Save failed — try again.');
-        saveBtn.textContent = 'Save';
-        saveBtn.disabled = false; // still dirty — let them retry
-        return;
-      }
-
-      // re-baseline to the values just saved, so Save disables again until
-      // the owner changes something new. photosState is mutated in place
-      // (not reassigned) — edRenderPhotos()'s up/down/remove handlers close
-      // over this exact array object, and swapping in a new one here would
-      // silently orphan them on any further photo edit after this save.
-      Object.assign(venue, data.venue);
-      photosState.length = 0;
-      photosState.push(...(venue.photos || []));
-      baselineState = readState();
-      saveBtn.textContent = 'Save';
-      saveBtn.disabled = true;
-      saveNote.hidden = false;
-      saveNote.className = 'ed-save-note ed-save-note-ok';
-      // gentle, not gating — the save already succeeded either way (see
-      // CLAUDE.md task this was added for: Sunin's venue saved with both
-      // fields null and nothing told her). Reinforced here on every save,
-      // not just the first one after submission, since an owner could also
-      // clear both fields back out during a later edit.
-      const stillEmpty = !body.short && !body.description;
-      const base = data.location_review
-        ? "Thanks — we'll check the pin against your map link."
-        : 'Saved.';
-      saveNote.textContent = stillEmpty
-        ? `${base} Your venue will look empty without a short tagline or description.`
-        : base;
-    } catch (e) {
-      saveNote.hidden = false;
-      saveNote.className = 'ed-save-note ed-save-note-error';
-      saveNote.textContent = 'Connection error — try again.';
-      saveBtn.textContent = 'Save';
-      saveBtn.disabled = false;
-    }
-  });
-}
-
-/* ---------- admin: pending venue review ---------- */
-// only reachable from the flame sheet's "Pending venues (N)" entry, itself
-// only rendered when /api/me's is_admin is true (js/app.js
-// renderFlameSheetBody()) — but that's UX only, same as everywhere else
-// admin shows up in this file: every actual approve/reject call is
-// re-checked server-side against the session's own user id (see
-// functions/api/venues/[id]/approve.js, reject.js), never trusting this
-// client-side gate.
-function openAdminPendingSheet(pendingVenues) {
-  toggleSheet(false);
-  setSheetView({ type: 'admin-pending', venueId: null });
-
-  const cardsHtml = pendingVenues.length
-    ? pendingVenues.map(adminPendingCardHtml).join('')
-    : '<div class="s-sub" style="text-align:center;padding:30px 0;">Nothing waiting on review.</div>';
-
-  setSheet(`
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <button class="sheet-x" data-back-flame aria-label="Back">←</button>
-      <div class="s-title" style="flex:1;text-align:center;">Pending venues</div>
-      <span style="width:32px;flex-shrink:0;"></span>
-    </div>
-    <div id="admList">${cardsHtml}</div>
-  `);
-
-  const sheet = document.getElementById('sheet');
-  if (sheet) sheet.scrollTop = 0;
-  document.querySelector('[data-back-flame]')?.addEventListener('click', openFlameSheet);
-
-  wireAdminPendingSheet();
-}
-
-function adminPendingCardHtml(v) {
-  const lat = v.suggested_lat != null ? v.suggested_lat : '';
-  const lng = v.suggested_lng != null ? v.suggested_lng : '';
-  return `
-    <div class="adm-card" data-adm-id="${esc(v.id)}">
-      <div class="adm-name">${esc(v.short_name || v.name)}</div>
-      <div class="adm-meta">${esc(v.area || '—')} · ${esc(v.type)} · submitted by ${esc(v.submitted_by || 'unknown')}</div>
-      ${v.description ? `<div class="adm-desc">${esc(v.description)}</div>` : ''}
-
-      ${v.maps_url
-        ? `<a class="adm-maps-link" href="${esc(v.maps_url)}" target="_blank" rel="noopener noreferrer">Open Maps link ↗</a>`
-        : '<div class="ed-hint">No Maps link submitted.</div>'}
-      <div class="ed-hint">${v.suggested_lat != null
-        ? 'Suggested from the Maps link — check it, not confirmed yet.'
-        : "Couldn't resolve coordinates from the link — enter them by hand."}</div>
-
-      <div class="adm-coords">
-        <input type="number" step="any" class="ed-input adm-lat" placeholder="latitude" value="${lat}">
-        <input type="number" step="any" class="ed-input adm-lng" placeholder="longitude" value="${lng}">
-      </div>
-      <div class="ed-err adm-err"></div>
-
-      <div class="btn-row adm-actions">
-        <button type="button" class="btn btn-go adm-approve" style="flex:1;">Approve</button>
-        <button type="button" class="btn btn-back adm-reject-toggle" style="flex:1;">Reject</button>
-      </div>
-
-      <div class="adm-reject-panel" hidden>
-        <textarea class="ed-textarea adm-reason" maxlength="300" rows="2" placeholder="Why? The owner will see this."></textarea>
-        <div class="btn-row">
-          <button type="button" class="btn btn-go adm-reject-confirm" style="flex:1;">Confirm reject</button>
-          <button type="button" class="btn btn-back adm-reject-cancel" style="flex:1;">Cancel</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-// removes a card once its venue has been approved/rejected, and swaps in
-// the empty state if that was the last one — no full re-fetch needed since
-// the server call already told us it succeeded
-function admRemoveCard(card) {
-  card.remove();
-  const list = document.getElementById('admList');
-  if (list && !list.querySelector('.adm-card')) {
-    list.innerHTML = '<div class="s-sub" style="text-align:center;padding:30px 0;">Nothing waiting on review.</div>';
-  }
-}
-
-function wireAdminPendingSheet() {
-  const root = document.getElementById('sheetInner');
-
-  root.querySelectorAll('.adm-card').forEach(card => {
-    const id = card.dataset.admId;
-    const errEl = card.querySelector('.adm-err');
-    const approveBtn = card.querySelector('.adm-approve');
-    const rejectToggle = card.querySelector('.adm-reject-toggle');
-    const rejectPanel = card.querySelector('.adm-reject-panel');
-    const rejectConfirm = card.querySelector('.adm-reject-confirm');
-    const rejectCancel = card.querySelector('.adm-reject-cancel');
-
-    approveBtn.addEventListener('click', async () => {
-      errEl.textContent = '';
-      const lat = Number(card.querySelector('.adm-lat').value);
-      const lng = Number(card.querySelector('.adm-lng').value);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        errEl.textContent = 'Enter both coordinates before approving.';
-        return;
-      }
-      approveBtn.disabled = true;
-      rejectToggle.disabled = true;
-      approveBtn.textContent = 'Approving…';
-      try {
-        const res = await fetch(`/api/venues/${encodeURIComponent(id)}/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lng }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!data?.ok) throw new Error(data?.error || 'approve failed');
-        admRemoveCard(card);
-      } catch (e) {
-        errEl.textContent = 'Could not approve — try again.';
-        approveBtn.disabled = false;
-        rejectToggle.disabled = false;
-        approveBtn.textContent = 'Approve';
-      }
-    });
-
-    rejectToggle.addEventListener('click', () => { rejectPanel.hidden = !rejectPanel.hidden; });
-    rejectCancel.addEventListener('click', () => { rejectPanel.hidden = true; });
-
-    rejectConfirm.addEventListener('click', async () => {
-      errEl.textContent = '';
-      const reason = card.querySelector('.adm-reason').value.trim();
-      if (!reason) { errEl.textContent = 'A reason is required.'; return; }
-      rejectConfirm.disabled = true;
-      rejectConfirm.textContent = 'Rejecting…';
-      try {
-        const res = await fetch(`/api/venues/${encodeURIComponent(id)}/reject`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reason }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!data?.ok) throw new Error(data?.error || 'reject failed');
-        admRemoveCard(card);
-      } catch (e) {
-        errEl.textContent = 'Could not reject — try again.';
-        rejectConfirm.disabled = false;
-        rejectConfirm.textContent = 'Confirm reject';
-      }
-    });
-  });
-}
-
-// upload a photo straight to Cloudinary using a signature from
-// /api/upload-signature, then PATCH just the photos field onto the venue —
-// deliberately its own save, not folded into the main Save button, so a
-// slow/flaky mobile upload doesn't block on (or get lost with) whatever
-// else the owner is mid-editing elsewhere in the form
-function wireVenuePhotoUpload(venue, root, photosState, onSaved) {
-  const fileInput = root.querySelector('#edPhotoFile');
-  const addBtn = root.querySelector('#edPhotoAddBtn');
-  const progressWrap = root.querySelector('#edPhotoProgress');
-  const progressBar = root.querySelector('#edPhotoProgressBar');
-  const progressLabel = root.querySelector('#edPhotoProgressLabel');
-  const uploadErr = root.querySelector('[data-err-for="upload"]');
-  if (!fileInput || !addBtn) return;
-
-  const refreshAddBtn = () => {
-    const full = photosState.length >= MAX_PHOTOS;
-    addBtn.disabled = full;
-    addBtn.textContent = full ? `Max ${MAX_PHOTOS} photos` : '+ Add photo';
-  };
-  refreshAddBtn();
-
-  // attaches an already-uploaded Cloudinary asset to the venue, stored as
-  // "<version>/<publicId>" (see cloudinaryUrl()); split out so a failed
-  // PATCH (upload succeeded, save didn't) can be retried without
-  // re-uploading the file
-  async function attachPhoto(stored) {
-    const res = await fetch(`/api/venues/${encodeURIComponent(venue.id)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photos: photosState.concat(stored) }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data || !data.ok) {
-      throw new Error((data?.errors?.photos) || data?.error || 'could not save the photo');
-    }
-    venue.photos = data.venue.photos;
-    photosState.length = 0;
-    photosState.push(...venue.photos);
-    refreshAddBtn();
-    onSaved();
-  }
-
-  function showRetry(message, stored) {
-    uploadErr.innerHTML = `${esc(message)} — <button type="button" class="ed-photo-retry" id="edPhotoRetryBtn">Retry</button>`;
-    uploadErr.querySelector('#edPhotoRetryBtn').addEventListener('click', async () => {
-      uploadErr.textContent = 'Saving…';
-      try {
-        await attachPhoto(stored);
-        uploadErr.textContent = '';
-      } catch (e) {
-        showRetry(e.message || 'could not save the photo', stored);
-      }
-    });
-  }
-
-  addBtn.addEventListener('click', () => {
-    uploadErr.textContent = '';
-    fileInput.value = '';
-    fileInput.click();
-  });
-
-  // uploads one file straight to Cloudinary (signed, scoped to this venue's
-  // folder — see upload-signature.js) and resolves to the
-  // "<version>/<publicId>" ref; the batch loop below decides what a
-  // rejection means for the rest of a multi-file selection. progressPrefix
-  // ("Uploading 2 of 4… " or just "Uploading… " for a single file) stays in
-  // front of the percentage ring for the whole upload.
-  async function uploadOneFile(file, progressPrefix) {
-    const sigRes = await fetch('/api/upload-signature', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ venue_id: venue.id }),
-    });
-    const sig = await sigRes.json().catch(() => null);
-    if (!sig || !sig.ok) throw new Error(sig?.error || 'could not start upload');
-
-    // sig.params is exactly the key/value set /api/upload-signature signed
-    // (see its comment on why this can't be reconstructed client-side —
-    // that drift is what caused the "Invalid Signature" bug) — sent
-    // verbatim, plus the three params that are deliberately never signed
-    const form = new FormData();
-    form.append('file', file);
-    form.append('api_key', sig.api_key);
-    form.append('signature', sig.signature);
-    for (const [key, value] of Object.entries(sig.params)) {
-      form.append(key, value);
-    }
-
-    const uploadResult = await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`);
-      xhr.upload.addEventListener('progress', (e) => {
-        if (!e.lengthComputable) return;
-        const pct = Math.round((e.loaded / e.total) * 100);
-        progressBar.style.width = pct + '%';
-        progressLabel.innerHTML = `${progressPrefix}${uploadPctHtml(pct)}`;
-      });
-      xhr.onload = () => {
-        let data;
-        try { data = JSON.parse(xhr.responseText); } catch (e) { reject(new Error('upload failed')); return; }
-        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-        else reject(new Error(data?.error?.message || 'upload failed'));
-      };
-      xhr.onerror = () => reject(new Error('connection error during upload'));
-      xhr.send(form);
-    });
-
-    return `v${uploadResult.version}/${uploadResult.public_id}`;
-  }
-
-  fileInput.addEventListener('change', async () => {
-    uploadErr.textContent = '';
-    const picked = [...fileInput.files];
-    if (!picked.length) return;
-
-    // still capped at MAX_PHOTOS per venue — take the first N the selection
-    // fits and say so plainly rather than silently dropping the rest
-    const room = MAX_PHOTOS - photosState.length;
-    const files = picked.slice(0, room);
-    const skipped = picked.length - files.length;
-
-    addBtn.disabled = true;
-    progressWrap.hidden = false;
-
-    // sequential, not Promise.all — several large phone photos at once on a
-    // Lao mobile connection will stall if they all fight for bandwidth
-    let uploadedCount = 0;
-    const failed = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const prefix = files.length > 1 ? `Uploading ${i + 1} of ${files.length}… ` : 'Uploading… ';
-      progressBar.style.width = '0%';
-      progressLabel.innerHTML = `${prefix}${uploadPctHtml(0)}`;
-
-      if (!file.type.startsWith('image/')) { failed.push(`${file.name} (images only)`); continue; }
-      if (file.size > MAX_PHOTO_BYTES) { failed.push(`${file.name} (over 8MB)`); continue; }
-
-      let uploadedRef;
-      try {
-        uploadedRef = await uploadOneFile(file, prefix);
-      } catch (e) {
-        failed.push(`${file.name} (${e.message || 'upload failed'})`);
-        continue;
-      }
-
-      progressLabel.textContent = 'Saving…';
-      try {
-        await attachPhoto(uploadedRef);
-        uploadedCount++;
-      } catch (e) {
-        // the file is already sitting in Cloudinary at this point. For a
-        // single file this is exactly the old retry flow — no need to
-        // re-upload, just retry the attach. For a batch, folding it into
-        // the failure report (rather than popping a retry button per file)
-        // keeps the rest of the batch moving.
-        if (files.length === 1) {
-          progressWrap.hidden = true;
-          refreshAddBtn();
-          showRetry(e.message || 'could not save the photo', uploadedRef);
-          return;
-        }
-        failed.push(`${file.name} (${e.message || 'could not save'})`);
-      }
-    }
-
-    progressWrap.hidden = true;
-    refreshAddBtn();
-
-    const notes = [];
-    if (skipped > 0) notes.push(`Only room for ${room} more — uploaded the first ${room}, skipped ${skipped}.`);
-    if (failed.length) notes.push(`${uploadedCount} uploaded, ${failed.length} failed: ${failed.join(', ')}.`);
-    uploadErr.textContent = notes.join(' ');
-  });
-}
+/* The venue owner dashboard, the admin pending queue and the photo
+   uploader that used to sit here are now js/owner.js — see loadChunk()
+   further up for why and for the rules that keep the split safe. */
 
 function bindTheme() {
   document.getElementById('themeBtn').addEventListener('click', () => {
@@ -2745,7 +1515,6 @@ function initMap() {
       // source instead of relying on the filter to leave them visible.
       const roadLayers = state.map.getStyle().layers.filter(l =>
         l.type === 'line' && /road|street|highway|motorway|trunk|primary|secondary|tertiary|minor|service|path/i.test(l.id));
-      console.log('[muan] positron road layers:', roadLayers.map(l => ({ id: l.id, color: l.paint?.['line-color'] })));
       roadLayers.forEach(l => {
         try {
           state.map.setPaintProperty(l.id, 'line-color', '#C9BCA4');
@@ -2776,7 +1545,6 @@ function initMap() {
     }
     if (state.theme === 'light') {
       const symbolLayers = state.map.getStyle().layers.filter(l => l.type === 'symbol');
-      console.log('[muan] positron symbol layers:', symbolLayers.map(l => l.id));
       const NOISY = ['place_hamlet','place_village','place_suburb','place_suburbs',
                      'poi','poi_r','housenumber','roadname_minor'];
       symbolLayers.forEach(l => {
@@ -3334,9 +2102,9 @@ function renderMarkers() {
     el.classList.toggle('pin-pick', isPick && !hasEventToday);
     const variant = hasEventToday ? 'event' : (isPick ? 'pick' : null);
     el.innerHTML = `
-      ${pinSVG(hot ? '#FF5A3C' : COLORS[v.type] || '#8A8494', hot ? 1.25 : 1, variant)}
+      ${pinSVG(hot ? 'var(--flame)' : COLORS[v.type] || 'var(--mute)', hot ? 1.25 : 1, variant)}
       <div class="m-label">${esc(v.short_name || v.name)}</div>
-      ${hot ? `<div class="m-sub" style="color:#FF5A3C">tonight</div>` : ''}`;
+      ${hot ? `<div class="m-sub" style="color:var(--flame)">tonight</div>` : ''}`;
     el.addEventListener('click', () => openVenue(v.id));
 
     /* visual de-overlap only — real coords stay in data and directions */
@@ -3494,7 +2262,6 @@ function openStatus(v) {
 function statusPillHtml(v, full) {
   if (!v.hours) return '';
   const st = openStatus(v);
-  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   if (st.open) return `<span class="status-pill open">${esc(full ? cap(st.label) : 'Open')}</span>`;
   if (st.openingSoon) return `<span class="status-pill soon">${esc(cap(st.label))}</span>`;
   return `<span class="status-pill closed">Closed</span>`;
@@ -3596,7 +2363,7 @@ function sectionCard(v, sub, photoOverride, sub2) {
     <div class="hc-body">
       <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
       <div class="hc-sub" style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
-      ${sub2 ? `<div class="hc-sub" style="font-size:10.5px;color:var(--dim);">${esc(sub2)}</div>` : ''}
+      ${sub2 ? `<div class="hc-sub" style="font-size:10.5px;color:var(--secondary);">${esc(sub2)}</div>` : ''}
       ${outdoorNoteHtml(v)}
     </div>
   </div>`;
@@ -3909,6 +2676,7 @@ function openLightbox(photos, index) {
     <button type="button" class="lightbox-close" aria-label="Close">✕</button>
     <button type="button" class="lightbox-prev" aria-label="Previous photo">‹</button>
     <img class="lightbox-img" alt="">
+    <!-- alt is filled in by lightboxRender() once the index is known -->
     <button type="button" class="lightbox-next" aria-label="Next photo">›</button>
     <div class="lightbox-count"></div>`;
   document.body.appendChild(ov);
@@ -5306,7 +4074,7 @@ function renderHomeSheet() {
     const fireCards = pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('');
     html += secH('On fire · ໄຟລຸກ', esc(state.picks?.note_en)) +
       (mobile && ON_FIRE_CAROUSEL ? `<div class="fire-rail">${fireCards}</div>` : fireCards) +
-      `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">live check-in rankings coming soon</div>`;
+      `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">live check-in rankings coming soon</div>`;
   }
 
   const busyVenuesQ = sortEditorial(busyVenues);
@@ -5314,7 +4082,7 @@ function renderHomeSheet() {
     rendered = true;
     html += secH('Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
       sectionWrap(busyVenuesQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, esc(v.area || '')))).join('')) +
-      `<div style="font-size:10.5px;color:var(--dim);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
+      `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
   }
 
   if (showEvents && upcoming.length) {
@@ -5533,6 +4301,30 @@ function openVenue(id) {
     <span class="vd-dot">·</span>
     <button type="button" class="vd-more" id="hoursToggle">all hours</button>
     <div class="hours-week" id="hoursWeek">${week}</div>`));
+  /* open-air. The card note (outdoorNoteHtml()) only speaks when rain is
+     actually a factor, which is right for a scan surface — but the sheet is
+     where someone decides to go, and "this place has no roof" is worth
+     knowing before you set off whether or not it happens to be raining as
+     you read it. So this row is unconditional on the weather and the
+     sub-line is what changes.
+     Strictly `=== true`, never truthiness: outdoor is a THREE-state field
+     (CLAUDE.md) and absent means nobody has audited the venue, which must
+     not render as "indoors". outdoor: false renders nothing here either —
+     that is a real audited fact, but "this place is indoors" is new
+     editorial surface, and adding it is Kar's call rather than a side
+     effect of adding the open-air row that was asked for.
+     TODO(lao): "ກາງແຈ້ງ" below is my attempt at "open-air / outdoors" and
+     has NOT been checked by a native speaker. It is in the same state as the
+     WEATHER_LABELS_LO map further up — see the TODO(lao) note there. */
+  if (v.outdoor === true) {
+    const rain = rainState();
+    const sub = rain === 'now'   ? 'raining now — it may be shut'
+              : rain === 'likely' ? 'rain likely tonight — it may shut'
+              : 'no cover if the weather turns';
+    detail.push(vdRow(icoPartlyCloudy(20), `
+      <div class="vd-row-label">Open-air · <span class="lao">ກາງແຈ້ງ</span></div>
+      <div class="vd-row-sub">${esc(sub)}</div>`));
+  }
   if (v.parking?.note) detail.push(vdRow(icoParking(20), esc(v.parking.note)));
   if (v.contact?.phone) detail.push(vdRow(icoPhone(20), `
     <a href="tel:${esc(v.contact.phone)}" class="vd-phone">${esc(v.contact.phone_display || v.contact.phone)}</a>
@@ -5981,7 +4773,7 @@ function showCelebration(data) {
       <div class="cel-rows">
         <div class="cel-row"><span>Streak</span><b>${data.streak_months} month${data.streak_months>1?'s':''}</b></div>
         <div class="cel-row"><span>Your flame</span><b>${stageLabels[data.phai_stage]||data.phai_stage}</b></div>
-        ${data.heat_level && data.heat_level !== data.prev_heat_level ? `<div class="cel-row"><span>Your flame</span><b>${data.heat_level}</b></div>` : ''}
+        ${data.heat_level && data.heat_level !== data.prev_heat_level ? `<div class="cel-row"><span>Burning</span><b>${cap(data.heat_level)}</b></div>` : ''}
         ${data.first_visit ? '<div class="cel-row cel-new"><span>First visit here</span><b>+bonus</b></div>' : `<div class="cel-row"><span>Visits here</span><b>${data.venue_checkins}</b></div>`}
         ${data.new_badges?.length ? data.new_badges.map(b =>
           `<div class="cel-row cel-badge"><span class="cel-badge-label">${badgeIcon(b, 16)}${esc(b.name)}</span><b>unlocked</b></div>`
@@ -6191,6 +4983,12 @@ function initSheetDrag() {
 const FILTER_ORDER = ['all', 'bar', 'cafe', 'event'];
 const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* scrollIntoView/scrollTo take their own behavior argument and ignore the
+   CSS media query entirely, so the four chip-centring calls and the editor's
+   scroll-to-photos were still animating under prefers-reduced-motion. The
+   mood carousel (showMoodIntro()) already did this by hand with its own
+   `reduced` flag; this is the same decision in one place. */
+const scrollBehavior = () => prefersReducedMotion() ? 'auto' : 'smooth';
 
 // instant switch, no animation — used for direct chip taps and for a
 // committed swipe under prefers-reduced-motion
@@ -6200,7 +4998,7 @@ function changeFilter(dir) {
   const chip = document.querySelector(`.chip[data-filter="${FILTER_ORDER[next]}"]`);
   if (!chip) return;
   chip.click();
-  chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: scrollBehavior() });
 }
 
 // dir: 0 snaps #sheetInner back to rest; ±1 carries it the rest of the way
@@ -6256,7 +5054,7 @@ function changeFilterAnimated(dir) {
     inner.addEventListener('transitionend', finishGesture, { once: true });
     setTimeout(finishGesture, 300);
     const activeChip = document.querySelector('.chip.on');
-    if (activeChip) activeChip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    if (activeChip) activeChip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: scrollBehavior() });
   }, 200);
 }
 
@@ -6363,7 +5161,7 @@ function bindChips() {
       // same { inline, block: 'nearest' } shape used after a swipe-driven
       // filter change (see changeFilterAnimated()) so a chip near either
       // edge doesn't get left half-hidden
-      ch.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+      ch.scrollIntoView({ inline: 'center', block: 'nearest', behavior: scrollBehavior() });
     });
   });
 }
@@ -6504,7 +5302,15 @@ function haversine(a, b) {
 const fmtDist = m => m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`;
 
 const venueById = id => state.venues.find(v => v.id === id);
-const venueEvents = id => state.events.filter(ev => ev.venue_id === id);
+/* the date test is repeated here even though boot() already dropped every
+   past event out of state.events. That filter runs once, at load, against
+   todayISO() as it was at load — so a tab left open across midnight (a phone
+   in a pocket from 11pm to 1am is the whole point of this app) still has
+   yesterday's event sitting in state.events. Home re-derives its own
+   `today` on every render, so the Tonight and Upcoming sections drop it on
+   their own; the venue sheet read this list raw and would have gone on
+   showing a finished event, labelled TONIGHT, until someone reloaded. */
+const venueEvents = id => state.events.filter(ev => ev.venue_id === id && !isPast(ev.date));
 
 const todayISO = () => {
   const d = new Date();
@@ -6538,6 +5344,11 @@ const greetEyebrowHtml = () => {
   const en = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   return `<div class="s-eyebrow"><span class="lao">ສະບາຍດີ</span> · ${en}</div>`;
 };
+
+/* first letter up, rest untouched. Was declared inside statusPillHtml();
+   lifted here when showCelebration() needed the same thing for heat_level,
+   so the two can't capitalise differently. */
+const cap = s => String(s ?? '').charAt(0).toUpperCase() + String(s ?? '').slice(1);
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

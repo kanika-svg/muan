@@ -96,9 +96,39 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Lao:wght@400;700&display=swap" rel="stylesheet">
 
-  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <!-- Both of these were plain render-blocking stylesheets on third-party
+       origins, which means nothing on the page could paint — not even the
+       splash below, which is otherwise entirely self-contained inline CSS —
+       until fonts.googleapis.com and unpkg.com had each been resolved,
+       connected to and read. That is two round trips to somebody else's
+       server in front of the first pixel, on the connection a phone in
+       Vientiane actually has.
+       Loaded as a preload that promotes itself to a stylesheet on arrival
+       instead, so neither is on the critical path. The <noscript> copies
+       keep them working with scripting off.
+
+       The font swap this can cause is not a new behaviour: the Google Fonts
+       URL already carries display=swap, so a first frame in the fallback
+       stack (system-ui / sans-serif — see --font in style.css) followed by
+       a swap to Space Grotesk + Noto Sans Lao was already the designed
+       behaviour on any slow connection. This only makes the frame before
+       the swap paint sooner. If it reads badly on a real device, reverting
+       is exactly these two lines back to rel="stylesheet".
+       maplibre-gl.css styles the map's own controls (attribution, zoom) and
+       nothing else; maplibre-gl.js is already async, so those controls do
+       not exist until well after this has landed either way. -->
+  <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Lao:wght@400;700&display=swap"
+        onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" as="style"
+        href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+        onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Lao:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  </noscript>
+
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
 </head>

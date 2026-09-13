@@ -5,11 +5,41 @@
   --ink3:  #241E31;
   --ink4:  #2E2740;
   --flame: #FF5A3C;
+  /* the label colour for anything sitting ON a flame fill (the active chip,
+     the primary buttons, the "tonight" tag). Deliberately NOT --ink: --ink
+     is the page ground and flips to cream on day, which took every one of
+     those labels to 3.84:1 on the day flame — under AA for all of them
+     (13px/700 and smaller, so none qualify as large text). The fill is dark
+     enough for ink in BOTH themes, so this token does not flip: 6.08:1 on
+     night's #FF5A3C, 4.79:1 on day's #E8462A. Three rules (#trackChip,
+     .vd-tonight, .vd-btn-primary) already hardcoded this exact value and
+     were the only ones that were right; they now read the token too, so
+     the nine flame-filled controls can no longer disagree about it. */
+  --on-flame: #131019;
+  /* flame used as TEXT on the page ground rather than as a fill — errors,
+     counts, the active nav label, "More" links. Night's flame reads 5.65:1
+     on its own ground so it needs no separate value; day's #E8462A reads
+     3.84:1 on cream, which is under AA everywhere it is used and worst
+     exactly where it matters most (the owner form's error lines). The day
+     override lives in the light block: same hue (8.8deg) and saturation
+     (.805) as --flame, lightness .537 -> .452. Fills keep --flame — a
+     darker fill would push --on-flame the wrong way. */
+  --flame-text: var(--flame);
   --gold:  #FFC24B;
   --violet:#7C5CE0;
   --teal:  #1FBF9C;
   --bone:  #F5F1E8;
-  --mute:  #8A8494;
+  /* Was #8A8494. Lightened one step (HSL 262.5deg / .07 sat unchanged, L
+     .549 -> .589) so it clears AA on the LIGHTEST night surface it ever
+     sits on, not just the darkest. Measured before: 4.84:1 on --ground and
+     5.21:1 on the page, but only 4.45:1 on --ink3 (the mobile card) and
+     3.92:1 on --card-fill's top stop --ink4 — and none of this token's
+     consumers are large text (the biggest is .t-sub at 15px/400), so the
+     top half of every card on Home was under 4.5:1. Now 5.56 / 5.11 /
+     4.51 on ground / ink3 / ink4. Hue and saturation are untouched: this
+     is the same grey-violet with the lightness raised, not a new colour.
+     Day's --mute is unrelated and unchanged (5.93:1 on its own ground). */
+  --mute:  #948F9D;
   --dim:   #5A5468;
   /* secondary text on Home (Sleek item 3 — the greeting sub-line, the
      eyebrow, section-header English, card sub-lines, inactive bottom-nav
@@ -133,9 +163,32 @@
      disturbed, which also takes the inline var(--dim) spans in app.js
      (.hc-sub and the two "coming soon" captions) along with it. Text
      sitting over --card-fill's lower stop (#F7F1E4) is 4.32:1 — the one
-     place day still lands under AA. */
+     place day still lands under AA.
+     Every remaining `color: var(--dim)` in this file now reads --secondary
+     instead (18 rules: .hint, .sec-note, .sec-empty, .vd-dim/.vd-dot/
+     .vd-title-sep/.vd-row-sub/.vd-vibe, .cel-capped, .fl-item-req,
+     .ed-charcount/.ed-hdash/.ed-photos-empty, .travel-measuring, .photo-ph,
+     .empty, the map attribution link). On day that is a no-op — --secondary
+     IS --dim here. On night it was the whole bug: --dim there is #5A5468,
+     which measured 2.31:1 on the ground and 2.22:1 on a card, under even
+     the 3:1 non-text floor, and night is the default theme after 17:00.
+     --dim keeps only its non-text uses (hairline borders, the .sec-h dot,
+     scrollbar-thumb hover). */
   --secondary: var(--dim);
   --flame: #E8462A;
+  /* see --flame-text in :root. Solved against the DARKEST surface flame
+     text lands on in this theme, which is not the card but the flame-tint
+     wash behind .surprise-btn and the rain weather bar
+     (rgba(255,90,60,.16) over cream = #FFE2D7): --flame itself reads
+     3.21:1 there, the worst number in either theme, on the one line on
+     Home that is meant to change someone's plan. At #C52F15 that wash is
+     4.50:1, and every other day surface comes along with it — 5.38:1 on
+     the ground, 4.90:1 on the card gradient's lower stop, 4.61:1 on
+     --ink3. Hue 8.8deg and saturation .805 are --flame's own; only
+     lightness moves (.537 -> .429). --on-flame is not overridden here:
+     ink is still the right label on a --flame FILL in this theme
+     (4.79:1), and fills keep --flame precisely so that stays true. */
+  --flame-text: #C52F15;
   --gold:  #B8860B;
   --violet:#6A4BC7;
   /* Was #12876B. Darkened, and the open status pill's label went white with
@@ -194,16 +247,27 @@
   --card-shadow-big: 0 6px 20px rgba(90,75,45,.14);
   --frost: rgba(255,252,245,.72);
 }
-:root { --halo: rgba(0,0,0,.9); }
+:root {
+  --halo: rgba(0,0,0,.9);
+  /* the two theme-invariant status-pill fills — see the .status-pill note
+     further down for WHY they don't follow the theme. Named here rather
+     than left as literals in the two declarations so the pair has one
+     definition and a name, the way every other colour in this file does;
+     the values are unchanged and are still deliberately absent from the
+     [data-theme="light"] block. Both carry --on-flame's ink label at
+     7.34:1 and 12.74:1. */
+  --pill-soon:   #FF7A5C;
+  --pill-closed: #D8D2E0;
+}
 
 /* pushable-button shadows are hardcoded to the dark-theme flame (#C6432A);
    darken from the light-theme flame (#E8462A) so the pressed edge still reads */
 [data-theme="light"] .chip.on { box-shadow: 0 3px 0 #AE3520; }
-[data-theme="light"] .btn-checkin.ready,
-[data-theme="light"] .cel-done { box-shadow: 0 4px 0 #AE3520; }
+[data-theme="light"] .cel-done,
+[data-theme="light"] .fl-invite-btn { box-shadow: 0 4px 0 #AE3520; }
 [data-theme="light"] .chip.on:active,
-[data-theme="light"] .btn-checkin.ready:active,
-[data-theme="light"] .cel-done:active { box-shadow: 0 1px 0 #AE3520; }
+[data-theme="light"] .cel-done:active,
+[data-theme="light"] .fl-invite-btn:active { box-shadow: 0 1px 0 #AE3520; }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -220,7 +284,7 @@ body {
 /* ============ Map ============ */
 #map { position: absolute; inset: 0; }
 #map .maplibregl-ctrl-attrib { background: rgba(19,16,25,.7); }
-#map .maplibregl-ctrl-attrib a { color: var(--dim); }
+#map .maplibregl-ctrl-attrib a { color: var(--secondary); }
 
 /* milky tint — canvas only, never the container (markers live in the container) */
 [data-theme="light"] .maplibregl-canvas {
@@ -311,7 +375,17 @@ body {
 .marker.pin-event:not(.zoom-dot) svg,
 .marker.pin-event.zoom-dot.selected svg { animation: pinbob 1.6s ease-in-out infinite; }
 @keyframes pinbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-@media (prefers-reduced-motion: reduce) { .marker.pin-event svg { animation: none; } }
+/* the selector list here must MATCH the two rules above, not be a shorter
+   prefix of them: .marker.pin-event svg is (0,2,1) while
+   .marker.pin-event:not(.zoom-dot) svg is (0,3,1) and
+   .marker.pin-event.zoom-dot.selected svg is (0,4,1), so the override lost
+   the cascade regardless of source order or the media query and the pin
+   kept bobbing under prefers-reduced-motion. Same failure, and the same
+   fix, as the [data-vibe-tag] block further down — see its own note. */
+@media (prefers-reduced-motion: reduce) {
+  .marker.pin-event:not(.zoom-dot) svg,
+  .marker.pin-event.zoom-dot.selected svg { animation: none; }
+}
 
 /* ---------- shared loading indicator (see loadingRing() in js/app.js) ----------
    a circle whose stroke sweeps (lring-arc) while the ring itself breathes
@@ -393,7 +467,7 @@ body {
   font-family: var(--font); font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 999px; cursor: pointer;
 }
 .chip.on {
-  background: var(--flame); color: var(--ink); font-weight: 700; border-color: var(--flame);
+  background: var(--flame); color: var(--on-flame); font-weight: 700; border-color: var(--flame);
   box-shadow: 0 3px 0 #C6432A;
 }
 .chip.on:active { transform: translateY(2px) scale(.97); box-shadow: 0 1px 0 #C6432A; }
@@ -650,7 +724,14 @@ body {
   .vibe-cards.mc-enter [data-vibe-tag="for-coffee"] .mc-steam,
   .vibe-cards.mc-enter [data-vibe-tag="settle-in"] .mc-books,
   .vibe-cards.mc-enter [data-mood-type="cafe"] .mc-steam,
-  .vibe-cards.mc-enter [data-mood-type="bar"] .mc-glass {
+  .vibe-cards.mc-enter [data-mood-type="bar"] .mc-glass,
+  /* the two [data-list-key] entrances were added after this block was
+     written and were never added to it, so Newly opened's glow and Our
+     picks' bottle still animated under prefers-reduced-motion. Same
+     specificity rule as the note above: these match their own rules
+     exactly rather than a shorter prefix of them. */
+  .vibe-cards.mc-enter [data-list-key="newly-opened"] .mc-glow,
+  .vibe-cards.mc-enter [data-list-key="our-picks"] .mc-pick-hero {
     animation: none;
   }
 }
@@ -1155,7 +1236,7 @@ body {
   /* the browser may only pan this sheet vertically. Everything in here was
      touch-action: auto, so a diagonal drag - a thumb travelling down that
      drifts sideways - had the browser panning a nested horizontal strip
-     (.hcards, .photo-strip, .ed-photos, the pinned chip bar) inside the
+     (.hcards, .ed-photos, the pinned chip bar) inside the
      first 20px, before initSheetDrag()'s axis lock in app.js has decided
      anything. A native scroll that has already started cannot be called
      back: every touchmove after it is non-cancelable, so the axis branch's
@@ -1269,7 +1350,7 @@ body {
 .s-subrow .weather-bar.weather-rain {
   flex: 0 0 100%;
   gap: 8px; padding: 8px 12px; border-radius: 12px;
-  background: rgba(255,90,60,.16); color: var(--flame);
+  background: rgba(255,90,60,.16); color: var(--flame-text);
 }
 .s-subrow .weather-rain .weather-ico svg { width: 18px; height: 18px; }
 .weather-rain-text { font-size: 13.5px; font-weight: 700; line-height: 1.35; }
@@ -1349,11 +1430,13 @@ body {
    a green that is in no token was the one place that colour was invented.
    It used to be #33E0B4 — a bright mint, never a token, not a --teal-bright
    or any other named variable, just a literal in this one declaration.
-   .soon and .closed are still literals and so do NOT follow the theme: they
-   are the same #FF7A5C and #D8D2E0 in both, which is intended (both are
-   pale fills that carry the #131019 label at 7.34:1 and 12.74:1 whichever
-   theme is on) but does mean the three pills no longer shift as a set —
-   .open now changes with the theme and the other two do not.
+   .soon and .closed do NOT follow the theme: --pill-soon and --pill-closed
+   are defined once in :root and deliberately not overridden in the light
+   block, which is intended (both are pale fills that carry the --on-flame
+   label at 7.34:1 and 12.74:1 whichever theme is on) but does mean the
+   three pills no longer shift as a set — .open now changes with the theme
+   and the other two do not. They were bare hex in these two declarations
+   until they were given names; the values did not move.
    Solid fill (not colored text over one shared
    translucent scrim, the previous approach) so all three states carry the
    same visual weight — the earlier version read as three different
@@ -1369,7 +1452,7 @@ body {
   position: absolute; top: 6px; left: 6px; z-index: 1;
   font-size: 11px; font-weight: 700; line-height: 1.3;
   padding: 3px 7px; border-radius: 6px;
-  color: #131019;
+  color: var(--on-flame);
 }
 /* the label colour is the one thing on this pill that has to know about the
    theme, because --teal is light on night and dark on day and no single
@@ -1381,25 +1464,51 @@ body {
    why the token was darkened rather than lightened. */
 .status-pill.open   { background: var(--teal); }
 [data-theme="light"] .status-pill.open { color: #fff; }
-.status-pill.soon   { background: #FF7A5C; }
-.status-pill.closed { background: #D8D2E0; }
+.status-pill.soon   { background: var(--pill-soon); }
+.status-pill.closed { background: var(--pill-closed); }
 
 /* item 1 ("Sorting becomes the default"): closed venues stay visible
    everywhere, just dimmed — never hidden, since someone browsing at 4pm
    for tonight still wants to see a bar that opens at 8. The status pill
    above now carries that meaning explicitly; this fade is only a
-   secondary hint, so it's soft (.82) and applied to each card's text
+   secondary hint, so it's soft and applied to each card's text
    block only — the photo (and the pill on it) stay at full opacity so
-   the image itself never reads as broken. */
-.card.closed .card-body, .hcard.closed .hc-body, .collage-card.closed .collage-info { opacity: .82; }
+   the image itself never reads as broken.
+
+   KAR — .82 -> .92, and the residue is the one AA failure left anywhere in
+   the app, so please look at this one. The lines this fades are .t-sub
+   (15px/400, the address) and .t-hours (14px/700 — 14px BOLD is still
+   NORMAL text to WCAG, whose large cutoff is 18.66px), i.e. exactly what
+   someone reads to decide whether to bother going.
+     measured, closed card, --secondary text:
+       night   .82 -> 3.90:1     .92 -> 5.06:1  (passes, with room)
+       day     .82 -> 3.38:1     .92 -> 4.09:1  (still under 4.5:1)
+   Night is fixed outright, by this plus the --mute change in :root. Day is
+   not, and cannot be by this number alone: day's --secondary is #7A7060,
+   which is only 4.32:1 on --card-fill's lower stop BEFORE any fade (the
+   light block already says so), so no opacity value reaches 4.5 there.
+   The three ways out, none of which I took unilaterally:
+     a) drop the fade entirely — the status pill already states "Closed"
+        explicitly, and this comment already calls the fade a secondary
+        hint. Zero contrast cost. Costs the at-a-glance dimming.
+     b) darken day's --dim to #6A6254 (hue/sat held, L .427 -> .373), which
+        clears 4.51:1 faded on every day surface — but that is within a
+        hair of day's --mute (#6B6151), so the mute/dim distinction that
+        gives day three levels of text stops existing.
+     c) accept 4.09:1 on the sub-line of a closed card only.
+   This is set to (c) for now because (a) and (b) are both visible design
+   decisions and you are not here to make them. What is NOT on the list is
+   going back to .82. */
+.card.closed .card-body, .hcard.closed .hc-body, .collage-card.closed .collage-info { opacity: .92; }
 /* ...except on a layered card, where .card-body is no longer a bare text
    block but an opaque plate sitting over the photo (see .card-big
    .card-body further down). Fading the plate itself would let 18% of the
    image ghost through it, which reads as a rendering fault rather than as
    "closed". The fade moves to the plate's contents, so the text dims by the
-   same .82 and the plate stays opaque. */
+   same amount and the plate stays opaque. Kept in step with the rule above
+   by hand — these two numbers have to agree and are written separately. */
 .card.closed.card-big .card-body { opacity: 1; }
-.card.closed.card-big .card-body > * { opacity: .82; }
+.card.closed.card-big .card-body > * { opacity: .92; }
 
 .card {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
@@ -1450,7 +1559,7 @@ body {
 .collage-info .t-note { color: rgba(245,241,232,.72); }
 
 /* pan-x on every horizontal strip nested inside #sheet (.hcards here, plus
-   #sheet .chip-bar, .photo-strip and .ed-photos further down): a deliberately
+   #sheet .chip-bar and .ed-photos further down): a deliberately
    horizontal gesture still scrolls them, but they no longer capture a
    diagonal drag that began as a vertical scroll - see #sheet's touch-action
    note above for the gesture this fixes.
@@ -1469,30 +1578,14 @@ body {
   border-radius: 14px; padding: 9px 12px; min-width: 124px; cursor: pointer;
 }
 
-/* Venue detail */
-.stat-row { display: flex; gap: 8px; margin-top: 12px; }
-.stat { flex: 1; background: var(--ink3); border-radius: 10px; padding: 9px; text-align: center; }
-.stat b { font-size: 15px; font-weight: 700; display: block; line-height: 1.3; }
-.stat span { font-size: 10.5px; color: var(--mute); }
-
 .btn-row { display: flex; gap: 8px; margin-top: 14px; }
 .btn {
   font-family: var(--font); font-weight: 700; border: none; border-radius: 12px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
 }
 .btn-back { flex-shrink: 0; width: 48px; height: 48px; background: var(--ink3); color: var(--mute); font-size: 18px; }
-.btn-go   { flex: 1; height: 48px; background: var(--flame); color: var(--ink); font-size: 15px; }
-.btn-fb   { flex: 1; height: 48px; background: var(--ink3); color: var(--bone); font-size: 14px; }
-.btn-share {
-  width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px;
-  background: var(--ink3); color: var(--bone); font-size: 18px; border: none;
-  box-shadow: 0 3px 0 rgba(0,0,0,.3);
-}
-.btn-share:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.3); }
-
-.hint { text-align: center; font-size: 11px; color: var(--dim); margin-top: 8px; }
-.empty { text-align: center; color: var(--dim); font-size: 13px; padding: 18px 0 10px; }
-
+.btn-go   { flex: 1; height: 48px; background: var(--flame); color: var(--on-flame); font-size: 15px; }
+.hint { text-align: center; font-size: 11px; color: var(--secondary); margin-top: 8px; }
 /* selected pin + zoom labels */
 /* the selected marker paints above the rest of the cluster. MapLibre appends
    markers in data order and gives every one position: absolute with no
@@ -1557,20 +1650,9 @@ body {
 /* expanded venue sheet */
 #sheet.expanded { max-height: 78vh; }
 
-/* touch-action: see the .hcards note */
-.photo-strip { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
-.photo-strip::-webkit-scrollbar { display: none; }
-.photo-strip img, .photo-ph {
-  flex-shrink: 0; width: 150px; height: 100px; border-radius: 10px; object-fit: cover;
-}
-.photo-ph {
-  background: var(--ink3); display: flex; flex-direction: column; gap: 4px;
-  align-items: center; justify-content: center; color: var(--dim); font-size: 11px;
-}
-
 /* shown under the straight-line distance while the routed distance/time is
    still in flight — see toggleRoute() in app.js */
-.travel-measuring { display: block; color: var(--dim); font-size: 10.5px; margin-top: 1px; }
+.travel-measuring { display: block; color: var(--secondary); font-size: 10.5px; margin-top: 1px; }
 
 .hours-week { margin-top: 6px; font-size: 12px; color: var(--mute); display: none; }
 .hours-week.show { display: block; }
@@ -1602,7 +1684,7 @@ body {
 #trackChip {
   position: absolute; top: calc(env(safe-area-inset-top, 0px) + 60px);
   left: 50%; transform: translateX(-50%); z-index: 7;
-  background: var(--flame); color: #131019; font-weight: 700; font-size: 13px;
+  background: var(--flame); color: var(--on-flame); font-weight: 700; font-size: 13px;
   padding: 8px 16px; border-radius: 18px; display: none; cursor: pointer;
   font-family: var(--font);
 }
@@ -1649,10 +1731,26 @@ body {
   margin-bottom: 8px; font-size: 11.5px; line-height: 1.4; color: var(--mute);
 }
 .map-warning[hidden] { display: none; }
-#mapWarningClose {
+/* --bone, not --mute: --mute on --ink4 is the lowest-contrast pairing in
+   either theme's ink scale (3.92:1 night before the --mute change, 4.05:1
+   day) and this is the only control in the app that puts one on the other.
+   It is also a dismiss button — the one thing on a warning someone needs to
+   be able to find. Its 20px box is brought up to 44 by the shared hit-slop
+   block at the end of this file. */
+/* #staleWarningClose is here too. It is the same control in the same
+   component (index.html has the two warnings as identical markup, both
+   .map-warning) but it was never in this selector, so the stale-data
+   warning's dismiss button rendered as a raw UA <button> — grey bevel,
+   system font, nothing like the circle on the warning directly above it.
+   Nobody caught it because the two warnings almost never show at once. */
+#mapWarningClose, #staleWarningClose {
   flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; border: none;
-  background: var(--ink4); color: var(--mute); font-size: 10px; cursor: pointer;
+  background: var(--ink4); color: var(--bone); font-size: 10px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; font-family: var(--font);
+  position: relative;
+}
+#mapWarningClose::after, #staleWarningClose::after {
+  content: ''; position: absolute; inset: -12px;
 }
 
 /* ============ motion ============ */
@@ -1760,8 +1858,8 @@ body {
    the string. The phone breakpoint stacks them — see the max-width:767px
    block. */
 .sec-h-lo { display: inline-flex; align-items: baseline; gap: 7px; }
-.sec-h-en::before { content: '·'; color: var(--dim); margin-right: 6px; }
-.sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--dim); margin-left: auto; }
+.sec-h-en::before { content: '·'; color: var(--secondary); margin-right: 6px; }
+.sec-h .sec-note { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--secondary); margin-left: auto; }
 /* Sleek item 22: the .sec-note slot is back on phones. It used to be
    display:none under 400px, from an era when .sec-h was flex/nowrap and the
    Lao label alone could push the note onto a second line and grow the
@@ -1782,7 +1880,7 @@ body {
    header now. Nothing else ever used them: the bottom nav's flame is
    icoFlameNav()'s single-path outline and the profile flame is
    assets/flame.svg via flameSvg(), neither of which touches these classes. */
-.sec-empty { font-size: 12.5px; color: var(--dim); margin-top: 7px; text-align: center; }
+.sec-empty { font-size: 12.5px; color: var(--secondary); margin-top: 7px; text-align: center; }
 /* assets/404.svg — viewBox 700x400, sized to a modest width with the
    aspect ratio locked so it never distorts */
 .sec-empty-ico { width: 120px; aspect-ratio: 700 / 400; margin: 4px auto 8px; }
@@ -1868,15 +1966,6 @@ body {
 #sheet::-webkit-scrollbar-thumb:hover { background: var(--dim); }
 
 /* check-in button */
-.btn-checkin {
-  flex: 1; height: 48px; background: var(--ink3); color: var(--mute);
-  border-radius: 14px; font-size: 15px; font-weight: 700; border: none;
-  transition: transform .12s cubic-bezier(.34,1.56,.64,1), background .2s;
-}
-.btn-checkin.ready { background: var(--flame); color: var(--ink); box-shadow: 0 4px 0 #C6432A; }
-.btn-checkin.ready:active { transform: translateY(3px); box-shadow: 0 1px 0 #C6432A; }
-.btn-checkin:disabled { cursor: default; }
-
 /* celebration overlay */
 /* full-size photo viewer — see openLightbox() in app.js. z-index above
    .celebrate (50) since it's the more "modal" of the two if they ever
@@ -1936,8 +2025,8 @@ body {
    (.fl-badge-ico, .cel-badge-label svg) — embers are the running total the
    flame is made of, so they belong to the flame's own colour. Same change
    on .fl-embers in the You screen. */
-.cel-num { font-size: 52px; font-weight: 700; color: var(--flame); }
-.cel-unit { font-size: 16px; color: var(--flame); margin-left: 6px; }
+.cel-num { font-size: 52px; font-weight: 700; color: var(--flame-text); }
+.cel-unit { font-size: 16px; color: var(--flame-text); margin-left: 6px; }
 .cel-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
 .cel-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -1947,17 +2036,17 @@ body {
 }
 .cel-row b { color: var(--bone); }
 .cel-row:nth-child(1){animation-delay:.15s} .cel-row:nth-child(2){animation-delay:.25s} .cel-row:nth-child(3){animation-delay:.35s}
-.cel-row.cel-new b { color: var(--flame); }
+.cel-row.cel-new b { color: var(--flame-text); }
 .cel-badge b { color: var(--gold); }
 /* icon + name stay one flex child so .cel-row's space-between still puts
    exactly two things on the row (label left, "unlocked" right) — adding the
    glyph as a third child would have spread the name into the middle. */
 .cel-badge-label { display: inline-flex; align-items: center; gap: 8px; }
 .cel-badge-label svg { display: block; color: var(--gold); }
-.cel-capped { text-align: center; font-size: 11.5px; color: var(--dim); margin: -8px 0 16px; }
+.cel-capped { text-align: center; font-size: 11.5px; color: var(--secondary); margin: -8px 0 16px; }
 @keyframes cel-slide { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 .cel-done {
-  width: 100%; height: 50px; background: var(--flame); color: var(--ink);
+  width: 100%; height: 50px; background: var(--flame); color: var(--on-flame);
   border-radius: 16px; font-size: 16px; font-weight: 700; border: none;
   box-shadow: 0 4px 0 #C6432A; transition: transform .1s;
 }
@@ -2049,12 +2138,12 @@ body {
 .fl-invite-lines { max-width: 280px; margin: 8px auto 0; }
 .fl-invite-line { font-size: 13px; line-height: 1.5; color: var(--mute); margin-top: 8px; }
 /* the one primary action on the You screen — same flame fill and solid
-   bottom edge as .btn-checkin.ready, since it's the same ask ("go do the
+   bottom edge as .cel-done, since it's the same ask ("go do the
    thing") one step earlier. .btn's base is display:flex with no size of its
    own, so height, padding and the centring margin all belong here. */
 .fl-invite-btn {
   height: 46px; margin: 16px auto 0; padding: 0 22px; font-size: 14px;
-  background: var(--flame); color: var(--ink); box-shadow: 0 4px 0 #C6432A;
+  background: var(--flame); color: var(--on-flame); box-shadow: 0 4px 0 #C6432A;
 }
 .fl-invite-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #C6432A; }
 
@@ -2106,6 +2195,12 @@ body {
 .fl-intro-line:nth-child(2) { animation-delay: .15s; }
 .fl-intro-line:nth-child(3) { animation-delay: .3s; }
 @media (prefers-reduced-motion: reduce) {
+  /* .fl-flame itself, not only .intro-flame: the base rule's
+     `transition: transform .6s ease, filter .6s ease` animates the scale
+     change between heat states every time the You screen re-renders, and
+     was never gated. Listed separately from .intro-flame rather than
+     folded into it so the 1.2s intro case keeps its own note above. */
+  .fl-flame { transition: none; }
   .fl-flame.intro-flame { transition: none; }
   .fl-intro-line { animation: none; opacity: 1; }
 }
@@ -2117,7 +2212,7 @@ body {
 }
 .fl-stage { font-size: 17px; font-weight: 700; color: var(--bone); margin-top: 8px; }
 .fl-sub { font-size: 12px; color: var(--mute); margin-top: 3px; }
-.fl-embers { font-size: 15px; color: var(--flame); margin: 14px 0 4px; }  /* was --gold — see .cel-num */
+.fl-embers { font-size: 15px; color: var(--flame-text); margin: 14px 0 4px; }  /* was --gold — see .cel-num */
 .fl-embers b { font-size: 22px; }
 /* the rhythm line (flameCardHtml() in app.js) — replaces the 30-dot month
    strip and its .fl-month label. The strip was 30 identical 6px dots with
@@ -2172,7 +2267,7 @@ body {
    what you'd be getting. `filter` desaturates the gold/amber fills so a
    locked slot never reads as a lit one at a glance. */
 .fl-item.locked { opacity:.45; filter: grayscale(1); }
-.fl-item-req { display:block; font-size:9.5px; line-height:1.35; color:var(--dim); margin-top:2px; }
+.fl-item-req { display:block; font-size:9.5px; line-height:1.35; color:var(--secondary); margin-top:2px; }
 .fl-avatar-link {
   display: block; margin: 14px auto 0; background: none; border: none;
   color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;
@@ -2194,14 +2289,14 @@ body {
 }
 .fl-manage-arrow { color: var(--mute); font-size: 16px; }
 .fl-manage-pending { color: var(--mute); font-weight: 400; font-size: 11.5px; }
-.fl-manage-rejected { color: var(--flame); font-weight: 700; font-size: 11.5px; }
+.fl-manage-rejected { color: var(--flame-text); font-weight: 700; font-size: 11.5px; }
 
 /* a failed fetch, not an empty result — see fetchMyVenues()/
    fetchPendingVenues() in app.js, which return { ok:false } rather than
    quietly collapsing into an empty list */
 .fl-fetch-error { margin-top: 16px; text-align: left; font-size: 12.5px; color: var(--mute); }
 .fl-retry {
-  background: none; border: none; color: var(--flame); font-weight: 700;
+  background: none; border: none; color: var(--flame-text); font-weight: 700;
   font-size: 12.5px; cursor: pointer; padding: 0; margin-left: 4px;
   text-decoration: underline; font-family: var(--font);
 }
@@ -2214,7 +2309,7 @@ body {
   padding: 12px 14px; margin: 14px 0 4px; font-size: 12.5px; line-height: 1.5;
   color: var(--bone);
 }
-.ed-rejected-note b { color: var(--flame); }
+.ed-rejected-note b { color: var(--flame-text); }
 .ed-rejected-note div { margin-top: 6px; color: var(--mute); font-size: 11.5px; }
 
 /* gentle, dismissible — a nudge, not a warning, so it uses the same neutral
@@ -2355,7 +2450,7 @@ body {
 .vd-tonight {
   font-size: 11px; font-weight: 700; letter-spacing: .5px; line-height: 1.3;
   padding: 5px 9px; border-radius: 8px;
-  background: var(--flame); color: #131019;
+  background: var(--flame); color: var(--on-flame);
 }
 /* desktop: the sheet is a 420px-wide full-height panel, so 40vh of a tall
    window is a near-square photo in a narrow column. Fixed height instead,
@@ -2381,10 +2476,10 @@ body {
    `lao` class alongside it in the markup. */
 .vd-title-lo { font-size: inherit; font-weight: inherit; color: inherit; }
 /* only the separator is dimmed, never either name */
-.vd-title-sep { color: var(--dim); font-weight: 500; }
+.vd-title-sep { color: var(--secondary); font-weight: 500; }
 .vd-meta { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--mute); }
-.vd-dot { color: var(--dim); }
-.vd-dim { color: var(--dim); }
+.vd-dot { color: var(--secondary); }
+.vd-dim { color: var(--secondary); }
 
 /* the venue's own vibe tags (migrations/013_vibe.sql) — until now these only
    existed inside the mood chooser. Read-only here: a label, not a filter. */
@@ -2397,7 +2492,7 @@ body {
 .vd-vibe {
   font-size: 11.5px; font-weight: 500; line-height: 1;
   padding: 6px 10px; border-radius: 999px;
-  background: none; border: 1px solid var(--ink4); color: var(--dim);
+  background: none; border: 1px solid var(--ink4); color: var(--secondary);
 }
 
 /* one primary action. The flame fill lives on whichever of Check in /
@@ -2418,7 +2513,7 @@ body {
    the --card-fill gradient .vd-btn-secondary sets, since a button swaps
    between the two classes at runtime */
 .vd-btn-primary {
-  background: var(--flame); color: #131019; box-shadow: var(--card-lift);
+  background: var(--flame); color: var(--on-flame); box-shadow: var(--card-lift);
   /* the one primary takes a full-width row of its own, above the
      secondaries — two equal-width buttons side by side made the geometry
      say "these are peers" while the flame fill said "this one is the
@@ -2476,7 +2571,7 @@ body {
 .vd-more {
   background: none; border: none; padding: 0;
   font-family: var(--font); font-size: 13px; font-weight: 700;
-  color: var(--flame); cursor: pointer;
+  color: var(--flame-text); cursor: pointer;
 }
 
 /* the factual group: one divider above the lot, the rows themselves now
@@ -2515,7 +2610,7 @@ body {
 [data-theme="light"] .vd-row-ico { background: var(--ink3); }
 .vd-row-ico svg { display: block; }
 .vd-row-main { flex: 1; min-width: 0; color: var(--mute); line-height: 1.5; }
-.vd-row-sub { margin-top: 1px; font-size: 11.5px; color: var(--dim); }
+.vd-row-sub { margin-top: 1px; font-size: 11.5px; color: var(--secondary); }
 .vd-row-label { margin-bottom: 2px; font-size: 12.5px; font-weight: 700; color: var(--bone); }
 /* still a tel: link, still tappable — just no longer the brightest thing on
    the page. It was flame/700 before, which made a phone number outrank the
@@ -2714,6 +2809,14 @@ body {
   transition: left .45s cubic-bezier(.32,1.25,.5,1);
 }
 body:has(#sheet.collapsed) #sheetToggle { left: 0; }
+/* the desktop collapse slides #topbar and #sheetToggle 400px across in
+   450ms. #sheet's own transition is already inside the
+   prefers-reduced-motion: no-preference block further up; these two were
+   written separately from it and were never gated. Same specificity as the
+   rules above (one id each) and later in the file, so this wins. */
+@media (prefers-reduced-motion: reduce) {
+  #topbar, #sheetToggle { transition: none; }
+}
 
 @media (max-width: 767px) {
   #sheetToggle { display: none; }   /* phone uses map tap to expand/collapse */
@@ -2915,7 +3018,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     font-size: 12px; font-weight: 700; color: var(--secondary); cursor: pointer;
   }
   #bottomNav .nav-lb { white-space: nowrap; }
-  #bottomNav .nav-item.active { color: var(--flame); }
+  #bottomNav .nav-item.active { color: var(--flame-text); }
   #bottomNav .nav-ico { display: flex; }
   #bottomNav .nav-ico svg { display: block; }
 
@@ -2988,12 +3091,61 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
 .ed-label-en { display: block; font-size: 10.5px; font-weight: 400; color: var(--mute); margin-top: 1px; line-height: 1.35; }
 .ed-label-req {
   display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .3px;
-  color: var(--flame); margin-top: 3px;
+  color: var(--flame-text); margin-top: 3px;
 }
 .ed-label-opt {
   display: inline-block; font-size: 9.5px; font-weight: 400;
   color: var(--mute); margin-top: 3px;
 }
+/* the one-line permission slip at the top of both owner forms (see
+   edBlankHintHtml() in js/owner.js for why it exists). Flame-tinted rather
+   than the neutral --ink3 the field examples use, because it is the one
+   thing on the form that is addressed to the person rather than to a field,
+   and it has to survive being scrolled past once. Same wash as
+   .surprise-btn and the rain bar — see --flame-text for the label colour
+   that wash needs. */
+.ed-blank-hint {
+  margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(255,90,60,.16);
+  /* the tint carries the flame, the text does not. Flame-on-flame-wash
+     measured 4.37:1 on night and 4.35:1 on day — both under AA, and for a
+     reason worth remembering: the wash is translucent, so what it composites
+     onto changes with the parent. On Home it lands on the sheet ground; on
+     this form it lands on --ink2, which is a step darker on day and a step
+     lighter on night, and the same declaration that passed there failed
+     here. --bone is 12:1 against the wash over either parent. The flame
+     signal moves to the border, which is opaque and cannot drift. */
+  color: var(--bone);
+  border-left: 3px solid var(--flame);
+}
+.ed-blank-hint .lao { display: block; font-size: 12.5px; font-weight: 700; line-height: 1.5; }
+.ed-blank-hint-en { display: block; font-size: 11.5px; line-height: 1.45; margin-top: 3px; }
+
+/* the worked example under each owner-form field (see edLabelHtml() and the
+   `eg` entries in OWNER_FIELD_LABELS, js/owner.js). It sits in a tinted well
+   rather than as a third line of loose text so it reads as a note about the
+   field and not as more label — three stacked lines of prose above an input,
+   all the same shape, is what made the labels easy to skip in the first
+   place. Lao line first, English under it, matching the label above.
+   Left border rather than a full box: the well has to be quiet enough that
+   the field's own name is still the first thing read. */
+.ed-label-eg {
+  display: block; margin-top: 6px; padding: 7px 10px;
+  border-left: 2px solid var(--ink4); border-radius: 0 8px 8px 0;
+  background: var(--ink3);
+  font-weight: 400; cursor: pointer;
+}
+.ed-label-eg .lao { display: block; font-size: 12px; line-height: 1.5; color: var(--bone); }
+/* --mute, not --secondary: on day --secondary is #7A7060, which measures
+   4.06:1 on this well's --ink3 (#F2EAD8) — the darkest cream in the palette
+   and the one surface --secondary was never solved against. --mute is
+   5.08:1 there, and on night the two tokens are the same value so nothing
+   changes in that theme. */
+.ed-label-eg-en { display: block; font-size: 11.5px; line-height: 1.45; color: var(--mute); }
+/* when both lines are present the English is the supporting one and needs
+   the gap; on its own it is the only thing in the well and must not sit
+   with a phantom space above it */
+.ed-label-eg .lao + .ed-label-eg-en { margin-top: 3px; }
 .ed-input, .ed-textarea {
   width: 100%; background: var(--ink3); border: 1px solid var(--ink4);
   border-radius: 12px; padding: 11px 13px; font-family: var(--font);
@@ -3003,10 +3155,10 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   outline: none; border-color: var(--flame);
 }
 .ed-textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
-.ed-charcount { text-align: right; font-size: 10.5px; color: var(--dim); margin-top: 4px; }
+.ed-charcount { text-align: right; font-size: 10.5px; color: var(--secondary); margin-top: 4px; }
 .ed-hint { font-size: 11px; color: var(--mute); margin-top: 5px; line-height: 1.4; }
 .ed-err {
-  font-size: 11.5px; color: var(--flame); margin-top: 5px; line-height: 1.4;
+  font-size: 11.5px; color: var(--flame-text); margin-top: 5px; line-height: 1.4;
   min-height: 0;
 }
 .ed-err:empty { display: none; }
@@ -3037,7 +3189,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   border-radius: 9px; padding: 6px 6px; font-family: var(--font);
   font-size: 12.5px; color: var(--bone);
 }
-.ed-hdash { color: var(--dim); font-size: 12px; flex-shrink: 0; }
+.ed-hdash { color: var(--secondary); font-size: 12px; flex-shrink: 0; }
 
 /* photos: horizontal scroll strip, one card per photo — reorder/remove
    only this pass, no add button (photo upload is a later pass) */
@@ -3061,11 +3213,18 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   line-height: 1; cursor: pointer; padding: 0 2px; flex-shrink: 0;
 }
 .ed-photo-highlight { animation: ed-photo-flash 1.6s ease-out; border-radius: 12px; }
+/* the flash is a "look here" cue, so killing the animation outright would
+   remove the affordance rather than calm it. The ring is held static
+   instead — wireVenueEditor() removes the class after 1600ms either way,
+   so it still disappears on its own at the same moment. */
+@media (prefers-reduced-motion: reduce) {
+  .ed-photo-highlight { animation: none; box-shadow: 0 0 0 3px var(--flame); }
+}
 @keyframes ed-photo-flash {
   0%, 100% { box-shadow: none; }
   20%, 65% { box-shadow: 0 0 0 3px var(--flame); }
 }
-.ed-photos-empty { font-size: 12.5px; color: var(--dim); padding: 8px 0; }
+.ed-photos-empty { font-size: 12.5px; color: var(--secondary); padding: 8px 0; }
 .ed-photo { position: relative; flex: 0 0 84px; cursor: grab; }
 .ed-photo.dragging { opacity: .4; }
 .ed-photo.drag-over { outline: 2px dashed var(--flame); outline-offset: 2px; border-radius: 10px; }
@@ -3078,7 +3237,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
    miss while editing (see edPhotoRowHtml() in app.js) */
 .ed-photo-main img { outline: 2px solid var(--flame); outline-offset: 1px; }
 .ed-photo-main-label {
-  font-size: 8.5px; line-height: 1.25; color: var(--flame); font-weight: 700;
+  font-size: 8.5px; line-height: 1.25; color: var(--flame-text); font-weight: 700;
   margin-top: 3px;
 }
 .ed-photo-actions { display: flex; gap: 3px; margin-top: 5px; }
@@ -3087,7 +3246,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   color: var(--mute); font-size: 12px; cursor: pointer;
 }
 .ed-photo-actions button:disabled { opacity: .3; cursor: default; }
-.ed-photo-remove { color: var(--flame) !important; }
+.ed-photo-remove { color: var(--flame-text) !important; }
 
 /* inline "are you sure" — covers the whole thumbnail+actions card rather
    than a native confirm() popup, so it stays in the app's own visual
@@ -3107,7 +3266,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   width: 100%; height: 18px; border: none; border-radius: 5px;
   font-size: 9.5px; font-weight: 700; cursor: pointer; font-family: var(--font);
 }
-.ed-photo-confirm-yes { background: var(--flame); color: var(--ink); }
+.ed-photo-confirm-yes { background: var(--flame); color: var(--on-flame); }
 .ed-photo-confirm-no { background: var(--ink4); color: var(--mute); }
 
 /* photo upload: one add button + a progress strip that only appears while
@@ -3134,7 +3293,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
   position: absolute; font-size: 7.5px; font-weight: 700; color: var(--bone); line-height: 1;
 }
 .ed-photo-retry {
-  background: none; border: none; color: var(--flame); font-weight: 700;
+  background: none; border: none; color: var(--flame-text); font-weight: 700;
   font-size: 11.5px; cursor: pointer; padding: 0; text-decoration: underline;
 }
 
@@ -3157,7 +3316,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
    confirmation is not a venue being open. The word "Saved" plus the error
    variant's flame below is enough to tell the two states apart. */
 .ed-save-note-ok { color: var(--mute); }
-.ed-save-note-error { color: var(--flame); }
+.ed-save-note-error { color: var(--flame-text); }
 
 /* ============================================================
    Mobile Home screen visual layer (Pass 2 of the mobile redesign)
@@ -3315,7 +3474,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     cursor: pointer; font-family: var(--font); font-weight: 700; font-size: 14px;
     /* same flame-tint wash .qa-chip.active used to signal "on" — here it's
        just the button's resting look, since there's no active state anymore */
-    background: rgba(255,90,60,.16); color: var(--flame);
+    background: rgba(255,90,60,.16); color: var(--flame-text);
   }
 
   /* ---- You screen: same 16px card-radius token as Home's cards ----
@@ -3337,4 +3496,147 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
      so only card-to-card actually changes. Was 12px, which sat only 2px
      off the 10px header gap and so read as the same gap. */
   .card { margin-top: 16px; }
+}
+
+/* ============================================================================
+   Accessibility: keyboard focus + 44px touch targets
+   ----------------------------------------------------------------------------
+   This block is LAST in the file on purpose. Both halves work by winning
+   ties on source order rather than by escalating specificity: .ed-input:focus
+   further up sets `outline: none` at (0,1,1), which is exactly what
+   input:focus-visible below measures, and several of the touch-target hosts
+   already set `position` in their own rules. Moving this block earlier
+   silently disables the parts of it that tie.
+   ========================================================================== */
+
+/* ---- keyboard focus ----
+   Before this, nothing in this file styled :focus or :focus-visible at all
+   except .ed-input:focus, which REMOVED the outline. Every button, chip,
+   pill, nav item and link in the app was therefore relying on whatever ring
+   the UA happened to draw over a custom surface — measured in Chrome on the
+   venue sheet and Home, that was no visible ring at all, which is WCAG
+   2.4.7 failing across the whole app: the thing is not keyboard-operable in
+   any way you could follow.
+   --focus is --bone deliberately, not a new colour: --bone is the primary
+   text colour, so it is already light on night (#F5F1E8) and dark on day
+   (#2A2419) and therefore high-contrast against every surface in its own
+   theme without needing a second token to be kept in sync. outline-offset
+   puts the ring on the surface BEHIND the control, so it never has to read
+   against a flame or teal fill.
+   :focus-visible, not :focus — a mouse tap on a chip should not leave a ring
+   sitting on it, which is what made an unconditional :focus rule unusable
+   here the last time this was considered. */
+:root { --focus: var(--bone); }
+button:focus-visible,
+a[href]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+/* the form fields keep their flame border on plain :focus (that rule is
+   still up there and still right for a mouse/touch focus) and now get the
+   ring on top of it for keyboard focus. Restated rather than left to the
+   list above because .ed-input:focus is (0,1,1) — the same specificity as
+   input:focus-visible — so only being later in the file makes this win. */
+.ed-input:focus-visible,
+.ed-textarea:focus-visible,
+.ed-hfrom:focus-visible,
+.ed-hto:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---- 44px touch targets ----
+   Measured at 390px and 320px, on Home, the venue sheet, You and the map.
+   Every control below is deliberately smaller than 44px because its drawn
+   size is load-bearing for the layout — a 36px pill row, a 42.7px chip, a
+   40px round hero button, an inline "More" at the end of a paragraph. So
+   none of them are resized. Each gets an invisible ::after that extends
+   only the HIT box, which leaves every pixel of the design where it was.
+   Expansion direction is chosen per control from the measured clearance to
+   its nearest interactive neighbour, never blanket: the two links in
+   .vd-links sit 4px apart, so those are the one case where slop would make
+   the wrong link fire and they get real height instead (see below). */
+.pill, .chip, .vd-round, .vd-btn-icon, .vd-more, .vd-phone { position: relative; }
+.pill::after, .chip::after, .vd-round::after,
+.vd-btn-icon::after, .vd-more::after, .vd-phone::after {
+  content: ''; position: absolute; z-index: 0;
+}
+/* 36px tall, and #themeBtn is only 35px wide on the map screen (icon, no
+   label), so this one needs both axes. The pills sit 16px apart at every
+   width the app supports — measured at 320px, which is the tightest the row
+   ever gets — so -5px a side still leaves 6px of clear space between two
+   neighbouring hit boxes, and the leftmost stays inside the 12px page
+   inset. Result: 44 x 45 for the smallest pill. */
+.pill::after   { inset: -4px -5px; }
+/* 42.7px tall in a horizontal scroller with a gap — vertical only */
+.chip::after   { inset: -1px 0; }
+/* 40x40, alone in its corner of the hero */
+.vd-round::after { inset: -2px; }
+/* 40px wide, 44px tall already, in a row with gap: 8px — 2px each side
+   leaves 4px of clear space between neighbours */
+.vd-btn-icon::after { inset: 0 -2px; }
+/* 15-17px tall. What sits within 15px above and below both of these is the
+   description / hours text they belong to, which is not interactive, so the
+   slop can only ever land on their own paragraph. */
+.vd-more::after  { inset: -15px -8px; }
+/* 15px tall, with 71px of clearance to the nearest control in either
+   direction (measured on the venue sheet at 320px) */
+.vd-phone::after { inset: -15px -8px; }
+
+/* The owner forms — the screen a real owner actually had trouble with, and
+   the one with the most controls under 44px: every text input was 41.3px,
+   the Bar/Cafe type toggle 31.3px, the back arrow 34x34, and the tick that
+   opens a day's hours was a 16px-tall label.
+   Inputs and the day toggle get real height, because a text field you have
+   to aim at is a worse problem than a slightly taller form and because the
+   hour rows sit only 8px apart, which is not enough room for slop. The back
+   arrow gets slop instead: it sits in a header row whose height is set by
+   the title beside it, and growing it would move the title. */
+.ed-input, .ed-hfrom, .ed-hto { min-height: 44px; }
+.seg-btn { min-height: 44px; }
+/* the label is the tap target here, not the 16px checkbox inside it — the
+   whole "Mon" row toggles the day. Giving the LABEL the height is what makes
+   that true; the box stays 16px, which is what it should look like. */
+.ed-hrow-toggle { min-height: 44px; display: inline-flex; align-items: center; }
+.sheet-x, .ed-fb-warn-move { position: relative; }
+.sheet-x::after { content: ''; position: absolute; inset: -5px; }
+/* 39.6 x 14, alone on its own warning line */
+.ed-fb-warn-move::after { content: ''; position: absolute; inset: -15px -10px; }
+
+/* The You screen's text buttons — the two under the avatar, "+ List your
+   venue", "Pending venues", and Sign out. 26px and 19px tall, and the
+   stacked pair sits 14px apart, which is the same trap as .vd-links below:
+   the slop needed to reach 44px (9px a side) is wider than the gap, so the
+   two boxes would overlap by 4px and whichever is later in the DOM would
+   eat taps meant for the other. Real height instead.
+   min-height rather than height because two of them (.fl-avatar-actions
+   .fl-avatar-link) sit in a flex row and one of them wraps to two lines at
+   320px — a fixed height would clip that. The text stays centred either
+   way, so nothing moves except the space around it. */
+.fl-avatar-link, .fl-signout {
+  min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+/* ...but .fl-avatar-link's base rule is `display: block; margin: 14px auto 0`,
+   which is what centres it when it stands alone, and inline-flex would drop
+   the auto-centring. Restore it: a block-level flex box keeps both. */
+.fl-avatar-link { display: flex; }
+.fl-avatar-actions .fl-avatar-link { display: inline-flex; }
+
+/* .vd-links is the exception. Two 19px-tall links stacked 4px apart: hit
+   slop big enough to reach 44px would put each link's box straight over the
+   other one, so the wrong destination would open. They get real height
+   instead — the gap goes to 0 and each link becomes its own 44px row, which
+   is what a stacked pair of links should have been. The underline still
+   sits on the text, so the visible link is unchanged; only the row it
+   occupies grows. */
+.vd-links { gap: 0; }
+.vd-links a {
+  display: inline-flex; align-items: center;
+  min-height: 44px;
 }
