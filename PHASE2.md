@@ -181,23 +181,59 @@ All under `/api`. Auth via session cookie unless marked public.
 
 ## 6. Build order (slices — each ships alone)
 
+**This list is HISTORY, not status.** It is the order the work was planned
+in, kept for context. What is actually built is in the STATUS header at the
+top of this file, which is the only part of this document that tracks
+reality — and the two no longer line up, because slice B and half of slice C
+shipped ahead of slice D and E for the reason the header gives. Do not read
+"slice C is next" out of this section. Annotations below are what is true as
+of 2026-09-14.
+
 1. **Slice A — auth + check-ins + streak.** Google sign-in, POST /checkin with
    server-side GPS validation, monthly streak, the celebration screen (reuse
    the demo's confetti). No social, no comments. THIS ALONE IS LAUNCHABLE.
+   — *shipped.*
 2. **Slice B — Embers + Phai stages.** XP math, config table, Phai render
    (layered SVG, stage from thresholds). Still no social.
+   — *shipped, plus heat, badges, avatar items and the first-sign-in intro.*
 3. **Slice C — badges + comments.** Badge engine on the check-in path,
    comments with Phai/badge display.
+   — *badges shipped (with slice B). Comments NOT built and still gated:
+   they need check-in volume to be worth reading.*
 4. **Slice D — friends + presence + Explorer board.** All privacy switches
    ship IN this slice, not after it.
+   — *not built, still gated on Gate 2 usage data.*
 5. **Slice E — quests.** Monthly definitions + progress on the check-in path.
+   — *not built, still gated on Gate 2 usage data.*
 
 Rule: do not start a slice until the previous one is deployed and used.
+The exception already taken is recorded in the header: gamification went
+ahead of the gate because friends asked for it during validation. That was a
+decision about one thing, not a general licence to reorder.
 
 ## 7. Explicitly out of scope for phase 2
 
-Venue owner accounts, paid promotions, Phai cosmetic shop, photo uploads,
-push notifications, native apps. Phase 3 candidates, all gated on usage.
+Paid promotions, Phai cosmetic shop, push notifications, native apps. Phase 3
+candidates, all gated on usage.
+
+**Two items were removed from that list on 2026-09-14 because they are
+built and live, and leaving them here made the section wrong rather than
+aspirational:**
+
+- **Venue owner accounts.** Owners sign in, submit a venue, edit their own
+  venue and see it in a review queue: `migrations/006_owners.sql`,
+  `functions/api/my-venues.js`, `functions/api/pending.js`,
+  `functions/api/venues/[id].js` and the whole of `js/owner.js`. An owner
+  submission lands with `pin_status: 'pending'` and no coordinates until Kar
+  places the pin by hand (see the pin_status rule in CLAUDE.md).
+- **Photo uploads.** Signed Cloudinary uploads for venue photos and for the
+  profile picture: `functions/api/upload-signature.js`, plus the uploader in
+  `js/owner.js` and the avatar path in `js/avatar.js`.
+
+Neither was a gate being reinterpreted — they are owner-side tooling rather
+than the social/usage features Gate 2 is about. The record is corrected
+rather than quietly deleted so the next reader can see that the scope moved
+and why.
 
 ## 8. Identity visual design (locked 2026-07-12, supersedes earlier Phai-as-pet design)
 

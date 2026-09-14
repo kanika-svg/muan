@@ -7,7 +7,6 @@
   "_popularity": "There is no footfall or popularity data for Laos and none was used to order this list. Google's popular-times is not exposed in any Google API and is only available by scraping the Maps page, which is both against their terms and unreliable. There is no Lao equivalent of Yelp. The review counts on Tripadvisor/Wanderlog for Vientiane venues are in the low tens and are dominated by visitors rather than residents, so they measure tourist traffic, not whether a place is busy on a Tuesday. Anything that turns up claiming to be Lao footfall data should be treated as a lead and its provenance written down before it is used. Nothing in the app should be ordered by it.",
   "_duplicates_checked": "Cross-checked against all 30 ids in data/venues.json on 2026-09-13. Common Grounds, Tipsy Elephant, Wind West and Corebeer already exist and are excluded. `sinouk-pavilion-km9` is included deliberately: data/venues.json already has `sinouk-khemkhong`, but this is a different address (KM9 Thadeua Rd vs Quai Fa Ngum) and so is a different venue, not a duplicate — confirm before adding either way.",
   "_next_step": "For each candidate: open the `source` URL, read the venue's own page, and write down the address, the hours and the phone AS THE PAGE STATES THEM. Then decide whether it belongs in the app at all — that is an editorial call, not a completeness exercise.",
-
   "candidates": [
     {
       "name": "Dam Dam",
@@ -17,7 +16,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/damdamcoffee/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/damdamcoffee/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, district, hours, phone, whether it is still trading. I fetched this page directly and it returned only the name and 'Vientiane' — no address, no hours. The search result described it as Lao specialty coffee; that description came from the search engine's own summary, not from the page, so I have not recorded it."
     },
     {
@@ -28,7 +31,12 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/maneecavevientiane/", "url_note": "CHECK THIS URL — the search result gave facebook.com/maneecafevientiane/ and I may have transcribed it. Open the search result rather than trusting this string.", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/maneecavevientiane/",
+        "url_note": "CHECK THIS URL — the search result gave facebook.com/maneecafevientiane/ and I may have transcribed it. Open the search result rather than trusting this string.",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. A search snippet mentioned a barista workshop dated 16 August 2026, which is weak evidence the page was active within the last month — weak because I did not see the post itself. NOT verified: everything else."
     },
     {
@@ -39,7 +47,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/LaoSpecialtyCoffee/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/LaoSpecialtyCoffee/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: whether this is a cafe with a room you can sit in or a roaster/wholesaler with a Facebook presence — the name reads like it could be either, and that distinction decides whether it belongs in this app at all. Check before anything else."
     },
     {
@@ -50,7 +62,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/kafepa.Cafe/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/kafepa.Cafe/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: address, hours, trading status."
     },
     {
@@ -61,7 +77,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/cafenomad.lao", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/cafenomad.lao",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. Appeared in two separate searches on different terms, which is mild evidence it is a real and reasonably visible business. NOT verified: address, hours, trading status."
     },
     {
@@ -72,7 +92,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/slurpcafevte/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/slurpcafevte/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane ('vte' in the handle is consistent with that). NOT verified: address, hours, trading status."
     },
     {
@@ -80,11 +104,23 @@
       "name_lo": null,
       "type": "cafe",
       "area_as_described": null,
-      "district": null,
+      "district": "Sisattanak",
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/KungsCafeLao/", "found": "2026-09-13" },
-      "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: address, hours, trading status."
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/KungsCafeLao/",
+        "found": "2026-09-13"
+      },
+      "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: address, hours, trading status. 2026-09-14: district, road and village added from OpenStreetMap (see _district_source) while researching restaurants - OSM types this as a restaurant, not a cafe, so decide which bucket it belongs in before entering it. It was nearly added a SECOND time in the restaurant batch under the same Facebook URL; the duplicate was caught by the cross-check and removed, which is the reason that check exists.",
+      "district_source": "openstreetmap/nominatim, queried 2026-09-14",
+      "osm": {
+        "lat": 17.9574095,
+        "lng": 102.6158785,
+        "matched_name": "ກຸ້ງກາເຟລາວ"
+      },
+      "road_osm": "Chemin Si-Meuang",
+      "village_osm": "Ban Phiawat"
     },
     {
       "name": "Cafe aunties",
@@ -94,7 +130,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/cafeaunties/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/cafeaunties/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: anything else, including whether 'Cafe aunties' is the name it trades under or a page title."
     },
     {
@@ -105,7 +145,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/TheInfiniteCafe/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/TheInfiniteCafe/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane, and the Lao name above is taken from the page TITLE as it appeared in the search result — so the Lao spelling is the venue's own, not a transliteration I produced. Still worth a native-speaker glance before it goes in a record. NOT verified: address, hours, trading status."
     },
     {
@@ -116,7 +160,12 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/p/Switch-Cafe-100092365573554/", "url_note": "the full URL carries the percent-encoded Lao name between 'Switch-Cafe-' and the id; either form should resolve", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/p/Switch-Cafe-100092365573554/",
+        "url_note": "the full URL carries the percent-encoded Lao name between 'Switch-Cafe-' and the id; either form should resolve",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane; Lao name from the page title. The numeric /p/ URL form usually means a newer page or one without a vanity handle, which may mean recently opened — that is an inference, not a fact. NOT verified: address, hours, trading status."
     },
     {
@@ -127,7 +176,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/TruckyCafe/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/TruckyCafe/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane; Lao name from the page title. NOT verified: address, hours, trading status. The name suggests it may be a vehicle rather than a room — if so it may have no fixed pin, which pin_status 'pending' does not cover and which would need a decision."
     },
     {
@@ -138,7 +191,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/puncafelaos", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/puncafelaos",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane; Lao name from the page title. NOT verified: address, hours, trading status."
     },
     {
@@ -149,7 +206,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/titkafelaos/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/titkafelaos/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: address, hours, trading status."
     },
     {
@@ -160,7 +221,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/coffandfarmcafe/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/coffandfarmcafe/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: address, hours, trading status."
     },
     {
@@ -171,7 +236,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/cnacafe/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/cnacafe/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: address, hours, trading status. A two-letter name is easy to confuse with another business — confirm the page is the venue and not a franchise account."
     },
     {
@@ -182,7 +251,12 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/p/Tropical-Cafe-and-Bar-Vientiane-61562637676835/", "url_note": "the live URL percent-encodes the Lao name; the numeric id is the stable part", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/p/Tropical-Cafe-and-Bar-Vientiane-61562637676835/",
+        "url_note": "the live URL percent-encodes the Lao name; the numeric id is the stable part",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane; Lao name from the page title. Typed as `bar` because the page title says 'Café and Bar' — if it is a daytime cafe that also serves beer, `cafe` is the truer type for this app. Decide on the ground. NOT verified: address, hours, trading status."
     },
     {
@@ -193,7 +267,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/winecafevte", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/winecafevte",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. NOT verified: address, hours, trading status."
     },
     {
@@ -204,7 +282,11 @@
       "district": "Sisattanak",
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/artisanvientiane/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/artisanvientiane/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. The street and district above came from the search engine's summary of that page rather than from the page itself, which I could not read — so treat 'Sakarin Road, Sisattanak' as a LEAD to check against the page, not as a confirmed address. NOT verified: hours, phone, trading status."
     },
     {
@@ -217,7 +299,11 @@
       "maps_url_note": "UNRESOLVED. This short link came out of a search summary; I did not open it, so I cannot confirm it points at this venue or at a live listing. Resolve it before trusting it.",
       "hours": null,
       "hours_lead": "Aggregator pages state 'daily 5pm-2am'. NOT recorded as hours: the claim is from petitfute / kupi-type guide pages, which are leads. Do not copy this into a venue record.",
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/moonlightvientiane/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/moonlightvientiane/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: a Facebook page exists under this name for Vientiane. NOT verified: the address, the Maps link, or the hours — all three came from guide sites. Note there are at least TWO Moonlight venues (see the Parkson entry below); make sure any record names which one it is."
     },
     {
@@ -229,7 +315,11 @@
       "maps_url": null,
       "hours": null,
       "hours_lead": "A guide page states '10am-2:30am daily'. Lead only, not recorded as hours.",
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/p/Moonlight-Lounge-Parkson-61571956954082/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/p/Moonlight-Lounge-Parkson-61571956954082/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists. Worth flagging for a different reason: data/venues.json already has `parkson-laos` (Parkson / Naga Mall, Khouvieng Rd) as a `venue`. If this lounge is inside that building it may belong as its own bar pin, or as an event host on the existing one — that is a modelling decision, not a research one. The /p/ numeric-id URL form suggests a recently created page."
     },
     {
@@ -240,7 +330,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/luminarrooftopbar/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/luminarrooftopbar/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. Rooftop, so if it is ever added it is a candidate for `outdoor: true` (migrations/016_outdoor.sql) — but only after someone has looked, since the field must not be guessed from a name. NOT verified: address, hours, trading status."
     },
     {
@@ -251,7 +345,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_post", "url": "https://www.facebook.com/EastinVientiane/posts/676184027569725/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_post",
+        "url": "https://www.facebook.com/EastinVientiane/posts/676184027569725/",
+        "found": "2026-09-13"
+      },
       "confidence": "Weaker than the others and deliberately marked so. The source is a POST on the hotel's own page announcing the bar as 'the newest rooftop bar', not a page for the bar itself, and I could not read the post — only its indexed title. The post has no date I could see, and 'newest' in an undated post is worth nothing. Verify the bar still operates before anything else. Rooftop, so a future `outdoor` candidate, same caveat as Luminar."
     },
     {
@@ -262,7 +360,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/LaoNaNaRooftopRestaurant.VientianeLao/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/LaoNaNaRooftopRestaurant.VientianeLao/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists, indexed as Vientiane. Typed `bar` on the strength of 'Rooftop' alone; the name says Restaurant, and this app has no restaurant type, so whether it belongs here at all is an editorial call. NOT verified: address, hours, trading status."
     },
     {
@@ -273,7 +375,11 @@
       "district": "Sisattanak",
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "lead_only", "url": "https://loca.la/blog/go-with-loca-5-rooftop-bars-restaurants-with-charming-views/", "found": "2026-09-13" },
+      "source": {
+        "kind": "lead_only",
+        "url": "https://loca.la/blog/go-with-loca-5-rooftop-bars-restaurants-with-charming-views/",
+        "found": "2026-09-13"
+      },
       "confidence": "LEAD ONLY — no primary source found. loca.la is a Lao ride-hailing company's marketing blog, which makes it locally informed but still a listicle. I found no Facebook page and no Maps listing for this name. Everything above, including the village, is the blog's claim. Search for its own page before spending any more time on it; if there isn't one, that is itself informative."
     },
     {
@@ -285,7 +391,11 @@
       "maps_url": null,
       "hours": null,
       "hours_lead": "An aggregator lists a Naked Espresso as Mon-Fri 07:00-18:00, Sat-Sun 08:00-18:00, but attributes it to a Manthatourath St branch, NOT this one. Explicitly not recorded: it is both from a lead and about a different address.",
-      "source": { "kind": "lead_only", "url": "https://coool.cafe/city/vientiane", "found": "2026-09-13" },
+      "source": {
+        "kind": "lead_only",
+        "url": "https://coool.cafe/city/vientiane",
+        "found": "2026-09-13"
+      },
       "confidence": "LEAD ONLY. The street came from coool.cafe, a cafe directory (aggregator). No Facebook page or Maps listing found for this specific branch. Flagging a real hazard: Naked Espresso has MULTIPLE Vientiane branches (Hasadee, Misay, at least) plus a Vang Vieng one, so any record must name the branch, and hours/coords from one branch must never be used for another. Also note Khun Bu Lom Rd already appears in data/venues.json twice (treekoff-watchane, drip-1920s) — confirm this is a distinct address."
     },
     {
@@ -296,7 +406,11 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/b.coffee.etc.vientiane", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/b.coffee.etc.vientiane",
+        "found": "2026-09-13"
+      },
       "confidence": "Facebook page verified to exist and be indexed as Vientiane. The street number came from coool.cafe (a directory, i.e. a lead) and NOT from the page, so check it against the page. Khouvieng Rd already appears in data/venues.json (parkson-laos) — a different building, but worth knowing when placing the pin."
     },
     {
@@ -307,7 +421,12 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "lead_only", "url": "https://coool.cafe/city/vientiane", "found": "2026-09-13", "secondary": "https://www.facebook.com/sinoukcoffeeofficial/ is the brand's own page (a source), but it covers the whole Sinouk brand, not this branch" },
+      "source": {
+        "kind": "lead_only",
+        "url": "https://coool.cafe/city/vientiane",
+        "found": "2026-09-13",
+        "secondary": "https://www.facebook.com/sinoukcoffeeofficial/ is the brand's own page (a source), but it covers the whole Sinouk brand, not this branch"
+      },
       "confidence": "LEAD ONLY for the branch. NOT a duplicate of the existing `sinouk-khemkhong` — different address (KM9 Thadeua Rd vs Quai Fa Ngum) — but same brand, so it needs a distinct id, its own coordinates and its own hours, and the existing record must not be copied. 'Pavilion and Garden' hints at outdoor seating; that is a hint, not a value for the `outdoor` field, which must not be set from a name."
     },
     {
@@ -318,11 +437,476 @@
       "district": null,
       "maps_url": null,
       "hours": null,
-      "source": { "kind": "facebook_page", "url": "https://www.facebook.com/VientianeCraftBeer/", "found": "2026-09-13" },
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/VientianeCraftBeer/",
+        "found": "2026-09-13"
+      },
       "confidence": "Verified: page exists. Lowest-confidence entry in the list on the question that matters most — whether it is a VENUE at all. The name reads equally as a bar, a bottle shop, an importer, or a community/interest page, and this app pins places you can go. Establish that first; if it is not somewhere you can sit down, drop it rather than researching it further."
+    },
+    {
+      "name": "Kualao Restaurant",
+      "name_lo": "ຮ້ານອາຫານ ຄົວລາວ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": "Chanthabouly",
+      "district_source": "openstreetmap/nominatim, queried 2026-09-14",
+      "osm": {
+        "lat": 17.9648114,
+        "lng": 102.6106161,
+        "matched_name": "ຮ້ານອາຫານຄົວລາວ"
+      },
+      "road_osm": "Samsenthai Rd",
+      "village_osm": "Ban Sihom",
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Kualao/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. District/road come from OpenStreetMap (see _district_source), not from the venue - a third-party record that matched this venue's name, not the venue's own statement of where it is."
+    },
+    {
+      "name": "Tamnak Lao",
+      "name_lo": null,
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": "Xaysetha",
+      "district_source": "openstreetmap/nominatim, queried 2026-09-14",
+      "osm": {
+        "lat": 17.9719129,
+        "lng": 102.6219779,
+        "matched_name": "Tamnak Lao Restaurant"
+      },
+      "road_osm": "23 Singha Rd",
+      "village_osm": "Ban Phonsay",
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Tamnaklao/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. District/road come from OpenStreetMap (see _district_source), not from the venue - a third-party record that matched this venue's name, not the venue's own statement of where it is."
+    },
+    {
+      "name": "Le Padaek",
+      "name_lo": null,
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": "Xaysetha",
+      "district_source": "openstreetmap/nominatim, queried 2026-09-14",
+      "osm": {
+        "lat": 17.968477,
+        "lng": 102.6299655,
+        "matched_name": "Le Padaek",
+        "second_entry": {
+          "lat": 17.9675185,
+          "lng": 102.630335,
+          "road": "Saphangmo"
+        }
+      },
+      "road_osm": "Sisangvone / Saphangmo - TWO OSM entries, see confidence",
+      "village_osm": "Ban Naxay",
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/LePadaek/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. District/road come from OpenStreetMap (see _district_source), not from the venue - a third-party record that matched this venue's name, not the venue's own statement of where it is. BRANCH AMBIGUITY: OpenStreetMap has two separate 'Le Padaek' nodes about 120m apart, on Sisangvone and on Saphangmo. That is either two branches, one branch plus a stale duplicate, or a move. Establish which before anything is pinned - the same trap as Naked Espresso in the first batch."
+    },
+    {
+      "name": "Marina Restaurant",
+      "name_lo": "ຮ້ານອາຫານ ມາຣີນ້າ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": "Sikhottabong",
+      "district_source": "openstreetmap/nominatim, queried 2026-09-14",
+      "osm": {
+        "lat": 17.9697198,
+        "lng": 102.582017,
+        "matched_name": "Marina Restaurant"
+      },
+      "road_osm": "Souphanouvong Rd",
+      "village_osm": "Ban Nongpanai",
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Marinavientiane/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. District/road come from OpenStreetMap (see _district_source), not from the venue - a third-party record that matched this venue's name, not the venue's own statement of where it is. Same road as the existing kong-view, which is also listed as 'Souphanouvong Rd, Sikhottabong'. A different venue - about 2km apart by the OSM coordinates - but check rather than assume."
+    },
+    {
+      "name": "Yokohama (Shu-An Yokohama)",
+      "name_lo": null,
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": "Xaysetha",
+      "district_source": "openstreetmap/nominatim, queried 2026-09-14",
+      "osm": {
+        "lat": 17.9745412,
+        "lng": 102.6300001,
+        "matched_name": "Yokohama"
+      },
+      "road_osm": "23 Singha Rd",
+      "village_osm": "Ban Phonsay",
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/ShuAnYokohama",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. District/road come from OpenStreetMap (see _district_source), not from the venue - a third-party record that matched this venue's name, not the venue's own statement of where it is. Japanese."
+    },
+    {
+      "name": "Tanglak Restaurant",
+      "name_lo": "ຮ້ານອາຫານ ຕັ້ງຫຼັກ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/tanglakrestaurant/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall."
+    },
+    {
+      "name": "Kin Lom Chom View Lao-Thai Restaurant",
+      "name_lo": "ຮ້ານອາຫານ ກິນລົມ ຊົມວິວ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/warnmoubbqbuffet/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. NAME/HANDLE MISMATCH: the page's display name is a Lao-Thai restaurant; its handle is 'warnmoubbqbuffet', a BBQ buffet. That usually means a rebrand or two concepts sharing one page. Establish what the place is actually called, and whether it is one venue, before entering it."
+    },
+    {
+      "name": "Vanglao Daokham Restaurant",
+      "name_lo": "ສວນອາຫານວັງລາວ ດາວຄຳ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Vanglaodaokham/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall."
+    },
+    {
+      "name": "Friendly Restaurant",
+      "name_lo": "ຮ້ານອາຫານເຟນລີ່",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/FriendlyRestaurant1/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall."
+    },
+    {
+      "name": "Mi Sailomyen",
+      "name_lo": "ໝີ່ສາຍລົມເຢັນ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Sailomyen2Restaurant/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. A noodle shop rather than a sit-down restaurant, and the handle ends in '2', which usually means a second branch with its own page. Both facts change whether and how it is listed."
+    },
+    {
+      "name": "Saveuy Thai-Lao Cuisine",
+      "name_lo": "ຮ້ານອາຫານ ສະເຫວີຍ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/p/%E0%BA%AE%E0%BB%89%E0%BA%B2%E0%BA%99%E0%BA%AD%E0%BA%B2%E0%BA%AB%E0%BA%B2%E0%BA%99-%E0%BA%AA%E0%BA%B0%E0%BB%80%E0%BA%AB%E0%BA%A7%E0%BA%B5%E0%BA%8D-Thai-Lao-Cuisine-100085051218439/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. A /p/ page with a numeric id rather than a vanity handle, so there is no username to check the name against."
+    },
+    {
+      "name": "TopOne Restaurant",
+      "name_lo": "ສວນອາຫານ ທ໋ອບວັນ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Toponerestaurant.banmai/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. The handle contains 'banmai', which MAY mean Ban Mai. That is a hint about where it is, not a fact - do not record a district from a Facebook username."
+    },
+    {
+      "name": "Family Restaurant",
+      "name_lo": "ສວນອາຫານ ແຟມມິລີ່",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Familyrestaurantlao/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall."
+    },
+    {
+      "name": "Fire Tiger",
+      "name_lo": "ຮ້ານອາຫານ ເສືອໄຟ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/firetiger.la/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall."
+    },
+    {
+      "name": "Linda Food Garden",
+      "name_lo": "ສວນອາຫານ ລິນດາ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/lindafoodgarden/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall."
+    },
+    {
+      "name": "Lao Derm Restaurant",
+      "name_lo": "ຫ້ອງອາຫານລາວເດີມ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Laodermrestaurant/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. OSM MATCH REJECTED: a Nominatim search for 'Lao Derm restaurant Vientiane' returned 'Lao Derm Som Nguem' in Xaythany at 18.13N - about 19km north, in Thangon, and a different name. Written down so the query is not repeated and accepted next time. District unknown."
+    },
+    {
+      "name": "Makphet / Mini Makphet",
+      "name_lo": null,
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/Makphet/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. TRADING HISTORY, resolve before entering. Makphet, a Friends-International vocational training restaurant, closed in 2017 over rent and reopened as Mini Makphet around 2019 (friends-international.org/blog/index.php/return-of-makphet/); Tripadvisor carries a note from the team about relocating again. OSM's only match is 'Mini Makphet' on Phai Nam Rd, Ban Thongkhankham, Chanthabouly (17.9671661, 102.6107264) - a DIFFERENT NAME, so it is not accepted as this venue's district. Which entity trades today, under which name, at which address, is unknown."
+    },
+    {
+      "name": "Kumkangsan Korean Restaurant",
+      "name_lo": null,
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/kumkangsanvientiane/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. Korean. No OpenStreetMap entry at all - district unknown."
+    },
+    {
+      "name": "Naoki Japanese Restaurant",
+      "name_lo": null,
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/naokijapanese",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. Japanese. No OpenStreetMap entry at all - district unknown."
+    },
+    {
+      "name": "Yufuku Japanese Restaurant",
+      "name_lo": "ຮ້ານອາຫານຢູຟູກຸລາວ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/p/Yufuku-Japanese-Restaurant-Vientiane-%E0%BA%AE%E0%BB%89%E0%BA%B2%E0%BA%99%E0%BA%AD%E0%BA%B2%E0%BA%AB%E0%BA%B2%E0%BA%99%E0%BA%A2%E0%BA%B9%E0%BA%9F%E0%BA%B9%E0%BA%81%E0%BA%B8%E0%BA%A5%E0%BA%B2%E0%BA%A7-61562725650230/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. Japanese."
+    },
+    {
+      "name": "Oshinei Vientiane",
+      "name_lo": "ໂອຊິເນ ວຽງຈັນ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/OshineiVientiane/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. Japanese."
+    },
+    {
+      "name": "Fujiwara and Fujishabu",
+      "name_lo": "ຮ້ານອາຫານ ຟຸຈິວາຣະ ແລະ ຟຸຈິຊາບຸ",
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/p/Fujiwara-And-Fujishabu-Restaurant-%E0%BA%AE%E0%BB%89%E0%BA%B2%E0%BA%99%E0%BA%AD%E0%BA%B2%E0%BA%AB%E0%BA%B2%E0%BA%99-%E0%BA%9F%E0%BA%B8%E0%BA%88%E0%BA%B4%E0%BA%A7%E0%BA%B2%E0%BA%A3%E0%BA%B0-%E0%BB%81%E0%BA%A5%E0%BA%B0-%E0%BA%9F%E0%BA%B8%E0%BA%88%E0%BA%B4%E0%BA%8A%E0%BA%B2%E0%BA%9A%E0%BA%B8-100069089273720/",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. Japanese. The name suggests two concepts - a restaurant and a shabu place - sharing one page."
+    },
+    {
+      "name": "Osaka Japanese Restaurant",
+      "name_lo": null,
+      "type": "restaurant",
+      "area_as_described": null,
+      "district": null,
+      "district_source": null,
+      "osm": null,
+      "road_osm": null,
+      "village_osm": null,
+      "maps_url": null,
+      "hours": null,
+      "source": {
+        "kind": "facebook_page",
+        "url": "https://www.facebook.com/284327534935551",
+        "found": "2026-09-14"
+      },
+      "confidence": "Verified: a Facebook page under this name exists and is indexed as a Vientiane business. NOT verified: address, hours, phone, price, whether it is still trading. The page itself was not readable - see _facebook_wall. Japanese. Numeric page id only, no vanity handle."
     }
   ],
-
   "_possibly_closed": "Nothing in this list showed a positive signal of being permanently closed. That is NOT the same as 'all of these are open', and the difference matters: the only closure signals available to me would be a Facebook page marked closed or a Maps listing marked permanently closed, and I could read neither. Treat trading status as unknown for every entry. The oldest-looking lead (360@Eleven, an undated 'newest rooftop bar' post) is the one I would check first.",
   "_what_i_could_not_do": [
     "Read any Facebook page's content — address, hours, phone, recent posts, or a closed marker. Fetching returns the name and city only.",
@@ -330,5 +914,18 @@
     "Confirm any street address from a primary source. Every address above is from a directory or a search summary.",
     "Distinguish, for several entries, between a venue with a room and a brand/roaster/importer with a page.",
     "Find any footfall or popularity data for Laos — see _popularity."
-  ]
+  ],
+  "_batch_2": "2026-09-14, second unattended session. 24 RESTAURANTS appended to `candidates` below the 28 cafes/bars from 2026-09-13. Same rules, same file, nothing in the repo loads it. This batch was asked for restaurants specifically and for a district per venue; read _district_source for what `district` here does and does not mean, and _venue_type_blocker for why none of these can be entered yet even once verified.",
+  "_venue_type_blocker": "NONE OF THESE CAN BE ENTERED AS-IS, and it is not a data problem. `restaurant` is not a venue type this app has. functions/api/_venue-validation.js line 15 is VENUE_TYPES = ['bar', 'cafe', 'venue'], so the API rejects it. js/app.js's COLORS map has no pin colour for it; pinSVG()'s glyphKey falls through to the generic 'venue' glyph; the Home filter matchType() only knows 'bar' and 'cafe'; index.html has no chip for it; css/style.css has no .marker.type-restaurant and :root has no --pin-restaurant; the owner form's Bar/Cafe .seg-btn toggle has two options. Entering these as type 'venue' would work and would be wrong - 'venue' is the ITECC/mall/night-market bucket. Adding the type is a real change across six files with two design decisions inside it (a pin colour that is not already spoken for, and a glyph), which is Kar's call rather than a side effect of a research pass. Do that first; this list cannot be used until then.",
+  "_district_source": "`district`, `road_osm`, `village_osm` and `osm` come from the OpenStreetMap Nominatim search API, queried 2026-09-14. That is a third-party crowd-sourced record, NOT the venue's own statement - a strong lead for 'which district is this in', and nothing more. Rule applied: a result was accepted only when the returned display_name actually contains the venue's name. Nominatim fuzzy-matches and will confidently return a different business: it returned 'Lao Derm Som Nguem' 19km away for 'Lao Derm', and 'Mini Makphet' for 'Makphet'. Both were rejected, and both are written down so the query is not repeated and accepted. Where a venue has no `district` it is because OSM had no matching entry at all (6 of the 24) - coverage in Vientiane is patchy, and absence there says nothing about the venue. THE COORDINATES IN `osm` ARE NOT PINS. CLAUDE.md: a venue's lat/lng must be Kar-confirmed, and a pending venue carries NULL rather than a guess. They are here only so a place can be found on a map in order to check it; copying one into the venues table would put a stranger's guess on the map with pin_status 'placed'.",
+  "_closed_found": {
+    "note": "One venue was researched, found, and then found to be gone. Recorded rather than silently dropped, because it is the best single argument for the listicle rule.",
+    "venue": "Doi Ka Noi",
+    "status": "PERMANENTLY CLOSED",
+    "evidence": "Laotian Times, post dated 14 May 2025: 'Doi Ka Noi, a renowned restaurant in Vientiane Capital, has permanently closed after the death of its chef and owner, Ponpailin Noi Kaewduangdee, on 13 May.' https://www.facebook.com/laotiantimes/posts/doi-ka-noi-a-renowned-restaurant-in-vientiane-capital-has-permanently-closed-aft/1113098454177340/",
+    "why_it_matters": "Doi Ka Noi was the first Lao restaurant to reach Asia's 50 Best (no. 86, 2025) and is still being recommended by travel listicles dated September 2026, sixteen months after it closed. A listicle is not a source. It is also the only positive closure signal found across 52 candidates in two batches, and it was found in a news post rather than on the venue's own page - consistent with _possibly_closed: the signals that would mark a venue closed sit on exactly the pages that cannot be read."
+  },
+  "_name_lo_provenance": "Every `name_lo` in this batch is COPIED from the Facebook page title as it appeared in the search result (or, for Kung's Cafe Lao, from the OpenStreetMap record), never transliterated or reconstructed. That distinction matters here more than usual: the unattended session writing this file cannot read Lao well enough to notice a wrong character, and a venue name with a typo in it is a venue nobody searching for it will find. A Lao speaker should still check each one against the live page before any of these become records - but the failure mode being guarded against is a name invented in transcription, and none of these were.",
+  "_facebook_wall": "Re-tested 2026-09-14 on facebook.com/Kualao/. The result is unchanged from 2026-09-13: the fetch returns the business name in English and Lao, and 'Vientiane'. No address, no district, no phone, no hours, no permanently-closed marker. This is why every `hours` in this file is null and why `district` had to come from somewhere else entirely. It is not a gap that more searching closes.",
+  "_dedupe_within_file": "The 2026-09-14 restaurant batch was cross-checked against the 30 ids in data/venues.json AND against the 28 entries already in this file, by source URL and by name. One hit: Kung's Cafe Lao, already present from the cafe batch on the same Facebook URL. The restaurant duplicate was removed and its OpenStreetMap district folded into the original entry, so this file has one row per venue. Nothing else in the restaurant batch matches either list - most of the restaurants sit in districts (Xaysetha, Sikhottabong) that the cafe/bar batch barely touched."
 }

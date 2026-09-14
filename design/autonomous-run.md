@@ -634,3 +634,603 @@ another branch's hours or coordinates.
 - **Anything about the 28 candidates beyond "a page with this name exists and
   is indexed as Vientiane".** No address, no hours, no phone, no trading
   status, and for several of them not even whether it is a venue.
+
+---
+
+# Autonomous run — 2026-09-14
+
+Kar: second unattended session. **Nothing is committed and nothing is pushed.**
+No migration was run against `--remote` — none was written into `migrations/`
+either, and §B3 says why that was the right call rather than an omission. No
+venue data was added, edited or invented; `data/venues.json`, `data/picks.json`
+and `migrations/` are untouched. Research went to `data/candidates.json` only,
+which nothing in the repo loads (re-verified by grep).
+
+```
+ M css/style.css        (contrast, one new token, one new rule)
+ M js/app.js            (repeat events, boot resilience, 9 swallowed failures)
+ M js/avatar.js         (one aria bug)
+ M data/events.json     (repeat field on the two weekly fixtures — no new events)
+ M data/candidates.json (+23 restaurants, staging only)
+ M PHASE2.md            (§6 and §7 — the header was already correct, see B4)
+?? design/events-repeat.sql   (NOT a migration. Read its header.)
+```
+
+**Read these four first — they are where I made a call you might reverse.**
+
+1. **`.card.closed`'s fade is deleted, not softened.** You asked me to make the
+   call. I also found the previous run's numbers were wrong: it fails on
+   **night** too, at every width. §A2.
+2. **`--wash-flame` is a new token and its alpha dropped .16 → .12.** The rain
+   bar and Surprise me were still failing AA — the previous run believed they
+   were fixed. The wash is now 25% weaker. §A3.
+3. **`repeat` on events is a change to `data/events.json`'s shape, not to D1.**
+   I deliberately did *not* put a migration in `migrations/`. §B3.
+4. **The restaurant research cannot be used yet.** `restaurant` is not a venue
+   type this app has, in six files. §D.
+
+---
+
+## A. The four remaining contrast failures
+
+Method as before: a walker compositing the real background up the ancestor
+chain including gradient stops and the `#sheet` texture, applying accumulated
+opacity, applying WCAG's large-text rule properly. Run over Home (All / Bars /
+Cafes / Events), the venue sheet, You and the submit form, in both themes, at
+320 / 390 / 1280.
+
+**All four are fixed. Two of them were worse than reported, and I found two
+more the last audit had marked solved.** Final state: at 320, 390 and 1280, in
+both themes, on Home, the venue sheet, You and the owner form, the walker
+reports **zero** failing text pairs other than the four known non-failures at
+the bottom of this section.
+
+### A1 — the locked avatar slot (`.fl-item-req` 1.77:1, `.fl-item-name` 2.65:1)
+
+Fixable without touching a token: it was never a colour. `.fl-item.locked` put
+`opacity:.45; filter:grayscale(1)` on the whole tile, which is right for the
+artwork and wrong for the text sitting under it. `.fl-item-req` at 1.77:1 is
+the line that tells you *how to unlock the slot*, which is the only thing a
+locked slot exists to say — and a locked chip is not a disabled control, so
+WCAG 1.4.3's exemption does not apply.
+
+Both declarations moved to `.fl-item.locked .fl-item-ico`. The affordance
+survives intact — the picture is grey and faint, and "visit 3 cafés" vs
+"earned" already states the state in words. I looked at it in both themes
+before and after; it reads *better*, because the tile no longer fades its own
+card surface into the sheet.
+
+| | before | after |
+|---|---|---|
+| `.fl-item-name` | 3.79 night / 2.65 day | 12.58 / 13.67 |
+| `.fl-item-req` | 2.02 night / 1.77 day | 4.51 / 5.40 |
+
+### A2 — `.t-sub` on a closed card, and the fade itself
+
+**You asked me to make the call. The fade is gone.** Three reasons, in order
+of weight:
+
+1. **The previous report's night number was wrong, and that changes the
+   decision.** It recorded night 5.06 ✓ / day 4.09 ✗ and framed the choice as
+   "accept one failing theme". Measured against the surface the text actually
+   sits on — on a phone `.card` resolves to a **flat** `--ink4` / `#FFFDF8`,
+   not the desktop gradient — it is **4.05 night / 4.09 day**. Both themes,
+   every width. The trade "day only" never existed.
+2. Unfaded it passes in both: **4.51 night / 4.73 day**. Deleting the rule is
+   the whole fix, with nothing else to move.
+3. Nothing is lost. The pill on the photo says **"Closed"** in words, is
+   exempt from any fade by design, and that rule's own comment already called
+   the fade "only a secondary hint". At `.92` it was very nearly invisible —
+   it was costing the address and the hours 0.45 of contrast to deliver a
+   signal nobody could see.
+
+`.card.closed` / `.hcard.closed` / `.collage-card.closed` are still applied by
+the three card renderers and kept as a state hook with **no visual treatment of
+its own**. The three measured rows are written into the comment so nobody dims
+it back without re-reading them, along with the one real constraint: if a
+closed card ever needs a stronger at-a-glance mark, it has to come from
+something that is not opacity on the text. I also corrected the `.status-pill`
+comment, which pointed at the fade as a co-signal — that pill is now the only
+thing that says a venue is shut.
+
+### A3 — `.fl-item-req` "earned" at 4.32 day, and two the last audit thought it had fixed
+
+The 4.32 is the documented day limit: `--secondary` resolves to `--dim`
+(`#7A7060`), which is 4.32:1 over `--card-fill`'s lower stop `#F7F1E4` — and
+this 9.5px line sits at the bottom of the chip, i.e. exactly on that stop. The
+previous run listed two ways out and rejected both. There is a third that
+needs no token to move: this is the **one consumer** that lands there, so it
+reads `--mute` instead. Day's `--mute` (`#6B6151`) is 5.40:1; on night
+`--secondary` *is* `--mute`, so night is byte-identical at 4.51. `--dim` and
+`--secondary` are untouched for the other 17 rules.
+
+**Then the two that were reported as fixed and were not.** `--flame-text`'s own
+note claimed 4.50:1 on the flame wash, computed as `rgba(255,90,60,.16)` over
+cream. The wash does not composite onto cream: it sits inside `#sheet`, over
+that element's repeating-gradient texture, and the honest number is the
+darkest stripe of it.
+
+| | night | day |
+|---|---|---|
+| `.weather-rain-text` (the rain line on Home) at .16 | 4.37 ✗ | 4.35 ✗ |
+| `.surprise-label` (Surprise me) at .16 | 4.37 ✗ | 4.35 ✗ |
+| both, at .12 | **4.64 ✓** | **4.55 ✓** |
+
+Night cannot be fixed from the text side — `--flame-text` *is* `--flame` there,
+and the only lift available is a brighter coral sitting next to the real one on
+the same screen. So it is fixed at the surface: **the wash alpha is .12.** The
+cost is a 25% weaker tint, which I judged worth it — the bar's salience comes
+from 13.5px/700 coral and the icon, not from 16%-vs-12% of ground. I looked at
+it in both themes; it still reads as a coral bar.
+
+While fixing it I found the actual structural fault. `rgba(255,90,60,.16)` was
+written **three times in three rules** — the rain bar, `.surprise-btn`, and the
+owner form's permission slip — and two of them put `--flame-text` on top of it.
+The owner form's copy had *already* been re-measured at 4.37/4.35 and had its
+flame text removed; nobody went back to the other two. That is this file's
+signature bug. It is now one token, **`--wash-flame`**, whose comment carries
+the numbers and the rule that any text on it must be measured against the
+darkest point of its surface. The two comments that carried the wrong figure
+(the `--flame-text` light-block note and `.ed-blank-hint`'s) now carry an
+explicit correction rather than a quiet edit.
+
+### A4 — `#checkinLabel` when disabled, 4.01 day
+
+**Not fixed, and not a failure.** `.vd-btn:disabled { opacity: .6 }`, and WCAG
+1.4.3 exempts disabled controls. I left it. Flagging one thing though: the text
+in that disabled button is a *state message* ("Location blocked", "Too far to
+check in"), not a label, so it is doing work the exemption does not really
+contemplate. If you ever want it above 4.5, the fix is to move the message out
+of the button rather than to raise the disabled opacity.
+
+### Bonus: the selected map pin's label
+
+`.marker.selected .m-label` was `--flame`, which the previous run deliberately
+excluded from the `--flame-text` move on the grounds that a map label sits on
+tiles and is unmeasurable. That argument does not hold for *this* one: the day
+rule above it gives every label a 1px `#FFFCF5` outline on all four sides, so
+the surface the glyph edges read against is cream, not the tile. Day's
+`--flame` is 3.84:1 on cream; `--flame-text` is 5.38:1. Switched. Night is
+byte-identical. The comment ties the two rules together — remove the outline
+and it goes back to being genuinely unmeasurable.
+
+### Still reported, still not failures
+
+- **`.m-label` at op .38** (2.26 day / 3.3 night) — `.map-has-selection .marker`
+  dims every unselected pin. Has a halo, sits on unknown raster tiles.
+- **`#pfpBtn` "😊" at 1.31** — emoji paint their own colours.
+- **`.fl-streak` "3" at 1.05 day** — the tool composites it against the card;
+  it is over the flame illustration. **I did look at it this time**: cream on
+  the flame's pale yellow core with `0 2px 8px rgba(0,0,0,.35)` behind it does
+  read weakly in day theme. Still your illustration, still not touched.
+
+### A5 — the split scripts still work
+
+Verified after every change in this run. Boot loads `js/app.js` only; opening
+You adds `avatar.js`, and `owner.js` too for an owner. The submit form (22
+fields, 13 worked examples, the permission slip), the venue editor (19 fields),
+the admin queue path and the avatar picker all render and wire with **zero
+console errors**. All three files also pass a real ESM parse (dynamic `import()`
+over `file://`, as CLAUDE.md requires — `app.js` reaches a runtime
+`location is not defined`, which means it parsed).
+
+---
+
+## B. The work specced across sessions
+
+### B1 — open-air on the venue detail sheet: already built, now verified
+
+This shipped in e66c9ff (the previous run's §D2), so the task list predates it.
+I verified it properly rather than taking the report's word: all three `outdoor`
+states against all three `rainState()` branches, on a patched local fixture.
+
+| `outdoor` | raining now | rain likely | dry |
+|---|---|---|---|
+| `true` | "Open-air · ກາງແຈ້ງ / raining now — it may be shut" | "…rain likely tonight — it may shut" | "…no cover if the weather turns" |
+| `false` | no row | no row | no row |
+| absent | no row | no row | no row |
+
+The tri-state is honoured strictly. All 30 venues still have `outdoor` absent,
+so it is inert in production until you audit venues.
+
+### B2 — past events in Coming up
+
+**They do not render, and they cannot.** `upcoming` is
+`state.events.filter(ev => eventDate(ev) > today)` with `today` re-derived on
+every render, so a tab held open across midnight re-sorts itself. Confirmed on
+screen: today is Monday 14 Sept and Coming up shows THU 17 / FRI 18 / SUN 27,
+with the four genuinely past one-offs gone.
+
+**One real gap I did not fix, because fixing it means inventing data.** An event
+whose `date` is today but whose `start_time` has already passed still shows as
+**TONIGHT** all evening — the Mekong Half Marathon starts at 05:00 and would
+say TONIGHT at 9pm. There is no `end_time` in the event schema and guessing one
+is exactly what CLAUDE.md forbids. If you want this, the honest fix is an
+optional `end_time`, filled in only where a source states it, and left null
+everywhere else. I did not add the field on spec with no data behind it.
+
+### B3 — `repeat` on events
+
+Make Friends and Felicia X were both in `data/events.json` already **saying in
+their own `short` line** that they run weekly ("every Thursday", "plays Fri,
+Sat & Sun every week"), and both had silently expired, because a single `date`
+can only be true once. The recurrence now lives in a field the app reads:
+
+```json
+"repeat": { "weekly": ["fri", "sat", "sun"], "until": null }
+```
+
+- `date` **does not move**. It stays the occurrence `source_url` actually
+  verified, so a fixture's provenance is still a real night somebody checked,
+  and a repeat that has not started yet shows its true first date instead of
+  jumping to this week.
+- `eventDate(ev)` returns the date an event should be *shown* as: for a one-off
+  that is `date`; for a repeat, the next matching weekday on or after today,
+  never earlier than `date`, or `null` once `until` has gone by. Recomputed on
+  every call, never cached on the record — same midnight reasoning as
+  `venueEvents()`.
+- `eventExpired(ev)` replaces `isPast(ev.date)` at the boot filter and in
+  `venueEvents()`. **All nine reads of `ev.date` now go through `eventDate()`**
+  — the boot filter, the marker's "event tonight" test, `isNo1()`, the sort
+  comparator, the Tonight/Coming-up split and four display sites. Missing one
+  would have shown a fixture under its 2026-07 date.
+- `repeatDays()` reads the existing `DAYS` constant rather than keeping a
+  private copy of the same seven codes.
+
+Verified against 11 cases: one-off past/future, weekly falling on a later day,
+weekly falling on **today** (lands in Tonight, and the venue sheet tags it
+TONIGHT), `until` already passed (hidden), `until` later this week (shows the
+last occurrence), a repeat whose `date` is still in the future (does not jump
+back), and empty / malformed / non-object `repeat` (falls back to `date`).
+
+> **The judgement in this that is yours, not mine.** `until: null` is a claim
+> about the future and nothing in the file can keep it true. A weekly night
+> that quietly stops will keep rendering until someone re-reads the source. I
+> wrote that warning into `_repeat_notes` in `data/events.json` along with the
+> instruction not to guess an `until` "to be safe" — a wrong `until` hides a
+> night that is still running, which is worse. Repeating events need to join
+> hours in the weekly curation pass.
+
+**The schema change, and why it is not in `migrations/`.** Events are not in
+D1 — `data/events.json` is their source of truth (CLAUDE.md, Architecture
+notes) — so the shape change is to that file, and it is documented in its
+`_repeat_notes`. I still wrote the DDL, in **`design/events-repeat.sql`**, with
+a header saying it is not a migration. Putting it in `migrations/` as `017_`
+would have been actively harmful: `scripts/check-schema.js` reads
+`migrations/*.sql`, works out what production D1 should contain, and exits
+non-zero if anything is missing. A migration for a table production does not
+have would fail that check on **every future run** and block every deploy,
+including CSS-only ones. That script exists because migrations 008 and 010
+shipped ahead of being run; feeding it something that can never pass would
+train whoever hits it to ignore it. I ran `node scripts/check-schema.js` after
+writing the file — still `Schema OK`, unaffected. Nothing was run against
+`--remote`; the only `--remote` call in this session is that script's own
+read-only `PRAGMA` batch.
+
+### B4 — PHASE2.md
+
+**The status header was already correct** — you fixed it on 2026-08-05 and it
+accurately lists what is live and what is still gated. I did not change it, and
+I am saying so rather than quietly "correcting" something that was right.
+
+What *is* stale is further down, and I fixed both:
+
+- **§6 (build order)** read as a plan with a "do not start a slice until the
+  previous one is deployed" rule, while B and half of C had shipped ahead of D
+  and E. It is now labelled **history, not status**, points at the header as
+  the only part of the file that tracks reality, and each slice carries what is
+  actually true as of today.
+- **§7 (out of scope for phase 2)** still listed **venue owner accounts** and
+  **photo uploads**, both of which are built and live — `migrations/006_owners.sql`,
+  `functions/api/my-venues.js`, `functions/api/pending.js`,
+  `functions/api/venues/[id].js`, all of `js/owner.js`, and
+  `functions/api/upload-signature.js`. Removed, with a dated note saying *why*
+  they moved (owner-side tooling, not the social/usage features Gate 2 is
+  about) rather than deleting the record. Paid promotions, the cosmetic shop,
+  push notifications and native apps stay out — I checked; none of them exists.
+
+---
+
+## C. Robustness
+
+Each failure injected in isolation against a local server, on a real load.
+
+### What the user sees
+
+| failure | before | after |
+|---|---|---|
+| `/api/venues` 500 | fine — falls back to the bundle | unchanged |
+| `/api/venues` 500 **and** stale-flagged | stale banner | unchanged |
+| **`data/venues.json` 500, live API healthy** | **blank screen: 0 cards, empty sheet, no message** | list renders off `/api/venues` |
+| **both venue sources gone** | **blank screen** | "Couldn't load any venues" + **Try again** |
+| **`data/events.json` 500** | **"Nothing verified yet — new list every Thursday"** | "Couldn't load what's on — check your connection and reload. The venues below still work." Venues unaffected. |
+| `/api/weather` 500, or hangs forever | widget absent, Home fine | unchanged |
+| `/api/me` 500 / dropped | "Could not load — try again." **with nothing to try it with** | same message + a **Try again** that re-enters You, verified to recover |
+| `/api/my-venues` 500 | already three-state, shows a retry | unchanged |
+| geolocation **denied** | fully usable | unchanged, plus honest copy (below) |
+| **maplibre-gl.js 404** | list fine, but the **Map tab was a blank viewport** | "The map didn't load… tap Home", in `#map` |
+| **any venue tap, map missing** | **`TypeError: Cannot read properties of null (reading 'flyTo')`** | no throw |
+
+### C1 — the boot path was one `Promise.all` and any rejection blanked the app
+
+`boot()`'s catch was `console.error` and nothing else, and the three first-paint
+fetches were one `Promise.all`. So **any** of them failing produced the same
+thing: the splash lifts on an app with no venues, no message and no retry,
+whose only record is a console line nobody on a phone can read. Measured with
+the live `/api/venues` perfectly healthy: a 500 on `data/venues.json` alone
+rendered 0 cards and an empty sheet. CLAUDE.md records this exact outcome
+happening in production twice.
+
+They are settled separately now, because they do not fail the same way:
+
+- **Venues are the content.** The bundle and `/api/venues` are two independent
+  copies of the same list and boot needs either one, so a failed bundle falls
+  through to the live promise **already in flight**. If both are gone,
+  `showDataFailure()` replaces the list with a message and a Try again —
+  deliberately placed *after* the theme, nav and header are wired, so the frame
+  and the theme toggle still work and only the content is missing, which is the
+  truth. No auto-retry: both sources have already failed once, a silent loop
+  would hammer a Worker that is probably already unwell, and the honest control
+  for "this may just be your connection" is a button someone chooses to press.
+- **Events and picks are not content.** A failure there must not cost anyone
+  the venue list — and must not read as "nothing on tonight" either, which is
+  C2.
+
+### C2 — the audit you asked for: catches that swallow an error into an indistinguishable empty
+
+All 52 `catch` sites across `app.js`, `owner.js` and `avatar.js`. Nine were the
+pattern. `owner.js` was clean — every catch there surfaces a message — and so
+were `fetchMyVenues()` / `fetchPendingVenues()`, which already carry the
+three-state shape and the comment explaining why.
+
+1. **`state.events = []` on a failed `events.json`** would have printed
+   *"Nothing verified yet — new list every Thursday"*: a statement about the
+   week's curation, used to describe a file that could not be read. Now
+   `state.eventsFailed` is tracked separately and the Tonight empty state says
+   which of the two it is.
+2. **`initGoogleSignIn`'s callback: `if (data.ok) …` with no else, inside
+   `catch (e) {}`.** Google had *already* authenticated the person — their own
+   account chooser closed successfully — and then the app did nothing at all,
+   on the same screen, with the same Sign in button sitting there. There is no
+   way to read that except "the button is broken". Now says so, under the
+   button, on both the rejected-credential and the network path.
+3. **`signOut()`: `try { fetch(logout) } catch {}` then re-render
+   unconditionally.** When it failed the cookie survived, the re-render read
+   `/api/me`, got the same signed-in user back, and drew You exactly as it was.
+   Pressing Sign out did visibly nothing and said nothing. Of all of these that
+   is the one with real consequences — the whole point of the button is someone
+   deciding they do not want to be signed in on this phone, and they walked
+   away believing they were not. Now flashes **"Couldn't sign out — still
+   signed in"** on the control they pressed. Verified both ways.
+4. **Three `withChunk('owner', …)` call sites passed no `failEl`,** so a failed
+   `js/owner.js` made "List your venue", "Manage" and "Pending venues" do
+   literally nothing on tap — the outcome `withChunk`'s own comment was written
+   to prevent ("a dead button is the worst outcome of a split like this, and it
+   is the one that would not show up in testing on a fast connection"). They
+   now flash **"Couldn't load — tap to retry"** on the button itself. The
+   restore path detaches and re-attaches the *original child nodes* rather than
+   saving `textContent` or `innerHTML`, because `.fl-manage-item` carries its
+   own chevron and both shorter routes destroy it — verified the chevron and
+   the exact `innerHTML` come back.
+5. **`state.geoError` had six possible values and its two consumers covered
+   four.** `LOCATE_LABELS` had no `failed` key, and the lookup falls back to
+   `idle` — so a location attempt that *threw* put the pill back to "near me",
+   which is what it says when nothing has been tried at all. The check-in
+   button's chain sent `failed` and `unsupported` to *"Enable location to check
+   in"*: advice to enable a permission already granted, and to enable one that
+   does not exist on the device. Both maps now cover all six, and the set is
+   written down once, at `requestLocation()`, for the next consumer.
+6. **`'geolocation' in navigator`** was the guard in two places and is weaker
+   than it reads — the property can exist and be unusable. One
+   `hasGeolocation()` predicate now, so the pill's "hide myself" test and the
+   request's "give up" test cannot disagree.
+7. **Two unguarded `state.map.flyTo`.** `boot()` is explicitly written to carry
+   on without maplibre, so `state.map` stays null whenever that CDN script
+   404s, is blocked, or the device refuses a WebGL context — and one of those
+   calls is the **last statement in `openVenue()`**. Reproduced: every venue tap
+   threw `TypeError: Cannot read properties of null (reading 'flyTo')`, killing
+   the rest of whatever handler opened the venue. The other, in `bindLocate()`,
+   took the `updateCheckinButton()` call below it down with it, so a successful
+   fix on a map-less load turned the pill green while the button still said
+   "Enable location". Both guarded, both verified.
+8. **`initMap()` itself was unguarded.** The library can be present and still
+   refuse a WebGL context, which is not hypothetical on older Android. It is
+   wrapped now — locally, not in `boot()`'s outer catch, which would abandon
+   the deep link, the location request and the intro over a map Home does not
+   need.
+9. **`/api/me`'s "try again" had nothing to try it with.** Now a real button.
+
+Left silent deliberately, each correctly: every `localStorage` /
+`sessionStorage` guard (private browsing), every `navigator.permissions.query`
+(not queryable for geolocation in some browsers), `navigator.share` (a
+cancelled share throws), the `intro-seen` / `mood-intro-seen` / `mood-pick`
+POSTs (documented best-effort, and an intro that reappears once is milder than
+one that traps a broken request), the per-layer basemap paint calls, and the
+two chunk *prefetches* whose real failure surfaces at the tap.
+
+### C3 — no location permission at all
+
+**Usable, and verified in full.** Home renders all 16 cards, every filter works,
+venue sheets open, hours and links and the phone number are all there,
+Directions is present. The "near me" pill reads **"location off"**, and tapping
+it explains how to fix it, with the padlock instructions — which is better than
+most apps manage. Distance sorting quietly falls back to editorial order.
+
+Two things I changed, both about not lying:
+
+- The venue sheet said **`tap "near me" for distance`** regardless of *why*
+  there was no fix. When permission is blocked, that tap cannot produce a
+  distance. It now reads `location off — tap "near me" to fix` for `blocked`
+  (the tap *is* still the right next step — it opens the instructions) and
+  `distance unavailable here` when there is no geolocation API at all.
+- Directions with location blocked: the button label becomes "Location
+  blocked". No error, no dead button. Already correct; verified.
+
+### C4 — the splash could sit for 8 seconds over a finished app
+
+Not a swallowed failure, but the same shape of harm, and I hit it while testing
+the map. On a **first** visit `boot()` did `await mapSettled` before the mood
+intro — and `mapSettled`'s timeout is 8s, which is the right patience for
+deciding the basemap is gone and the wrong amount of time to hold a splash over
+a Home screen that finished rendering in under a second. Measured with the
+basemap unreachable: content at ~0.4s, splash up until 8.0s, then up to 4s more
+for `preloadWelcomeSlides()`. Twelve seconds of loading spinner over a working
+app, and a first-time visitor on a bad connection in Vientiane is exactly who
+gets it.
+
+The intro is a full-screen overlay and the map is on neither the screen it
+covers nor the screen behind it. That wait is now capped at 2.5s
+(`Promise.race`), long enough that a normal load still reveals the carousel
+over a settled app. `mapSettled` is untouched and still shows the map warning
+at 8s on its own.
+
+### C5 — the Map tab with no map
+
+`#mapWarning` says "the list still works", which is true and enough while the
+list is on screen. On mobile it is not enough: tapping Map hides `#sheet`
+entirely — and `#mapWarning` lives *inside* `#sheet`, so the one sentence
+explaining the empty screen goes with it. Measured: a completely blank
+viewport, no map, no list, no text, with only the bottom nav to escape.
+
+`showMapUnavailable()` writes into `#map` itself, which is the element that is
+actually empty, so it survives the sheet being hidden and needs no new markup
+in `index.html`. Only ever called when there is **no map at all** — a map that
+loaded but whose tiles failed still draws its canvas, markers and attribution,
+and `#mapWarning` is the right notice for that. New copy measured: 16.7 / 15.02
+on the heading, 5.98 / 4.75 on the body, night / day.
+
+---
+
+## D. Venue research → `data/candidates.json`, restaurants
+
+**23 restaurants added**, under the same rules as the first batch, appended
+below the existing 28 cafés and bars. Nothing touched `venues.json`, D1 or the
+export script, and nothing in the repo references the file — re-verified by
+grep. Every `hours` is `null`. No descriptions, no photos, no invented detail.
+
+### The thing to read before the list
+
+**None of them can be entered, and it is not a data problem.** `restaurant` is
+not a venue type this app has:
+
+- `functions/api/_venue-validation.js:15` — `VENUE_TYPES = ['bar','cafe','venue']`, so the API rejects it
+- `js/app.js` — `COLORS` has no pin colour for it; `pinSVG()`'s `glyphKey`
+  falls through to the generic 'venue' glyph; Home's `matchType()` knows only
+  'bar' and 'cafe'
+- `index.html` — no chip
+- `css/style.css` — no `.marker.type-restaurant`, `:root` has no `--pin-restaurant`
+- `js/owner.js` — the owner form's Bar/Café `.seg-btn` toggle has two options
+
+Entering them as `venue` would work and would be wrong: `venue` is the
+ITECC/mall/night-market bucket. Adding the type is a real change across six
+files with **two design decisions inside it** — a pin colour that is not
+already spoken for, and a glyph. That is your call, not a side effect of a
+research pass, so I stopped and wrote it down instead.
+
+### District, which you asked for
+
+Facebook is still a wall: I re-tested `facebook.com/Kualao/` and it returns the
+business name in English and Lao, and "Vientiane". No address, no district, no
+phone, no hours, no closed marker. So district had to come from somewhere else,
+and I used **OpenStreetMap's Nominatim search API** — a third-party
+crowd-sourced record, a strong lead for "which district", and nothing more.
+
+The rule I applied, which matters: **a result was accepted only when the
+returned `display_name` actually contains the venue's name.** Nominatim
+fuzzy-matches and returns confident-looking wrong answers — it gave "Lao Derm
+Som Nguem" 19km north in Thangon for "Lao Derm", and "Mini Makphet" for
+"Makphet". Both rejected, and both written into the file so the query is not
+repeated and accepted next time.
+
+**5 of 23 have a district** (Chanthabouly, Xaysetha ×2, Sikhottabong,
+Sisattanak); 6 had no OSM entry at all, and OSM coverage in Vientiane is
+patchy, so absence there says nothing about the venue. **The coordinates in
+`osm` are not pins** — the file says so loudly, next to CLAUDE.md's rule that a
+venue's lat/lng must be Kar-confirmed and a pending venue carries NULL rather
+than a guess. They are there only so a place can be found in order to check it.
+
+### One venue found, then found to be gone
+
+**Doi Ka Noi is permanently closed.** Laotian Times, dated 14 May 2025: closed
+after the death of its chef and owner. It was the first Lao restaurant to reach
+Asia's 50 Best (no. 86, 2025) — and it is still being recommended by travel
+listicles **dated September 2026**, sixteen months later. That is the best
+single argument for the listicle rule I have found, so it is recorded in the
+file as an exclusion rather than silently dropped. It is also the only positive
+closure signal in 51 candidates across two batches, and it turned up in a news
+post, not on the venue's own page — consistent with the first batch's finding
+that the signals which would mark a venue closed sit on exactly the pages that
+cannot be read.
+
+### Other things worth more than the entries they are attached to
+
+- **Le Padaek** has two OSM nodes ~120m apart, on Sisangvone and Saphangmo.
+  Two branches, a stale duplicate, or a move — same trap as Naked Espresso.
+- **Makphet** closed in 2017 over rent, reopened as *Mini* Makphet around 2019,
+  and Tripadvisor carries a note from the team about relocating again. Which
+  entity trades today, under which name, at which address, is unknown.
+- **Kin Lom Chom View** displays as a Lao-Thai restaurant with the handle
+  `warnmoubbqbuffet`. Usually a rebrand or two concepts on one page.
+- **Kung's Cafe Lao was already in the file** from the café batch, under the
+  same Facebook URL. Caught by the cross-check (URL *and* name, against both
+  `venues.json`'s 30 ids and this file's own 28 rows), removed, and its OSM
+  district folded into the row that was already there. That check is in the
+  file because it earned its place.
+- **Every `name_lo` is copied verbatim** from the page title in the search
+  result, never transliterated — an unattended session cannot read Lao well
+  enough to notice a wrong character, and a venue name with a typo in it is a
+  venue nobody searching for it will find. A Lao speaker should still check
+  each against the live page. Five I had approximated were corrected against
+  the source before the file was written.
+
+### Diff noise, so it does not surprise you
+
+Re-serialising the JSON expanded 30 single-line `source` objects in the
+*existing* entries onto multiple lines. No content changed — `git diff` will
+show them as -/+ pairs.
+
+---
+
+## E. My own judgement — what I did instead of polish
+
+Everything in §C2 and §C5 was found while testing, not on the list, and all of
+it is "the app lies to you or does nothing" rather than "the app looks
+slightly off". Two more, both small and both real:
+
+- **`js/avatar.js`: picking an avatar never moved `aria-current`.** The markup
+  sets `.sel` *and* `aria-current` together; the click handler moved only the
+  class. So the ring followed your tap and the announced selection stayed on
+  whatever was chosen last session, or on nothing. Exactly the
+  written-in-two-places shape the last run catalogued, in code that run wrote
+  to fix an accessibility gap. Fixed and verified across two picks.
+- **`flashSurpriseMessage()` was one of two hand-rolled copies of "swap a label
+  for 2.5s and put it back"**; it is now the one caller of a shared
+  `flashLabel()` that also serves the three owner buttons and sign-out.
+
+---
+
+## What I could not verify
+
+- **Any wall-clock timing, still.** Every tab driven through the browser
+  tooling here reports `document.hidden === true`, so rAF is suspended, `mark()`
+  never fires, and `setTimeout` is throttled. The 8s splash figure in §C4 is
+  read off `mapSettled`'s own timeout constant and the observed ordering, not a
+  stopwatch. Needs a device or a throttled DevTools trace.
+- **WebKit.** All of it is Chromium. Nothing I changed touches the sticky
+  behaviours this codebase has had Safari-only bugs in, but `.map-unavailable`'s
+  `position:absolute; inset:0` inside `#map` is worth a glance on a real iPhone.
+- **`geo=timeout`.** My shim replaced `getCurrentPosition` outright, so the
+  browser's own `timeout: 4000` option never applied and the promise simply
+  never settled. That is my harness, not the app — a real browser returns code
+  3 and the pill says "try again". The `timeout` branch is covered by code
+  inspection only.
+- **The location-granted path.** Chrome has this origin permanently denied from
+  the earlier tests, so `state.userPos` was never populated; the `userPos`
+  branches of `updateCheckinButton()` and the travel line are unchanged code,
+  but I did not see them render.
+- **The Lao.** Still all of it, including `ກາງແຈ້ງ` on the open-air row and the
+  23 new `name_lo` strings — copied, not composed, but unchecked.
+- **Anything about the 23 restaurants beyond "a Facebook page with this name
+  exists and is indexed as Vientiane", plus a district for 5 of them from
+  OpenStreetMap.** No hours, no address from the venue itself, no phone, no
+  price, and no trading status for any of them.

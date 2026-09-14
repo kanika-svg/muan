@@ -141,8 +141,18 @@ function openAvatarSheet() {
   if (sheet) sheet.scrollTop = 0;
   document.querySelectorAll('.av-opt').forEach(b => b.addEventListener('click', () => {
     localStorage.setItem('muan-avatar', b.dataset.av);
-    document.querySelectorAll('.av-opt').forEach(x => x.classList.remove('sel'));
+    // .sel and aria-current are one state written two ways: the class draws
+    // the ring, the attribute is the only version a screen reader can read.
+    // The markup above sets both; this handler used to move only the class,
+    // so picking an avatar left the announced selection on whatever was
+    // chosen last session (or on nothing at all) until the sheet was
+    // re-rendered. Move them together or neither.
+    document.querySelectorAll('.av-opt').forEach(x => {
+      x.classList.remove('sel');
+      x.removeAttribute('aria-current');
+    });
     b.classList.add('sel');
+    b.setAttribute('aria-current', 'true');
     refreshAvatarBtn();
   }));
   document.querySelector('[data-back-flame]')?.addEventListener('click', openFlameSheet);

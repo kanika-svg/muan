@@ -25,6 +25,22 @@
      (.805) as --flame, lightness .537 -> .452. Fills keep --flame — a
      darker fill would push --on-flame the wrong way. */
   --flame-text: var(--flame);
+  /* the flame-tint wash: the pale coral ground under the rain weather bar,
+     the Surprise me button and the owner forms' permission slip. One token
+     because it was three separate `rgba(255,90,60,.16)` literals in three
+     rules, two of which put --flame-text on top of it — exactly the
+     write-the-same-number-twice shape that has caused most of the bugs in
+     this file, and it had already gone wrong: the owner form's copy was
+     re-measured and dropped its flame text, and the other two were left
+     failing AA because nobody went back to them.
+     .12, not .16, and the alpha is load-bearing — see the note on
+     .s-subrow .weather-bar.weather-rain for the measurements. It does NOT
+     flip with the theme: it is the same coral at the same strength, and it
+     composites onto whatever surface it lands on, which is the other half
+     of why it needed a name. Anything putting TEXT on this wash must be
+     measured against the darkest point of that surface (the #sheet texture
+     is a repeating gradient, so "the sheet's background-color" is not it). */
+  --wash-flame: rgba(255,90,60,.12);
   --gold:  #FFC24B;
   --violet:#7C5CE0;
   --teal:  #1FBF9C;
@@ -177,17 +193,25 @@
   --secondary: var(--dim);
   --flame: #E8462A;
   /* see --flame-text in :root. Solved against the DARKEST surface flame
-     text lands on in this theme, which is not the card but the flame-tint
-     wash behind .surprise-btn and the rain weather bar
-     (rgba(255,90,60,.16) over cream = #FFE2D7): --flame itself reads
-     3.21:1 there, the worst number in either theme, on the one line on
-     Home that is meant to change someone's plan. At #C52F15 that wash is
-     4.50:1, and every other day surface comes along with it — 5.38:1 on
-     the ground, 4.90:1 on the card gradient's lower stop, 4.61:1 on
-     --ink3. Hue 8.8deg and saturation .805 are --flame's own; only
-     lightness moves (.537 -> .429). --on-flame is not overridden here:
-     ink is still the right label on a --flame FILL in this theme
-     (4.79:1), and fills keep --flame precisely so that stays true. */
+     text lands on in this theme, which is not the card but --wash-flame,
+     the tint behind .surprise-btn and the rain weather bar: --flame itself
+     reads 3.21:1 there, the worst number in either theme, on the one line
+     on Home that is meant to change someone's plan. #C52F15 takes every
+     other day surface with it — 5.38:1 on the ground, 4.90:1 on the card
+     gradient's lower stop, 4.61:1 on --ink3. Hue 8.8deg and saturation
+     .805 are --flame's own; only lightness moves (.537 -> .429).
+     --on-flame is not overridden here: ink is still the right label on a
+     --flame FILL in this theme (4.79:1), and fills keep --flame precisely
+     so that stays true.
+     CORRECTION to the number this note used to carry. It claimed 4.50:1 on
+     the wash, computed as rgba(255,90,60,.16) over cream (#FFE2D7). The
+     wash does not composite onto cream — it sits inside #sheet, over that
+     element's repeating-gradient texture, and the real worst case at .16
+     was 4.35:1 here and 4.37:1 on night. This token is not what fixed it;
+     dropping --wash-flame to .12 is (4.55:1 day / 4.64:1 night). The token
+     is still right and still needed — it is what carries flame-as-text on
+     the ground, the card and --ink3 — but do not read "the wash is solved"
+     out of this block: --wash-flame's alpha is the other half of it. */
   --flame-text: #C52F15;
   --gold:  #B8860B;
   --violet:#6A4BC7;
@@ -283,6 +307,18 @@ body {
 
 /* ============ Map ============ */
 #map { position: absolute; inset: 0; }
+/* the "no map at all" message (showMapUnavailable() in app.js). Lives inside
+   #map rather than in #sheet because on mobile the Map tab hides #sheet, and
+   #mapWarning — which is a child of #sheet — goes with it, leaving a blank
+   viewport with nothing to read. Centred on the ground colour so it reads in
+   both themes without a surface of its own. */
+.map-unavailable {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 0 32px; text-align: center;
+  font-family: var(--font); font-size: 13px; line-height: 1.5; color: var(--secondary);
+}
+.map-unavailable-h { font-size: 15px; font-weight: 700; color: var(--bone); }
 #map .maplibregl-ctrl-attrib { background: rgba(19,16,25,.7); }
 #map .maplibregl-ctrl-attrib a { color: var(--secondary); }
 
@@ -1346,11 +1382,27 @@ body {
    The wash is the same flame tint .surprise-btn uses. It is a fourth home
    for coral after the primary action, the active chip and the ember count —
    deliberate: this is the one line on Home that should make someone change
-   what they were going to do. */
+   what they were going to do.
+   The alpha is .12, down from .16, and it is a CONTRAST value, not a taste
+   one — do not put it back without re-measuring. --flame-text (see :root)
+   was solved against this wash assuming it composites over the page ground
+   (rgba(255,90,60,.16) over cream = #FFE2D7, 4.50:1). It does not: the bar
+   sits inside #sheet, whose repeating-linear-gradient texture darkens the
+   surface under it on BOTH themes, so the real worst case — the darkest
+   stripe of that texture — was 4.35:1 on day and 4.37:1 on night. Night was
+   failing too, which the token's own note did not expect, and night cannot
+   be fixed from the text side: --flame-text IS --flame there, and the only
+   lift available is a brighter coral sitting next to the real one.
+   Lowering the wash fixes both from the surface side instead:
+       alpha .16   night 4.37:1   day 4.35:1    (fail)
+       alpha .13   night 4.59:1   day 4.50:1    (day on the line)
+       alpha .12   night 4.64:1   day 4.55:1    (pass, with room)
+   The cost is a 25% weaker tint. Worth it here: the bar's salience comes
+   from 13.5px/700 coral text and the icon, not from a 16%-vs-12% ground. */
 .s-subrow .weather-bar.weather-rain {
   flex: 0 0 100%;
   gap: 8px; padding: 8px 12px; border-radius: 12px;
-  background: rgba(255,90,60,.16); color: var(--flame-text);
+  background: var(--wash-flame); color: var(--flame-text);
 }
 .s-subrow .weather-rain .weather-ico svg { width: 18px; height: 18px; }
 .weather-rain-text { font-size: 13.5px; font-weight: 700; line-height: 1.35; }
@@ -1422,8 +1474,11 @@ body {
 .tag { font-size: 10.5px; font-weight: 700; letter-spacing: 1px; color: var(--mute); }
 
 /* status pill: sits top-left over a card's photo (see statusPillHtml()/
-   photoWrap() in app.js) — open/closed is now an explicit label instead of
-   only being implied by the .closed fade below. .soon and .closed are fixed
+   photoWrap() in app.js) — open/closed is an explicit label. It used to be
+   implied by a .closed fade on the card text as well; that fade is gone
+   (see the note below), so this pill is now the ONLY thing that says a
+   venue is shut, which is why it must never be suppressed on a card that
+   has hours. .soon and .closed are fixed
    hex rather than theme tokens so they read over any photo regardless of
    the app's light/dark theme; .open is NOT, because "open now" is exactly
    what --teal means (CLAUDE.md's design tokens) and a pill announcing it in
@@ -1468,47 +1523,37 @@ body {
 .status-pill.closed { background: var(--pill-closed); }
 
 /* item 1 ("Sorting becomes the default"): closed venues stay visible
-   everywhere, just dimmed — never hidden, since someone browsing at 4pm
-   for tonight still wants to see a bar that opens at 8. The status pill
-   above now carries that meaning explicitly; this fade is only a
-   secondary hint, so it's soft and applied to each card's text
-   block only — the photo (and the pill on it) stay at full opacity so
-   the image itself never reads as broken.
+   everywhere, never hidden — someone browsing at 4pm for tonight still
+   wants to see a bar that opens at 8. What is GONE here is the fade that
+   used to say so (.card.closed/.hcard.closed/.collage-card.closed at
+   opacity .82, then .92). The class is still applied by cardHtml(),
+   hcardHtml() and rowCardHtml() in app.js and is deliberately kept as a
+   state hook — but it now has no visual treatment of its own, and nothing
+   should be dimmed back onto it without re-reading these numbers first:
 
-   KAR — .82 -> .92, and the residue is the one AA failure left anywhere in
-   the app, so please look at this one. The lines this fades are .t-sub
-   (15px/400, the address) and .t-hours (14px/700 — 14px BOLD is still
-   NORMAL text to WCAG, whose large cutoff is 18.66px), i.e. exactly what
-   someone reads to decide whether to bother going.
-     measured, closed card, --secondary text:
-       night   .82 -> 3.90:1     .92 -> 5.06:1  (passes, with room)
-       day     .82 -> 3.38:1     .92 -> 4.09:1  (still under 4.5:1)
-   Night is fixed outright, by this plus the --mute change in :root. Day is
-   not, and cannot be by this number alone: day's --secondary is #7A7060,
-   which is only 4.32:1 on --card-fill's lower stop BEFORE any fade (the
-   light block already says so), so no opacity value reaches 4.5 there.
-   The three ways out, none of which I took unilaterally:
-     a) drop the fade entirely — the status pill already states "Closed"
-        explicitly, and this comment already calls the fade a secondary
-        hint. Zero contrast cost. Costs the at-a-glance dimming.
-     b) darken day's --dim to #6A6254 (hue/sat held, L .427 -> .373), which
-        clears 4.51:1 faded on every day surface — but that is within a
-        hair of day's --mute (#6B6151), so the mute/dim distinction that
-        gives day three levels of text stops existing.
-     c) accept 4.09:1 on the sub-line of a closed card only.
-   This is set to (c) for now because (a) and (b) are both visible design
-   decisions and you are not here to make them. What is NOT on the list is
-   going back to .82. */
-.card.closed .card-body, .hcard.closed .hc-body, .collage-card.closed .collage-info { opacity: .92; }
-/* ...except on a layered card, where .card-body is no longer a bare text
-   block but an opaque plate sitting over the photo (see .card-big
-   .card-body further down). Fading the plate itself would let 18% of the
-   image ghost through it, which reads as a rendering fault rather than as
-   "closed". The fade moves to the plate's contents, so the text dims by the
-   same amount and the plate stays opaque. Kept in step with the rule above
-   by hand — these two numbers have to agree and are written separately. */
-.card.closed.card-big .card-body { opacity: 1; }
-.card.closed.card-big .card-body > * { opacity: .92; }
+     .t-sub (15px/400, the address) and .t-hours (14px/700 — 14px BOLD is
+     still NORMAL text to WCAG, whose large cutoff is 18.66px) measured
+     against the card's own surface, both themes, 320/390/desktop:
+       unfaded      night 4.51:1   day 4.73:1     (pass)
+       opacity .92  night 4.05:1   day 4.09:1     (FAIL, both themes)
+       opacity .82  night 3.90:1   day 3.38:1     (fail badly, both)
+
+   The .92 pass in the previous audit was measured against the page ground
+   and the gradient's lower stop; on a phone .card resolves to a FLAT
+   --ink4 / #FFFDF8 (see the mobile block further down), which is the
+   lightest surface on night and therefore the worst case there. Night was
+   never passing either — so the trade this rule was set to ("accept 4.09
+   on day only") never existed.
+
+   Nothing is lost by removing it. The status pill on the photo says
+   "Closed" in words (statusPillHtml() in app.js), that pill is exempt from
+   any fade by design, and this rule's own comment already called the fade
+   "only a secondary hint". At .92 it was very nearly invisible anyway — it
+   was costing the two most decision-relevant lines on a closed card 0.45
+   of contrast to deliver a signal nobody could see. If a closed card ever
+   needs a stronger at-a-glance mark, it has to come from something that
+   is not opacity on the text: a mark on the photo, or a different pill
+   tone. */
 
 .card {
   background-image: var(--card-fill); box-shadow: var(--card-edge), var(--card-lift);
@@ -1597,7 +1642,15 @@ body {
    #sheet (6) so nothing floats over the chrome. */
 .marker.selected { z-index: 1; }
 .marker.selected svg { transform: scale(1.3); transform-origin: bottom center; }
-.marker.selected .m-label { color: var(--flame); }
+/* --flame-text, not --flame. The usual "a map label sits on tiles, not on a
+   token, so its ratio is unmeasurable" argument does not apply to this one:
+   the day rule above gives every label a 1px #FFFCF5 outline on all four
+   sides, so the surface the glyph edges actually read against is cream, not
+   the tile. Day's --flame is 3.84:1 on cream; --flame-text is 5.38:1, which
+   is what that token exists for. On night --flame-text IS --flame, so the
+   night map is byte-identical. Keep the outline rule and this one together:
+   drop the outline and this reverts to a genuinely unmeasurable case. */
+.marker.selected .m-label { color: var(--flame-text); }
 #map.labels-hidden .m-label, #map.labels-hidden .m-sub { display: none; }
 
 /* selection: chosen pin grows, others recede */
@@ -2264,10 +2317,36 @@ body {
 .fl-item-ico svg { display:block; margin:0 auto; }
 .fl-item-name { display:block; font-size:10.5px; line-height:1.25; font-weight:700; color:var(--bone); }
 /* greyed, not hidden: the artwork still shows through at .45 so you can see
-   what you'd be getting. `filter` desaturates the gold/amber fills so a
-   locked slot never reads as a lit one at a glance. */
-.fl-item.locked { opacity:.45; filter: grayscale(1); }
-.fl-item-req { display:block; font-size:9.5px; line-height:1.35; color:var(--secondary); margin-top:2px; }
+   what you'd be getting, and `filter` desaturates the gold/amber fills so a
+   locked slot never reads as a lit one at a glance.
+   BOTH declarations are scoped to .fl-item-ico — the artwork — and not to
+   the tile. They used to sit on `.fl-item.locked`, which faded the whole
+   chip including its own card surface and, more to the point, its text:
+     .fl-item-name  night 3.79:1  day 2.65:1
+     .fl-item-req   night 2.02:1  day 1.77:1
+   .fl-item-req at 1.77:1 is the line that tells you HOW to unlock the slot,
+   which is the one thing a locked slot exists to say. A locked chip is not
+   a disabled control (WCAG 1.4.3's exemption does not apply — there is
+   nothing here to activate), so those are straight AA failures on text
+   whose only job is to be read.
+   Dimming the icon alone keeps the whole affordance: the picture is grey
+   and faint, the requirement line is legible, and "visit 3 cafés" vs
+   "earned" already states the state in words. Now 12.58:1 / 13.67:1 on the
+   name and 4.51:1 / 5.40:1 on the requirement.
+   Keep these two properties together on the same selector — CSS cascades
+   per property, so moving only `opacity` back to the tile would leave the
+   grayscale behind and vice versa. */
+.fl-item.locked .fl-item-ico { opacity:.45; filter: grayscale(1); }
+/* --mute, not --secondary. On day --secondary resolves to --dim (#7A7060),
+   which is 4.32:1 over --card-fill's lower stop (#F7F1E4) — and this 9.5px
+   line sits at the BOTTOM of the chip, i.e. exactly on that stop. That is
+   the pre-existing day limit the light block documents, and this is the one
+   consumer that actually lands on it. Day's --mute (#6B6151) is 5.40:1
+   there; on night --mute is what --secondary resolves to anyway, so night
+   is unchanged at 4.51:1. This is the same grey one step darker on day, not
+   a new colour, and it does not disturb --dim or --secondary for the other
+   17 rules that read them. */
+.fl-item-req { display:block; font-size:9.5px; line-height:1.35; color:var(--mute); margin-top:2px; }
 .fl-avatar-link {
   display: block; margin: 14px auto 0; background: none; border: none;
   color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;
@@ -3106,15 +3185,21 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
    that wash needs. */
 .ed-blank-hint {
   margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
-  background: rgba(255,90,60,.16);
+  background: var(--wash-flame);
   /* the tint carries the flame, the text does not. Flame-on-flame-wash
      measured 4.37:1 on night and 4.35:1 on day — both under AA, and for a
      reason worth remembering: the wash is translucent, so what it composites
-     onto changes with the parent. On Home it lands on the sheet ground; on
-     this form it lands on --ink2, which is a step darker on day and a step
-     lighter on night, and the same declaration that passed there failed
-     here. --bone is 12:1 against the wash over either parent. The flame
-     signal moves to the border, which is opaque and cannot drift. */
+     onto changes with the parent, and "the parent's background-color" is not
+     the answer either — #sheet's own repeating-gradient texture is darker
+     than its background-color, and that darkest stripe is the number that
+     counts. --bone is 12:1 against the wash over any of them. The flame
+     signal moves to the border, which is opaque and cannot drift.
+     CORRECTION: this note used to say the same declaration "passed on Home
+     and failed here". It failed in both places — Home was measured against
+     the sheet's background-color rather than its texture. Home is fixed at
+     the surface instead, by --wash-flame's alpha; see the note on
+     .s-subrow .weather-bar.weather-rain. Nothing changes here: --bone on
+     the wash was never the failing case, and this rule shares the token. */
   color: var(--bone);
   border-left: 3px solid var(--flame);
 }
@@ -3474,7 +3559,7 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
     cursor: pointer; font-family: var(--font); font-weight: 700; font-size: 14px;
     /* same flame-tint wash .qa-chip.active used to signal "on" — here it's
        just the button's resting look, since there's no active state anymore */
-    background: rgba(255,90,60,.16); color: var(--flame-text);
+    background: var(--wash-flame); color: var(--flame-text);
   }
 
   /* ---- You screen: same 16px card-radius token as Home's cards ----

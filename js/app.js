@@ -65,6 +65,7 @@ const state = {
   geoAutoAttempted: false,  // boot()'s one silent location request — never retried automatically once this is true, see item 4 in the CLAUDE.md task this was written for
   avatarUrl: null,          // signed-in user's own uploaded profile picture ("<version>/<publicId>"), null = show the chibi instead — see applyAvatarUrl()
   weather: null,            // trimmed /api/weather response, or null before it resolves / on failure — see weatherWidgetHtml()
+  eventsFailed: false,      // true when data/events.json could not be read at all. state.events is [] either way, and these two cases must NOT render the same sentence — see the Tonight empty state in renderHomeSheet()
 };
 
 const isMobile = () => window.innerWidth < 768;
@@ -225,11 +226,31 @@ function geoDebug(msg) {
   box.textContent += msg + '\n';
 }
 
-// the one place that requests location — the "near me" pill and the
-// Directions button both call this so their error handling can't drift apart
+/* `'geolocation' in navigator` was the test in two places — here and in
+   updateLocatePill() — and it is weaker than it reads: the property can
+   exist and still be unusable. What actually matters is whether there is a
+   function to call, so both sites ask that, through one predicate, and
+   cannot drift apart. */
+const hasGeolocation = () => typeof navigator.geolocation?.getCurrentPosition === 'function';
+
+/* the one place that requests location — the "near me" pill and the
+   Directions button both call this so their error handling can't drift
+   apart.
+   state.geoError is one of exactly six values, and EVERY consumer has to
+   cover all six or a real failure renders as a resting state:
+     null           no error (either no fix asked for yet, or we have one)
+     'unsupported'  no geolocation API on this device
+     'blocked'      PositionError.code 1 — permission denied
+     'unavailable'  code 2 — no position source could answer
+     'timeout'      code 3 — the fix took longer than the 4s option below
+     'failed'       anything else that threw, including a non-PositionError
+   'failed' is the one that used to fall through: LOCATE_LABELS had no entry
+   for it, so the pill fell back to its idle "near me" label and a failed
+   attempt was indistinguishable from never having tried. */
 async function requestLocation() {
-  if (!('geolocation' in navigator)) {
+  if (!hasGeolocation()) {
     state.geoError = 'unsupported';
+    updateLocatePill();
     return null;
   }
   if (navigator.permissions) {
@@ -476,15 +497,63 @@ async function boot() {
     const livePromise = (pre.live || fetch('/api/venues').then(r => r.json()))
       .catch(e => { console.warn('[muan] live venues fetch failed', e); return null; });
 
-    const [bundle, eData, picks] = await Promise.all([
-      pre.venues || fetch('data/venues.json').then(r => r.json()),
-      pre.events || fetch('data/events.json').then(r => r.json()),
-      pre.picks || fetch('data/picks.json')
-        .then(r => (r.ok ? r.json() : null))
-        .catch(e => { console.warn('[muan] picks unavailable', e); return null; }),
-    ]);
-    state.venues = publicVenues(bundle.venues);
-    state.events = eData.events.filter(ev => !isPast(ev.date));
+    /* These three used to be one Promise.all whose rejection fell through to
+       boot()'s catch, which logs and dismisses the splash. The result of ANY
+       of the three failing was therefore the same thing: the splash lifts on
+       an app with no venues, no events, no message and no retry — a blank
+       screen whose only record was a console.error nobody on a phone can
+       read. Measured, with the live /api/venues perfectly healthy: a 500 on
+       data/venues.json alone rendered 0 cards and an empty sheet.
+       They are settled separately now because they do not fail the same way:
+         - venues are the content. The bundle and /api/venues are two
+           independent copies of the SAME list, and boot needs either one, so
+           a failed bundle falls through to the live promise that is already
+           in flight instead of taking the app down with it. If BOTH are gone
+           there is nothing to show and that is said out loud.
+         - events and picks are not content. A failure there must not cost
+           anyone the venue list — but it must not quietly read as "nothing
+           on tonight" either (see state.eventsFailed below). */
+    const picksPromise = (pre.picks || fetch('data/picks.json')
+      .then(r => (r.ok ? r.json() : null)))
+      .catch(e => { console.warn('[muan] picks unavailable', e); return null; });
+
+    let bundle = null;
+    try {
+      bundle = await (pre.venues || fetch('data/venues.json').then(r => r.json()));
+    } catch (e) {
+      console.warn('[muan] bundled venues unavailable — falling back to /api/venues', e);
+    }
+    if (!bundle || !Array.isArray(bundle.venues)) {
+      // livePromise already resolves to null on failure, so this cannot throw
+      const live = await livePromise;
+      if (live && Array.isArray(live.venues)) {
+        bundle = live;
+        // the live list IS the mirror when D1 threw (see functions/api/
+        // venues.js) — same reason refreshVenuesFromLive() says so
+        if (live.stale) showStaleWarning();
+      }
+    }
+
+    let eData = null;
+    try {
+      eData = await (pre.events || fetch('data/events.json').then(r => r.json()));
+    } catch (e) {
+      console.warn('[muan] events unavailable', e);
+    }
+    const picks = await picksPromise;
+
+    state.venues = bundle ? publicVenues(bundle.venues) : [];
+    // eventExpired(), not isPast(ev.date): a weekly fixture's own `date`
+    // is the night its source verified and goes past almost immediately,
+    // while the event itself has not ended. See eventDate() at the bottom.
+    state.events = eData ? eData.events.filter(ev => !eventExpired(ev)) : [];
+    /* The flag, not just the empty array. "No events loaded" and "no events
+       on this week" are different facts and the Tonight section's empty
+       state says a specific thing about the second one ("Nothing verified
+       yet — new list every Thursday"), which would be a lie about the
+       first. This is the pattern fetchMyVenues() already guards against and
+       that the migration-010 outage hid behind. */
+    state.eventsFailed = !eData;
     state.picks = picks;
 
     initTheme();
@@ -509,6 +578,19 @@ async function boot() {
     // of the first screen and needs neither tiles nor maplibre-gl.js, which
     // is still downloading at this point (see maplibreReady(), called below
     // once every binding is in place).
+    if (!bundle) {
+      /* Both venue sources are gone — the bundled mirror AND /api/venues.
+         There is no list to draw, so the one thing that must not happen is
+         the splash lifting on a blank screen (which is exactly what did
+         happen before this block existed). Deliberately placed AFTER the
+         theme, the nav and the header are wired: the app frame still works,
+         the theme toggle still works, and only the content is missing —
+         which is the truth. Nothing below this line has anything to render
+         from, so it returns; boot()'s finally still drops the splash. */
+      showDataFailure();
+      return;
+    }
+
     renderHomeSheet();
     mark('muan:venues-rendered');
 
@@ -658,10 +740,25 @@ async function boot() {
     // down. Everything else that touches `maplibregl` is either reached
     // from initMap() or guarded on state.map.
     if (await maplibreReady()) {
-      initMap();
+      /* initMap() can throw for a reason maplibreReady() cannot see: the
+         library is there but the device will not give it a WebGL context.
+         That is not hypothetical on the older Android phones this app is
+         for. Caught here rather than in boot()'s outer catch, because the
+         outer catch would abandon everything below this line — the deep
+         link, the location request, the intro — over a map that the Home
+         screen does not need. */
+      try {
+        initMap();
+      } catch (err) {
+        console.warn('[muan] map failed to initialise — continuing without it', err);
+        state.map = null;
+        showMapWarning();
+        showMapUnavailable();
+      }
     } else {
       console.warn('[muan] maplibre-gl.js unavailable — continuing without the map');
       showMapWarning();
+      showMapUnavailable();
     }
 
     const vid = deepLinkId;
@@ -707,7 +804,21 @@ async function boot() {
     // painted. Only a genuine first-time visitor still pays for them, and
     // for them the wait is buying something they will actually see.
     if (introPending) {
-      await mapSettled;
+      /* capped, not `await mapSettled` outright. mapSettled's own timeout is
+         8s, which is the right patience for deciding the basemap is gone —
+         but it was also how long the SPLASH sat there, on a first visit,
+         over a Home screen that had finished rendering in under a second.
+         Measured with the basemap unreachable: content at ~0.4s, splash up
+         until 8.0s, then up to 4s more for preloadWelcomeSlides(). Twelve
+         seconds of loading spinner over a working app, and a first-time
+         visitor on a bad connection in Vientiane is exactly who gets it.
+         The intro is a full-screen overlay; the map is not on the screen it
+         covers and not on the screen behind it (Home is the list). So this
+         waits only long enough that a normal load still reveals the
+         carousel over a settled app, and gives up well before the map's own
+         patience runs out. mapSettled is untouched and still shows the map
+         warning at 8s on its own. */
+      await Promise.race([mapSettled, new Promise(r => setTimeout(r, 2500))]);
       const me = await mePromise;
       if (shouldShowMoodIntro(me)) {
         await preloadWelcomeSlides();
@@ -1003,12 +1114,44 @@ function loadChunk(name) {
 /* Runs fn once the chunk is there. On a failed load it says so in the place
    the user was looking rather than doing nothing at all — a dead button is
    the worst outcome of a split like this and it is the one that would not
-   show up in testing on a fast connection. */
-function withChunk(name, fn, failEl) {
+   show up in testing on a fast connection.
+   `where` is either a text element to write the message into (the avatar
+   uploader's #pfpErr) or the control that was tapped, whose label is
+   flashed and put back — the same transient-label pattern toggleRoute() and
+   flashSurpriseMessage() already use. It is NOT optional in practice: the
+   three owner call sites passed nothing, so a failed js/owner.js made
+   "List your venue", "Manage" and "Pending venues" do literally nothing on
+   tap. Exactly the outcome the paragraph above was written to prevent. */
+function withChunk(name, fn, where) {
   return loadChunk(name).then(fn).catch(err => {
     console.warn('[muan]', err.message);
-    if (failEl) failEl.textContent = "Couldn't load that — check your connection and try again.";
+    if (!where) return;
+    const msg = "Couldn't load that — check your connection and try again.";
+    if (where.tagName === 'BUTTON' || where.tagName === 'A') {
+      flashLabel(where, "Couldn't load — tap to retry");
+    } else {
+      where.textContent = msg;
+    }
   });
+}
+
+/* swaps an element's content for `msg`, then puts the original back — unless
+   something else has changed it in the meantime, in which case the newer
+   text wins. Generalised out of flashSurpriseMessage(), which is now one
+   caller of this rather than its own copy of it.
+   Detaches and re-attaches the ORIGINAL child nodes rather than saving and
+   restoring textContent or innerHTML. Some of the elements this is used on
+   are buttons with element children (.fl-manage-item carries its own
+   chevron), and both of the shorter routes would have destroyed them: one
+   drops them for good, the other rebuilds them as new nodes and quietly
+   loses anything bound to the old ones. */
+function flashLabel(el, msg, ms = 2500) {
+  if (!el) return;
+  const original = [...el.childNodes];
+  el.replaceChildren(msg);
+  setTimeout(() => {
+    if (el.isConnected && el.textContent === msg) el.replaceChildren(...original);
+  }, ms);
 }
 
 // Google Identity Services used to be a plain <script async defer> in
@@ -1043,24 +1186,58 @@ async function initGoogleSignIn(containerId) {
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
     callback: async (resp) => {
+      /* Both failure paths used to be silent: `if (data.ok)` with no else,
+         and `catch (e) {}`. Google had already authenticated the person —
+         their own account chooser closed successfully — and then the app
+         did nothing at all, on the same screen, with the same Sign in
+         button still sitting there. There is no way to read that except
+         "the button is broken", and no console to check on a phone.
+         The credential exchange is the one request in the app with no
+         screen of its own to fail into, so the message goes where the
+         person is looking: under the sign-in button. */
+      const say = text => {
+        const box = document.getElementById('gsi-err');
+        if (box) { box.textContent = text; box.hidden = false; }
+        else console.warn('[muan] sign-in:', text);
+      };
       try {
         const r = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ credential: resp.credential }),
         });
-        const data = await r.json();
-        if (data.ok) openFlameSheet();
-      } catch (e) {}
+        const data = await r.json().catch(() => null);
+        if (data?.ok) openFlameSheet();
+        else say("Couldn't sign you in. Please try again.");
+      } catch (e) {
+        console.warn('[muan] sign-in exchange failed', e);
+        say("Couldn't reach the server. Check your connection and try again.");
+      }
     },
   });
   const el = document.getElementById(containerId);
   if (el) google.accounts.id.renderButton(el, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with' });
 }
 
+/* The logout POST used to be `catch (e) {}` followed unconditionally by
+   openFlameSheet(). When it failed, the session cookie survived, the
+   re-render read /api/me, got the same signed-in user back, and drew the
+   You screen exactly as it was — so pressing Sign out did visibly nothing
+   and said nothing. Of all the swallowed failures in this file that is the
+   one with real consequences: the whole point of the button is a person
+   deciding they do not want to be signed in on this phone any more, and
+   they walked away believing they were not.
+   A failure now flashes the control they pressed. It cannot be a sheet-level
+   message, because the sheet has just been rebuilt by openFlameSheet() —
+   hence the await. */
 async function signOut() {
-  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
-  openFlameSheet();
+  let ok = false;
+  try {
+    const r = await fetch('/api/auth/logout', { method: 'POST' });
+    ok = r.ok;
+  } catch (e) { console.warn('[muan] sign-out failed', e); }
+  await openFlameSheet();
+  if (!ok) flashLabel(document.querySelector('[data-sign-out]'), "Couldn't sign out — still signed in", 4000);
 }
 
 // Lottie-exported animated flame (assets/flame.svg) — self-contained SMIL,
@@ -1145,8 +1322,22 @@ async function openFlameSheet() {
   setMobileScreen('you');
   setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Loading your flame…</div>');
   let me = null;
-  try { me = await (await fetch('/api/me')).json(); } catch(e) {}
-  if (!me || !me.ok) { setSheet('<div class="s-sub" style="text-align:center;padding:30px 0;">Could not load — try again.</div>'); return; }
+  try { me = await (await fetch('/api/me')).json(); } catch(e) { console.warn('[muan] /api/me failed', e); }
+  if (!me || !me.ok) {
+    /* "try again" with nothing to try it with was a dead end: the only way
+       back was to leave the screen and come back, which is not obvious and
+       is not what the sentence says. Same shape as the retry on
+       fetchMyVenues()' failure further down, and it re-enters openFlameSheet()
+       rather than reloading the page — Home behind this screen is fine and
+       there is no reason to throw it away. */
+    setSheet(`
+      <div class="s-sub" style="text-align:center;padding:30px 14px;">
+        Couldn't load your flame.<br>This is usually the connection.
+        <button type="button" id="meRetry" class="btn btn-go" style="margin:16px auto 0;max-width:200px;">Try again</button>
+      </div>`);
+    document.getElementById('meRetry')?.addEventListener('click', openFlameSheet);
+    return;
+  }
   // this is the freshest read of avatar_url there is (the same request that
   // just fetched everything else on this screen) — keeps the top-right
   // button in sync here too, and correctly clears it back to the chibi on
@@ -1163,6 +1354,7 @@ async function openFlameSheet() {
         <div class="fl-stage">Your flame starts here</div>
         <div class="fl-sub">Sign in to check in, keep streaks and earn embers</div>
         <div id="gsi-btn" style="display:flex;justify-content:center;margin:18px 0;"></div>
+        <div id="gsi-err" class="hint" style="text-align:center;margin:-6px 0 10px;" hidden></div>
         <div class="btn-row"><button class="btn btn-back" data-home style="flex:1;">Done</button></div>
       </div>
     `);
@@ -1458,12 +1650,15 @@ function renderFlameSheetBody(me, flameHtml, myVenuesResult = { ok: true, venues
   const adminBtn = document.querySelector('[data-admin-pending]');
   if (manageBtns.length || adminBtn) loadChunk('owner').catch(() => {});
 
-  listBtn?.addEventListener('click', () => withChunk('owner', () => openVenueSubmitForm()));
+  // the third argument is the button itself: js/owner.js is the one chunk
+  // fetched on the tap rather than prefetched, so it is also the one whose
+  // failure a person is actually standing in front of waiting for
+  listBtn?.addEventListener('click', () => withChunk('owner', () => openVenueSubmitForm(), listBtn));
   manageBtns.forEach(el => el.addEventListener('click', () => {
     const v = myVenuesResult.venues.find(mv => mv.id === el.dataset.manageVenue);
-    if (v) withChunk('owner', () => openVenueEditor(v));
+    if (v) withChunk('owner', () => openVenueEditor(v), el);
   }));
-  adminBtn?.addEventListener('click', () => withChunk('owner', () => openAdminPendingSheet(pendingVenuesResult.venues)));
+  adminBtn?.addEventListener('click', () => withChunk('owner', () => openAdminPendingSheet(pendingVenuesResult.venues), adminBtn));
   // both the "couldn't load your venues" and "pending venues couldn't load"
   // states retry the same way: re-run the whole fetch+render cycle, since
   // both come from the same Promise.all in openFlameSheet()
@@ -2095,7 +2290,7 @@ function renderMarkers() {
     el.className = 'marker type-' + v.type;
 
     const today = todayISO();
-    const hasEventToday = state.events.some(ev => ev.venue_id === v.id && ev.date === today);
+    const hasEventToday = state.events.some(ev => ev.venue_id === v.id && eventDate(ev) === today);
     const isPick = (state.picks?.venue_ids || []).includes(v.id)
                    && Array.isArray(v.photos) && v.photos.length > 0;
     el.classList.toggle('pin-event', hasEventToday);
@@ -2215,7 +2410,7 @@ function updateSelectedDistancePill() {
    phase 2 replaces this with real check-in counts from the API. */
 function isNo1(v) {
   const today = todayISO();
-  const first = state.events.find(ev => ev.date === today);
+  const first = state.events.find(ev => eventDate(ev) === today);
   return first && first.venue_id === v.id;
 }
 
@@ -2475,11 +2670,7 @@ async function quickSurpriseMe(filter) {
 // message before reverting, in case a second tap (or leaving the screen and
 // coming back) already moved it on to something else.
 function flashSurpriseMessage(msg) {
-  const label = document.querySelector('[data-surprise-me] .surprise-label');
-  if (!label) return;
-  const original = label.textContent;
-  label.textContent = msg;
-  setTimeout(() => { if (label.isConnected && label.textContent === msg) label.textContent = original; }, 2500);
+  flashLabel(document.querySelector('[data-surprise-me] .surprise-label'), msg);
 }
 
 /* ---------- Cloudinary URLs: build the delivery URL a slot actually renders at */
@@ -3873,12 +4064,17 @@ function renderHomeSheet() {
   // sheet is explicitly closed (see the data-home handler below), a
   // different venue opens, or Directions is toggled off, never just because
   // the map was clicked or the sheet re-rendered for some other reason
-  const byTime = (a,b) => (a.date === b.date)
+  // every comparison here goes through eventDate(), never ev.date — for a
+  // repeating event the two are different and only eventDate() is the night
+  // being advertised. `today` is re-derived on every render (it always was),
+  // so a tab held open across midnight re-sorts itself.
+  const on = ev => eventDate(ev);
+  const byTime = (a,b) => (on(a) === on(b))
     ? ((a.start_time || '99:99') < (b.start_time || '99:99') ? -1 : 1)
-    : (a.date < b.date ? -1 : 1);
+    : (on(a) < on(b) ? -1 : 1);
   const today = todayISO();
-  const tonight = state.events.filter(ev => ev.date === today).sort(byTime);
-  const upcoming = state.events.filter(ev => ev.date > today).sort(byTime);
+  const tonight = state.events.filter(ev => on(ev) === today).sort(byTime);
+  const upcoming = state.events.filter(ev => on(ev) > today).sort(byTime);
 
   const f = state.filter || 'all';
   const matchType = v => f === 'all'
@@ -4064,8 +4260,16 @@ function renderHomeSheet() {
 
   if (showEvents && !tonight.length && !upcoming.length) {
     rendered = true;
+    /* two different facts, two different sentences. "Nothing verified yet"
+       is a statement about the week's curation and is only true when
+       data/events.json actually loaded and had nothing current in it. When
+       the file could not be read, state.events is [] for a completely
+       different reason, and printing the curation line there tells someone
+       there is nothing on tonight when we simply do not know. */
     html += secH('Tonight · ຄືນນີ້') +
-      `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing verified yet — new list every Thursday.</div>`;
+      (state.eventsFailed
+        ? `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Couldn't load what's on — check your connection and reload. The venues below still work.</div>`
+        : `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing verified yet — new list every Thursday.</div>`);
   }
 
   const pickVenuesQ = sortEditorial(pickVenues);
@@ -4089,7 +4293,7 @@ function renderHomeSheet() {
     rendered = true;
     html += secH('Coming up · ອີເວັນຕໍ່ໄປ') + sectionWrap(upcoming.map(ev => {
       const v = venueById(ev.venue_id);
-      const evSub = `${fmtDate(ev.date)} · ${esc(ev.title)}`;
+      const evSub = `${fmtDate(eventDate(ev))} · ${esc(ev.title)}`;
       if (!v) {
         return mobile
           // .row-card + .photo-wrap so an event with no pinned venue sits in
@@ -4099,12 +4303,12 @@ function renderHomeSheet() {
           // to have hours, which is the whole reason this branch exists.
           ? `<div class="card row-card"><div class="photo-wrap"><img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy"></div>
               <div class="card-body"><span class="t-name">${esc(ev.title)}</span>
-              <div class="t-sub">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div></div></div>`
+              <div class="t-sub">${fmtDate(eventDate(ev))}${ev.short ? ' · ' + esc(ev.short) : ''}</div></div></div>`
           : `<div class="hcard">
             ${ev.photo ? `<img class="thumb" src="${esc(cloudinaryUrl(ev.photo, 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy">`}
             <div>
               <div style="font-size:12.5px;font-weight:700;">${esc(ev.title)}</div>
-              <div class="hc-sub" style="font-size:11px;color:var(--mute);">${fmtDate(ev.date)}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
+              <div class="hc-sub" style="font-size:11px;color:var(--mute);">${fmtDate(eventDate(ev))}${ev.short ? ' · ' + esc(ev.short) : ''}</div>
             </div>
           </div>`;
       }
@@ -4150,8 +4354,16 @@ function updateCheckinButton(v) {
   cbtn.disabled = true;
   cbtn.classList.remove('ready');
   if (!state.userPos) {
-    lbl.textContent = state.geoError === 'blocked' ? 'Location blocked'
-      : (state.geoError === 'timeout' || state.geoError === 'unavailable') ? "Can't find you"
+    // same six-value set as LOCATE_LABELS — see requestLocation(). The last
+    // branch is the no-error case ("we have not asked yet"), so anything
+    // that IS an error has to be named above it: 'failed' used to land there
+    // and told someone to enable a permission they had already granted, and
+    // 'unsupported' told them to enable one that does not exist here.
+    lbl.textContent =
+        state.geoError === 'blocked'     ? 'Location blocked'
+      : state.geoError === 'unsupported' ? 'Location not available here'
+      : (state.geoError === 'timeout' || state.geoError === 'unavailable'
+         || state.geoError === 'failed') ? "Can't find you"
       : 'Enable location to check in';
   } else {
     const d = haversine(state.userPos, v);
@@ -4240,6 +4452,14 @@ function openVenue(id) {
     travel = state.routeLabel;
   } else if (state.userPos) {
     travel = `${fmtDist(haversine(state.userPos, v))} away`;
+  } else if (state.geoError === 'unsupported') {
+    // nothing to tap and nothing to turn on — do not send someone to a
+    // control that cannot help them
+    travel = `<span class="vd-dim">distance unavailable here</span>`;
+  } else if (state.geoError === 'blocked') {
+    // "tap near me" is still the right next step (the pill explains how to
+    // unblock), but it must not pretend the tap will produce a distance
+    travel = `<span class="vd-dim">location off — tap "near me" to fix</span>`;
   } else {
     travel = `<span class="vd-dim">tap "near me" for distance</span>`;
   }
@@ -4358,7 +4578,7 @@ function openVenue(id) {
   for (const ev of evs) {
     html += `
       <div class="card" style="cursor:default;">
-        <span class="tag">${ev.date === todayISO() ? 'TONIGHT' : fmtDate(ev.date)}</span>
+        <span class="tag">${eventDate(ev) === todayISO() ? 'TONIGHT' : fmtDate(eventDate(ev))}</span>
         <div style="font-size:13px;font-weight:700;margin-top:3px;">${esc(ev.title)}</div>
         <div class="t-sub">${ev.start_time ? fmtTime(toMins(ev.start_time)) + ' · ' : ''}${fmtPrice(ev.price)}${ev.verified ? '' : ' · unconfirmed'}</div>
       </div>`;
@@ -4463,7 +4683,17 @@ function openVenue(id) {
     document.getElementById('dirLbl').textContent = 'Hide route';
     const attr = document.getElementById('routeAttribution');
     if (attr) attr.innerHTML = '<div class="hint">routing © OpenStreetMap contributors</div>';
-  } else if (v.lat != null && v.lng != null) {
+  } else if (state.map && v.lat != null && v.lng != null) {
+    /* `state.map &&` is not defensive padding. maplibre-gl.js is loaded
+       async from a CDN and boot() is explicitly written to carry on without
+       it (see maplibreReady()), so state.map stays null on any load where
+       that script 404s, is blocked, or the device refuses a WebGL context —
+       and this line is the LAST statement in openVenue(). Measured with the
+       library 404ing: every venue tap threw
+       "TypeError: Cannot read properties of null (reading 'flyTo')",
+       which silently killed the rest of whatever handler opened the venue.
+       The null check on lat/lng next to it is the separate pending-venue
+       case (CLAUDE.md: a pending venue has no coordinates yet). */
     state.map.flyTo({ center: [v.lng, v.lat], zoom: 15.5, speed: 1.4 });
   }
 }
@@ -4693,10 +4923,64 @@ function showStaleWarning() {
   if (el) el.hidden = false;
 }
 
+/* #mapWarning says "the list still works", which is true and enough while
+   the list is the thing on screen. On mobile it is NOT enough, because
+   tapping Map hides #sheet entirely (see setMobileScreen()) — and #mapWarning
+   lives inside #sheet, so the one sentence explaining the empty screen is
+   hidden along with it. Measured with maplibre-gl.js 404ing: the Map tab was
+   a completely blank viewport, no map, no list, no text, with only the
+   bottom nav to get out of it.
+   This writes into #map itself, which is the element that is actually empty,
+   so it survives the sheet being hidden and needs no new markup in
+   index.html. Only ever called when there is no map at all — a map that
+   loaded but whose TILES failed still draws its own canvas, its markers and
+   its attribution, and #mapWarning is the right (and only) notice for
+   that. */
+function showMapUnavailable() {
+  const el = document.getElementById('map');
+  if (!el || el.querySelector('.map-unavailable')) return;
+  el.innerHTML = `
+    <div class="map-unavailable">
+      <div class="map-unavailable-h">The map didn't load</div>
+      <div>This is usually the connection. The venue list still works — tap Home.</div>
+    </div>`;
+}
+
 function bindStaleWarning() {
   document.getElementById('staleWarningClose')?.addEventListener('click', () => {
     document.getElementById('staleWarning').hidden = true;
   });
+}
+
+/* The only total failure this app has: neither data/venues.json nor
+   /api/venues could be read, so there is no venue list at all. Not a
+   dismissible banner like the two above — those sit alongside content that
+   still works, and there is none here. It replaces the list, because the
+   list is what is missing.
+   Written because boot()'s catch used to be `console.error` and nothing
+   else: every path into it ended with the splash lifting on an empty screen
+   and no way to tell whether the app was broken or Vientiane was. CLAUDE.md
+   records this exact outcome happening in production twice. A user staring
+   at a blank sheet cannot open a console, and cannot know that reloading is
+   worth trying.
+   No auto-retry: both sources have already failed once, a silent loop would
+   hammer a Worker that is probably already unwell, and the honest control
+   for "this may just be your connection" is a button the person chooses to
+   press. */
+function showDataFailure() {
+  const inner = document.getElementById('sheetInner');
+  if (!inner) return;
+  inner.innerHTML = `
+    <div class="sec-empty" style="padding:38px 8px;">
+      <div class="sec-empty-ico" data-empty-svg></div>
+      <div style="font-weight:700;margin-bottom:6px;">Couldn't load any venues</div>
+      <div>This is usually the connection. Nothing is lost — try again.</div>
+      <button type="button" id="dataFailRetry" class="btn btn-go" style="margin:16px auto 0;max-width:220px;">Try again</button>
+    </div>`;
+  // same helper every other empty state uses; it is document-wide and
+  // fire-and-forget, so a slow assets/404.svg cannot hold this message up
+  injectEmptyIcons();
+  document.getElementById('dataFailRetry')?.addEventListener('click', () => location.reload());
 }
 
 function clearRoute() {
@@ -5175,6 +5459,15 @@ const LOCATE_LABELS = {
   blocked: 'location off',
   timeout: 'try again',
   unavailable: 'no signal',
+  // every state.geoError value needs a key here — see the list on
+  // requestLocation(). 'failed' was missing, and because the lookup falls
+  // back to `idle`, a location attempt that threw put the pill back to
+  // "near me", which is what it says when nothing has been tried at all.
+  failed: 'try again',
+  // unreachable in practice (the pill hides itself when there is no
+  // geolocation API) but present so the set is complete rather than
+  // complete-by-accident
+  unsupported: 'no location',
 };
 
 // reads state.userPos/state.geoError directly rather than taking an explicit
@@ -5184,7 +5477,7 @@ function updateLocatePill() {
   const btn = document.getElementById('locateBtn');
   const lbl = document.getElementById('locateLabel');
   if (!btn || !lbl) return;
-  if (!('geolocation' in navigator)) { btn.hidden = true; return; }
+  if (!hasGeolocation()) { btn.hidden = true; return; }
   btn.hidden = false;
   const key = state.userPos ? 'located' : (state.geoError || 'idle');
   lbl.textContent = LOCATE_LABELS[key] || LOCATE_LABELS.idle;
@@ -5213,7 +5506,11 @@ function bindLocate() {
     document.getElementById('locateLabel').textContent = LOCATE_LABELS.locating;
     const pos = await requestLocation();
     if (pos) {
-      state.map.flyTo({ center: [pos.lng, pos.lat], zoom: 15 });
+      // same reason as openVenue()'s flyTo: no map is a supported state, and
+      // without the guard a successful fix on a map-less load threw here and
+      // took the updateCheckinButton() call below down with it — so the pill
+      // would go green while the check-in button stayed on "Enable location"
+      if (state.map) state.map.flyTo({ center: [pos.lng, pos.lat], zoom: 15 });
     } else if (state.geoError === 'blocked') {
       showLocationBlockedMessage();
     }
@@ -5310,13 +5607,81 @@ const venueById = id => state.venues.find(v => v.id === id);
    `today` on every render, so the Tonight and Upcoming sections drop it on
    their own; the venue sheet read this list raw and would have gone on
    showing a finished event, labelled TONIGHT, until someone reloaded. */
-const venueEvents = id => state.events.filter(ev => ev.venue_id === id && !isPast(ev.date));
+const venueEvents = id => state.events.filter(ev => ev.venue_id === id && !eventExpired(ev));
 
 const todayISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 const isPast = dateStr => dateStr < todayISO();
+
+/* ---------- repeating events ----------
+   A weekly fixture is one record, not fifty-two. Make Friends runs every
+   Thursday at Corebeer and the Felicia X live lineup plays Fri/Sat/Sun at
+   Status; both were already in data/events.json saying so in their `short`
+   line, and both had already silently expired, because a single `date` can
+   only ever be true once. The recurrence now lives in a field the app reads:
+
+     "repeat": { "weekly": ["fri", "sat", "sun"], "until": null }
+
+     weekly  DAYS codes ('sun'..'sat'). Missing, empty or not an array means
+             the event does not repeat and `date` is the only date it has —
+             every existing event is that case and none of them changed.
+     until   ISO date of the last occurrence, or null for open-ended.
+
+   `date` does NOT move. It stays the occurrence that source_url actually
+   verified, so the provenance of a fixture is still a real night somebody
+   checked, and a repeat that has not started yet still shows its true first
+   date rather than jumping to this week.
+
+   `until: null` is open-ended, and that is the part to be careful with: a
+   repeat is a claim about the FUTURE, and nothing in this file can keep it
+   true. A weekly night that quietly stops will go on rendering until someone
+   re-checks the source and sets `until`. That is the same trade the app
+   already makes for hours (which also go stale silently) and it is why the
+   `until` field exists at all — see the note in data/events.json. It is not
+   a reason to guess an end date: a wrong `until` hides a night that is still
+   running, which is worse than showing one that ended last week. */
+/* DAYS is the venue-hours weekday vocabulary further up (openStatus() reads
+   v.hours.mon, v.hours.tue...). Reused here rather than copied: it is the
+   same seven codes in the same Date.getDay() order, and a second private
+   copy is the shape of bug this codebase keeps producing. If DAYS ever has
+   to change for hours, this reads it too. */
+const repeatDays = ev => (Array.isArray(ev.repeat?.weekly) ? ev.repeat.weekly : [])
+  .map(d => DAYS.indexOf(String(d).slice(0, 3).toLowerCase()))
+  .filter(i => i >= 0);
+
+const shiftISO = (iso, n) => {
+  const d = new Date(iso + 'T00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/* the date an event should be SHOWN as. For a one-off that is just `date`,
+   past or not — eventExpired() is what decides whether it is shown at all,
+   exactly as isPast() did before. For a repeat it is the next matching
+   weekday on or after today, never earlier than `date`, or null once
+   `until` has gone by. Recomputed on every call rather than cached on the
+   record, for the same reason venueEvents() re-tests the date: a phone left
+   open from 11pm to 1am must not keep yesterday's answer. */
+function eventDate(ev) {
+  const days = repeatDays(ev);
+  if (!days.length) return ev.date;
+  const today = todayISO();
+  const from = ev.date > today ? ev.date : today;
+  const startDow = new Date(from + 'T00:00').getDay();
+  for (let i = 0; i < 7; i++) {
+    if (!days.includes((startDow + i) % 7)) continue;
+    const iso = shiftISO(from, i);
+    return (ev.repeat?.until && iso > ev.repeat.until) ? null : iso;
+  }
+  return null;
+}
+
+const eventExpired = ev => {
+  const d = eventDate(ev);
+  return d == null || d < todayISO();
+};
 
 const fmtDate = iso => {
   const d = new Date(iso + 'T00:00');
