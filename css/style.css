@@ -2401,9 +2401,14 @@ body {
    a new colour, and it does not disturb --dim or --secondary for the other
    17 rules that read them. */
 .fl-item-req { display:block; font-size:9.5px; line-height:1.35; color:var(--mute); margin-top:2px; }
+/* font-family was missing, and a <button> does not inherit the page font —
+   so "Add a photo", "Change avatar", "+ List your venue" and "Pending
+   venues" were the only text on the You screen in the browser's default
+   face (Arial here), next to Space Grotesk everywhere else. Same defect as
+   Sign out's, one declaration. */
 .fl-avatar-link {
   display: block; margin: 14px auto 0; background: none; border: none;
-  color: var(--mute); font-size: 12px; padding: 6px; cursor: pointer;
+  color: var(--mute); font-family: var(--font); font-size: 12px; padding: 6px; cursor: pointer;
 }
 
 /* "Manage your venue" entry point — only rendered when /api/my-venues
@@ -3793,7 +3798,8 @@ textarea:focus-visible,
 .ed-fb-warn-move::after { content: ''; position: absolute; inset: -15px -10px; }
 
 /* The You screen's text buttons — the two under the avatar, "+ List your
-   venue", "Pending venues", and Sign out. 26px and 19px tall, and the
+   venue" and "Pending venues". (Sign out used to be in this rule too, and
+   was nothing BUT this rule — see .fl-signout just below.) 26px and 19px tall, and the
    stacked pair sits 14px apart, which is the same trap as .vd-links below:
    the slop needed to reach 44px (9px a side) is wider than the gap, so the
    two boxes would overlap by 4px and whichever is later in the DOM would
@@ -3802,7 +3808,7 @@ textarea:focus-visible,
    .fl-avatar-link) sit in a flex row and one of them wraps to two lines at
    320px — a fixed height would clip that. The text stays centred either
    way, so nothing moves except the space around it. */
-.fl-avatar-link, .fl-signout {
+.fl-avatar-link {
   min-height: 44px;
   display: inline-flex; align-items: center; justify-content: center;
 }
@@ -3811,6 +3817,32 @@ textarea:focus-visible,
    the auto-centring. Restore it: a block-level flex box keeps both. */
 .fl-avatar-link { display: flex; }
 .fl-avatar-actions .fl-avatar-link { display: inline-flex; }
+
+/* Sign out, the last thing on the You screen. Its only CSS used to be the
+   44px min-height it shared with .fl-avatar-link above — no background,
+   border, colour or font of its own — so it rendered as the browser's
+   default button: grey bevel, system font, sitting under a screen of
+   cards and rows.
+   It is a row now, deliberately QUIETER than the rows above it: signing
+   out is destructive and rare, and the venue rows are the actions someone
+   came here for. So: full width like .fl-manage-item and the Done button,
+   the same 14px inset for its text; no card surface, no icon, no chevron;
+   --secondary, not coral (coral on this screen means "do this"); one
+   hairline above it in the same --ink4 the owner forms' save bar uses.
+   One complete rule in one place. It was taken OUT of the shared rule
+   above rather than overridden below it: that rule sets display:
+   inline-flex, and CSS cascades per property, so a second rule would have
+   had to restate display and min-height and agree with it forever.
+   flashLabel() swaps this button's text for "Couldn't sign out — still
+   signed in" on failure (signOut() in app.js); text-align/wrap below
+   keep that longer line inside the row at 320px. */
+.fl-signout {
+  display: flex; align-items: center; justify-content: flex-start;
+  width: 100%; min-height: 44px; margin-top: 18px; padding: 10px 14px;
+  background: none; border: none; border-top: 1px solid var(--ink4); border-radius: 0;
+  color: var(--secondary); font-family: var(--font); font-size: 13px; font-weight: 700;
+  text-align: left; cursor: pointer;
+}
 
 /* .vd-links is the exception. Two 19px-tall links stacked 4px apart: hit
    slop big enough to reach 44px would put each link's box straight over the
