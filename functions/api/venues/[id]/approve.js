@@ -27,9 +27,16 @@ export async function onRequest(context) {
 
     const venueId = context.params.id;
     const body = await context.request.json().catch(() => null);
+    // Number(null), Number('') and Number(false) are all 0 — a missing or
+    // blank coordinate must not become a real one. The admin card sends ''
+    // for a box left empty, and 0,0 passed the range check below, so an
+    // unresolved Maps link could be approved onto Null Island with
+    // verified = 1. CLAUDE.md: never a guessed or placeholder coordinate.
+    const present = (x) => (typeof x === 'number') || (typeof x === 'string' && x.trim() !== '');
     const lat = Number(body?.lat);
     const lng = Number(body?.lng);
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90 ||
+    if (!present(body?.lat) || !present(body?.lng) || (lat === 0 && lng === 0) ||
+        !Number.isFinite(lat) || lat < -90 || lat > 90 ||
         !Number.isFinite(lng) || lng < -180 || lng > 180) {
       return Response.json({ ok: false, error: 'valid lat/lng required' }, { status: 400 });
     }

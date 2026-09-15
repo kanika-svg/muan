@@ -29,6 +29,20 @@ const MAX_SIG_ITEMS = 3;
 const MAX_SIG_NAME = 60;
 const MAX_SIG_NOTE = 80;
 const MAX_PHOTOS = 8;
+
+// the type toggle on both forms — was three buttons written out twice, once
+// per form. Order and set come from OWNER_VENUE_TYPES, names from
+// VENUE_TYPE_META, both in js/app.js. `selected` not in the list (a type
+// added server-side before this file knows it) selects nothing rather than
+// silently selecting the first button and re-typing the venue on save.
+// Four buttons still fit one .seg row at 320px without wrapping or
+// clipping: measured "Restaurant" 85px, the other three 61px, in a 282px
+// row. A fifth type, or a longer English name, would not — re-measure.
+function edTypeButtonsHtml(selected) {
+  return OWNER_VENUE_TYPES.map(t =>
+    `<button type="button" class="seg-btn ed-type-btn${t === selected ? ' on' : ''}" data-type="${t}">${esc(VENUE_TYPE_META[t].one)}</button>`
+  ).join('');
+}
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 // stored "HH:MM-HH:MM" (close hour may run to 27 for past-midnight, see
@@ -394,9 +408,7 @@ function openVenueSubmitForm() {
     <div class="ed-field">
       ${edLabelHtml('type', null)}
       <div class="seg ed-type-seg" id="subTypeSeg">
-        <button type="button" class="seg-btn ed-type-btn on" data-type="bar">Bar</button>
-        <button type="button" class="seg-btn ed-type-btn" data-type="cafe">Café</button>
-        <button type="button" class="seg-btn ed-type-btn" data-type="venue">Venue</button>
+        ${edTypeButtonsHtml('bar')}
       </div>
       <div class="ed-err" data-err-for="type"></div>
     </div>
@@ -663,9 +675,7 @@ function openVenueEditor(venue, opts = {}) {
     <div class="ed-field">
       ${edLabelHtml('type', null)}
       <div class="seg ed-type-seg" id="edTypeSeg">
-        <button type="button" class="seg-btn ed-type-btn ${venue.type==='bar'?'on':''}" data-type="bar">Bar</button>
-        <button type="button" class="seg-btn ed-type-btn ${venue.type==='cafe'?'on':''}" data-type="cafe">Café</button>
-        <button type="button" class="seg-btn ed-type-btn ${venue.type==='venue'?'on':''}" data-type="venue">Venue</button>
+        ${edTypeButtonsHtml(venue.type)}
       </div>
       <div class="ed-err" data-err-for="type"></div>
     </div>
@@ -1059,9 +1069,15 @@ function wireAdminPendingSheet() {
 
     approveBtn.addEventListener('click', async () => {
       errEl.textContent = '';
-      const lat = Number(card.querySelector('.adm-lat').value);
-      const lng = Number(card.querySelector('.adm-lng').value);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      // the raw strings, not just Number(): Number('') is 0, and 0 is
+      // finite, so two EMPTY boxes — exactly what this card renders when the
+      // Maps link couldn't be resolved — passed this check and approved the
+      // venue at 0,0 (Gulf of Guinea), marked verified. See approve.js.
+      const latRaw = card.querySelector('.adm-lat').value.trim();
+      const lngRaw = card.querySelector('.adm-lng').value.trim();
+      const lat = Number(latRaw);
+      const lng = Number(lngRaw);
+      if (!latRaw || !lngRaw || !Number.isFinite(lat) || !Number.isFinite(lng)) {
         errEl.textContent = 'Enter both coordinates before approving.';
         return;
       }

@@ -23,7 +23,50 @@ const BUILD_TIME = '2026-08-15T14:20:00Z';
 const DEBUG_FROM_URL = new URLSearchParams(location.search).get('debug') === '1';
 console.log('[muan] ?debug=1 seen at script start:', DEBUG_FROM_URL);
 
-const COLORS = { bar: 'var(--pin-bar)', cafe: 'var(--pin-cafe)', event: 'var(--pin-venue)', venue: 'var(--pin-venue)' };
+/* ---------- venue types: ONE definition each ----------
+   A venue type was previously spelled out in nine places — COLORS here,
+   TILE_GLYPHS, venueTileUri()'s glyphKey ternary, MOOD_TYPES, matchType(),
+   FILTER_ORDER, the section header in renderHomeSheet(), surpriseBtnHtml()'s
+   label, the chips in index.html — plus VENUE_TYPES on the server and a
+   Bar/Café/Venue toggle written twice in js/owner.js. Adding `restaurant` meant
+   finding all of them, which is exactly the shape of bug CLAUDE.md's history
+   is made of, so the things that ARE one fact now have one home.
+   What lives here: the display name in both languages, the pin colour, the
+   placeholder glyph key, and whether the type gets its own filter chip.
+   What deliberately does NOT live here: anything a type does not share.
+   `venue` is the ITECC/mall/night-market bucket and has no chip; `moods`
+   belongs to MOOD_TYPES, which is a separate editorial list (only cafés have
+   moods today).
+   label_lo: 'ບາຣ໌' and 'ຄາເຟ' are Kar's own, from the chip row. 'ຮ້ານອາຫານ'
+   is the standard compound for a restaurant and is how ~10 of the venues in
+   data/candidates.json title their own Facebook pages, so it is attested
+   rather than composed — but it is still not Kar's, and 'ສະຖານທີ່' for
+   `venue` IS composed and has no UI using it yet (the owner form's Venue
+   button is English-only). See TODO(lao). */
+const VENUE_TYPE_META = {
+  bar:        { label: 'Bars',        label_lo: 'ບາຣ໌',        one: 'Bar',        chip: true  },
+  cafe:       { label: 'Cafes',       label_lo: 'ຄາເຟ',        one: 'Café',       chip: true  },
+  // TODO(lao): 'ຮ້ານອາຫານ' is attested (see above) but unchecked by Kar.
+  restaurant: { label: 'Restaurants', label_lo: 'ຮ້ານອາຫານ',   one: 'Restaurant', chip: true  },
+  // TODO(lao): 'ສະຖານທີ່' is mine and unused — `venue` has no chip, and the
+  // owner form's Venue button is English-only, so nothing renders it today.
+  venue:      { label: 'Venues',      label_lo: 'ສະຖານທີ່',    one: 'Venue',      chip: false },
+};
+/* the types the owner forms offer, in button order. js/owner.js builds both
+   of its type toggles (submit and edit) from this. `venue` stays in: both
+   forms already offered it before restaurants, and dropping it would be a
+   product change (and would leave an existing `venue` row's editor with no
+   button selected) — whether owners should be able to pick it at all is
+   listed as an open question for Kar in design/autonomous-run.md. */
+const OWNER_VENUE_TYPES = ['bar', 'cafe', 'restaurant', 'venue'];
+
+/* `event` is not a venue type — it is a marker variant (see pinSVG()), and
+   it borrows the venue pin colour. Kept in the same map because that is what
+   renderMarkers() indexes, but it has no entry in VENUE_TYPE_META. */
+const COLORS = {
+  bar: 'var(--pin-bar)', cafe: 'var(--pin-cafe)', restaurant: 'var(--pin-restaurant)',
+  venue: 'var(--pin-venue)', event: 'var(--pin-venue)',
+};
 const VIENTIANE = { lng: 102.6030, lat: 17.9630 };
 /* normal map fence — initMap() sets these, clearRoute() restores them after a
    route temporarily lifts the fence */
@@ -426,6 +469,7 @@ function refreshVenuesFromLive(live) {
   if (venuesFingerprint(fresh) === venuesFingerprint(state.venues)) return;
   console.info('[muan] live venue data differs from the bundle — re-rendering');
   state.venues = fresh;
+  syncTypeChips();
   renderMarkers();
   // only Home is safe to redraw from under the user: a venue detail, the
   // You screen or a half-filled owner form would lose its scroll position
@@ -543,6 +587,7 @@ async function boot() {
     const picks = await picksPromise;
 
     state.venues = bundle ? publicVenues(bundle.venues) : [];
+    syncTypeChips();
     // eventExpired(), not isPast(ev.date): a weekly fixture's own `date`
     // is the night its source verified and goes past almost immediately,
     // while the event itself has not ended. See eventDate() at the bottom.
@@ -855,9 +900,29 @@ function dismissSplash() {
 }
 
 /* ---------- theme ---------- */
-const TILES = {
-  dark: ['a','b','c'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`),
-};
+/* Both themes are CARTO VECTOR styles now. Night used to be the raster
+   basemap `{a,b,c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`, built
+   by hand into a style object below, and that endpoint no longer serves a
+   usable tile: CARTO has moved its raster basemaps behind an API key and now
+   stamps every unauthenticated tile with "API KEY REQUIRED" and
+   "carto.com/basemaps/apikey" diagonally across the image. Verified
+   2026-09-15 by fetching the app's exact URL — HTTP 200, a real map, and the
+   watermark burnt into the pixels. Byte-identical with and without a
+   Referer, on all three subdomains, so there was nothing to configure our
+   way out of. Night is the DEFAULT theme after 17:00 and this app is about
+   where to go tonight, so that watermark was what most people saw.
+   Dark Matter is CARTO's own vector equivalent of dark_all and it reads the
+   SAME source Positron already reads — carto.streets/v1 — which is not
+   watermarked (checked the decompressed .mvt: no "API KEY", no "apikey", no
+   "carto.com"). So this is the provider's supported replacement for the
+   thing that broke, not a change of basemap.
+   Attribution still holds (CLAUDE.md — keep the attribution control): the
+   vector tilejson carries "© CARTO, © OpenStreetMap contributors" itself, so
+   the hardcoded attribution string the raster style needed is gone WITH the
+   raster style rather than left behind to drift.
+   If a CARTO API key is ever added, raster is the thing it would buy back —
+   but day has been vector all along and nothing about it needed raster. */
+const DARK_STYLE_URL  = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 const LIGHT_STYLE_URL = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
 function resolvedTheme() {
@@ -868,19 +933,7 @@ function resolvedTheme() {
 }
 
 function mapStyle(theme) {
-  if (theme === 'light') return LIGHT_STYLE_URL;
-  return {
-    version: 8,
-    sources: {
-      carto: {
-        type: 'raster',
-        tiles: TILES[theme],
-        tileSize: 256,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-      },
-    },
-    layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
-  };
+  return theme === 'light' ? LIGHT_STYLE_URL : DARK_STYLE_URL;
 }
 
 /* sun/moon track the RESOLVED theme (light/dark), not the 3-way auto/light/dark
@@ -1738,7 +1791,19 @@ function initMap() {
         state.map.setLayerZoomRange(id, 13.5, l.maxzoom ?? 24);
       });
     }
-    if (state.theme === 'light') {
+    /* NOT theme-scoped, unlike the two blocks above. Those are colour fixes
+       for Positron's near-white palette and Dark Matter needs neither. This
+       one is about how much text sits under our own markers, which is the
+       same question in both themes — and it became load-bearing on night the
+       moment night stopped being a raster basemap (see DARK_STYLE_URL).
+       Positron and Dark Matter are the same style with different paint:
+       93 layers each, 27 symbol layers each, identical ids, and the same
+       seven matched here (place_hamlet, place_suburbs, place_villages,
+       poi_stadium, poi_park, roadname_minor, housenumber). Left light-only,
+       the switch to vector would have handed the night map seven label
+       layers the raster tiles never showed — fixing the watermark and
+       regressing the legibility in the same change. */
+    {
       const symbolLayers = state.map.getStyle().layers.filter(l => l.type === 'symbol');
       const NOISY = ['place_hamlet','place_village','place_suburb','place_suburbs',
                      'poi','poi_r','housenumber','roadname_minor'];
@@ -1801,6 +1866,19 @@ const DOT_ZOOM_THRESHOLD = 14;
    <g> layers' opacity crossfades, driven by .marker.zoom-dot/.selected in
    style.css) so .marker's own box can never change size or shift position.
    See updateLabelCrowding() for what toggles .zoom-dot. */
+/* map labels are one nowrap line centred under the pin, so a long name has
+   nowhere to go but sideways: a 60-character name with no short_name drew a
+   327px label, 95px past the right edge of a 390px screen, over every pin
+   beside it. Cut in JS rather than with CSS overflow — a clip box would also
+   clip .m-label's text-shadow halo and the day theme's 1px outline. The
+   full name is on the venue sheet one tap away. 22 is the longest
+   short_name in data/venues.json ("KOKKOK Mega Mall", 16) plus room. */
+const MARKER_LABEL_MAX = 22;
+function markerLabel(v) {
+  const s = v.short_name || v.name || '';
+  return s.length > MARKER_LABEL_MAX ? s.slice(0, MARKER_LABEL_MAX - 1).trimEnd() + '…' : s;
+}
+
 function pinSVG(color, scale, variant) {
   const s = 30 * scale;
   const badge = variant === 'event'
@@ -2298,7 +2376,7 @@ function renderMarkers() {
     const variant = hasEventToday ? 'event' : (isPick ? 'pick' : null);
     el.innerHTML = `
       ${pinSVG(hot ? 'var(--flame)' : COLORS[v.type] || 'var(--mute)', hot ? 1.25 : 1, variant)}
-      <div class="m-label">${esc(v.short_name || v.name)}</div>
+      <div class="m-label">${esc(markerLabel(v))}</div>
       ${hot ? `<div class="m-sub" style="color:var(--flame)">tonight</div>` : ''}`;
     el.addEventListener('click', () => openVenue(v.id));
 
@@ -2642,8 +2720,8 @@ function rowCard(v, extraLine) {
   </div>`;
 }
 
-// "Surprise me": a random OPEN venue of `filter`'s type ('bar' | 'cafe' —
-// see surpriseMeHtml(), the only two filters this button ever shows for),
+// "Surprise me": a random OPEN venue of `filter`'s type (a chip type in
+// VENUE_TYPE_META — see surpriseMeHtml(), the only filters it shows for),
 // weighted toward nearby when location is known (nearest 8 rather than a
 // flat citywide random, so "near" means something) — requests location
 // first if it isn't already known, same as warmLocation()'s permission-
@@ -2749,7 +2827,12 @@ if (DEBUG_GEO) {
 const TILE_GLYPHS = {
   bar: '<polygon points="4,4 20,4 12,14"/><rect x="11" y="14" width="2" height="6"/><rect x="7" y="20" width="10" height="2" rx="1"/>',
   cafe: '<path d="M5 9h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5Z"/><path d="M16 11h2a2 2 0 0 1 0 4h-2" fill="none" stroke="currentColor" stroke-width="1.6"/><ellipse cx="11" cy="21.5" rx="8" ry="1.4"/>',
-  venue: '<rect x="5" y="7" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 7 12 3 19 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+  venue: '<rect x="5" y="7" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 7 12 3 19 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+  // PROPOSED — fork and spoon, not chopsticks or a cloche: spoon-and-fork is
+  // how a Lao table is actually laid, and a cloche reads as hotel dining.
+  // Same construction as the three above: solid fills for mass, 1.6 strokes
+  // for line, 24-unit box, nothing finer than the cafe cup's handle.
+  restaurant: '<path d="M5 3v5a3 3 0 0 0 6 0V3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 3v5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="7.2" y="10.5" width="1.6" height="10.5" rx=".8"/><ellipse cx="16.5" cy="7" rx="3" ry="4.2"/><rect x="15.7" y="10.5" width="1.6" height="10.5" rx=".8"/>'
 };
 
 function mixHex(fromHex, toHex, amount) {
@@ -2761,7 +2844,7 @@ function mixHex(fromHex, toHex, amount) {
 
 function venueTileUri(name, type, wide, showLetter = true) {
   const letter = (name || '?').charAt(0).toUpperCase();
-  const glyphKey = type === 'cafe' ? 'cafe' : type === 'bar' ? 'bar' : 'venue';
+  const glyphKey = Object.hasOwn(TILE_GLYPHS, type) ? type : 'venue';
   // one neutral ink for all three types. This was --teal / --flame / --violet
   // per type, which meant every venue without a photo printed a saturated
   // letter and glyph into the list — the same map-token borrowing the chip
@@ -4041,7 +4124,10 @@ function goHome() {
 // not a hidden button. `filter` is always 'bar' or 'cafe' for that reason;
 // quickSurpriseMe() below scopes its pick the same way.
 function surpriseMeHtml(filter) {
-  const label = filter === 'bar' ? 'Surprise me · ບາຣ໌ໃດກໍໄດ້' : 'Surprise me · ຄາເຟໃດກໍໄດ້';
+  // '<type>ໃດກໍໄດ້' is Kar's own pattern from the bar and café buttons.
+  // TODO(lao): the restaurant one ('ຮ້ານອາຫານໃດກໍໄດ້') is that pattern
+  // applied, not something Kar wrote — check it reads naturally.
+  const label = `Surprise me · ${VENUE_TYPE_META[filter].label_lo}ໃດກໍໄດ້`;
   return `<button class="surprise-btn" data-surprise-me>
     ${icoSurprise(20)}<span class="surprise-label">${label}</span>
   </button>`;
@@ -4077,9 +4163,7 @@ function renderHomeSheet() {
   const upcoming = state.events.filter(ev => on(ev) > today).sort(byTime);
 
   const f = state.filter || 'all';
-  const matchType = v => f === 'all'
-    || (f === 'bar' && v.type === 'bar')
-    || (f === 'cafe' && v.type === 'cafe');
+  const matchType = v => f === 'all' || v.type === f;
     // 'event' filter shows no venue-driven sections; handled via showEvents/showVenueSections
 
   const late = state.venues.filter(v => opensLate(v) && matchType(v) && v.status !== 'opening-soon');
@@ -4139,8 +4223,8 @@ function renderHomeSheet() {
     ? '<span class="lao">ຄືນນີ້ໄປໃສດີ?</span>'
     : '<span class="lao">ມື້ນີ້ໄປໃສດີ?</span>';
 
-  if (f === 'bar' || f === 'cafe') {
-    const label = f === 'bar' ? 'Bars · ບາຣ໌' : 'Cafes · ຄາເຟ';
+  if (VENUE_TYPE_META[f]?.chip) {
+    const label = `${VENUE_TYPE_META[f].label} · ${VENUE_TYPE_META[f].label_lo}`;
     let html = `
       ${greetEyebrowHtml()}
       <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
@@ -4818,10 +4902,11 @@ function routeCasingColor() {
 /* re-adds the route source/layers (and refreshes the casing colour) —
    split out from showRoute() so the style.load handler in initMap() can
    redraw the route after a theme change without re-running fitBounds.
-   setStyle() (used on theme change) swaps in a structurally unrelated style
-   (raster vs. Positron vector) and wipes any runtime-added sources/layers,
-   so this can't just be a setPaintProperty call — the layers have to be
-   able to not exist and get recreated. */
+   setStyle() (used on theme change) wipes any runtime-added sources/layers,
+   so this can't just be a setPaintProperty call — the layers have to be able
+   to not exist and get recreated. (It used to swap between two structurally
+   unrelated styles, raster for night and vector for day; both are vector
+   now, and setStyle still wipes runtime layers either way.) */
 function drawRouteLayers(geometry) {
   const data = { type: 'Feature', geometry, properties: {} };
   if (state.map.getSource('route')) {
@@ -5032,6 +5117,11 @@ async function doCheckin(v) {
       document.getElementById('checkinLabel').textContent = data.message || 'that place is closed right now';
     } else if (data.same_spot) {
       document.getElementById('checkinLabel').textContent = data.message || "you haven't moved since your last check-in";
+    } else if (data.limit) {
+      // functions/api/checkin.js's nightly cap. Had no branch, so it fell to
+      // the else below — "Check-in failed, try again" with the button
+      // re-enabled, inviting a retry the server will refuse every time.
+      document.getElementById('checkinLabel').textContent = data.message || 'check-in limit reached for tonight';
     } else {
       document.getElementById('checkinLabel').textContent = 'Check-in failed, try again';
       if (btn) btn.disabled = false;
@@ -5220,8 +5310,9 @@ function initSheetDrag() {
       if (!prefersReducedMotion()) {
         const inner = document.getElementById('sheetInner');
         const W = sheet.clientWidth;
-        const i = FILTER_ORDER.indexOf(state.filter || 'all');
-        const atEnd = (dx < 0 && i === FILTER_ORDER.length - 1) || (dx > 0 && i === 0);
+        const order = filterOrder();
+        const i = order.indexOf(state.filter || 'all');
+        const atEnd = (dx < 0 && i === order.length - 1) || (dx > 0 && i === 0);
         const move = atEnd ? dx * 0.25 : dx;          // resistance at the ends
         inner.classList.add('swiping');
         inner.style.transform = `translateX(${move}px)`;
@@ -5239,8 +5330,9 @@ function initSheetDrag() {
       toggleSheet(offset > maxOffset() / 2);
       endGesture();
     } else if (axis === 'x') {
-      const i = FILTER_ORDER.indexOf(state.filter || 'all');
-      const atEnd = (dx < 0 && i === FILTER_ORDER.length - 1) || (dx > 0 && i === 0);
+      const order = filterOrder();
+      const i = order.indexOf(state.filter || 'all');
+      const atEnd = (dx < 0 && i === order.length - 1) || (dx > 0 && i === 0);
       const commit = Math.abs(dx) > 60 && !atEnd;
       if (prefersReducedMotion()) {
         if (commit) changeFilter(dx < 0 ? 1 : -1);      // instant switch, no follow/slide
@@ -5263,8 +5355,12 @@ function initSheetDrag() {
   sheet.addEventListener('touchcancel', endGesture);
 }
 
-// order swiped through on mobile; does not wrap at the ends
-const FILTER_ORDER = ['all', 'bar', 'cafe', 'event'];
+// order swiped through on mobile; does not wrap at the ends. Must match the
+// chip order in index.html. Read through filterOrder(), which drops a type
+// chip syncTypeChips() has hidden, so a swipe can't land on a hidden tab.
+const FILTER_ORDER = ['all', ...Object.keys(VENUE_TYPE_META).filter(k => VENUE_TYPE_META[k].chip), 'event'];
+const filterOrder = () => FILTER_ORDER.filter(k =>
+  !document.querySelector(`.chip[data-filter="${k}"]`)?.hidden);
 const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* scrollIntoView/scrollTo take their own behavior argument and ignore the
@@ -5277,9 +5373,10 @@ const scrollBehavior = () => prefersReducedMotion() ? 'auto' : 'smooth';
 // instant switch, no animation — used for direct chip taps and for a
 // committed swipe under prefers-reduced-motion
 function changeFilter(dir) {
-  const next = FILTER_ORDER.indexOf(state.filter || 'all') + dir;
-  if (next < 0 || next >= FILTER_ORDER.length) return;
-  const chip = document.querySelector(`.chip[data-filter="${FILTER_ORDER[next]}"]`);
+  const order = filterOrder();
+  const next = order.indexOf(state.filter || 'all') + dir;
+  if (next < 0 || next >= order.length) return;
+  const chip = document.querySelector(`.chip[data-filter="${order[next]}"]`);
   if (!chip) return;
   chip.click();
   chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: scrollBehavior() });
@@ -5302,11 +5399,12 @@ function changeFilterAnimated(dir) {
     return;
   }
 
-  const i = FILTER_ORDER.indexOf(state.filter || 'all');
+  const order = filterOrder();
+  const i = order.indexOf(state.filter || 'all');
   inner.style.transform = `translateX(${-dir * W * 0.35}px)`;
   inner.style.opacity = '0';
   setTimeout(() => {
-    state.filter = FILTER_ORDER[i + dir];
+    state.filter = order[i + dir];
     syncChipState();
     renderMarkers();
     renderHomeSheet();                 // re-renders into #sheetInner, resetting transform/opacity
@@ -5418,6 +5516,20 @@ function setSheet(html) {
       if (state.map) clearRoute();     // explicit "leave this sheet" action — the route dies with it
       renderHomeSheet();
     }));
+}
+
+/* a type chip with no venues behind it is a tab that can only ever say
+   "Nothing here right now" — hide it rather than ship a dead end. This is
+   what lets the restaurant plumbing merge before the first restaurant is
+   entered: the chip appears on its own once one exists. Applies to every
+   type chip, so a bar/café list that ever empties out gets the same. If the
+   current filter's chip just disappeared, fall back to All. */
+function syncTypeChips() {
+  for (const ch of document.querySelectorAll('.chip')) {
+    if (!VENUE_TYPE_META[ch.dataset.filter]) continue;
+    ch.hidden = !state.venues.some(v => v.type === ch.dataset.filter);
+    if (ch.hidden && state.filter === ch.dataset.filter) state.filter = 'all';
+  }
 }
 
 function syncChipState() {

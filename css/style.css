@@ -73,6 +73,37 @@
   --pin-bar:   #FF5A3C;
   --pin-cafe:  #1FBF9C;
   --pin-venue: #7C5CE0;
+  /* PROPOSED — restaurants (see VENUE_TYPE_META in js/app.js). Kar has the
+     final word on this hex; what follows is the reasoning, not a preference.
+     The three existing pin hues sit at 9deg (bar), 166deg (cafe) and 255deg
+     (venue), so the gaps are 157deg, 89deg and 114deg. A fourth hue has to
+     go in the 114deg gap between venue and bar — the 89deg cafe/venue gap is
+     narrower AND lands on blue/cyan, which is the one region a Vientiane map
+     cannot use: both basemaps paint the Mekong right through the densest
+     part of the venue list, and the riverside is where half of these places
+     are. Dead centre of the usable gap is 312deg, which leaves 57deg to
+     venue and 57deg to bar — the widest separation available.
+     312deg also stays clear of the two non-type colours the map already
+     spends: --flame on the No.1-tonight pin (same hue family as bar) and
+     --gold on the editor's-pick badge and its ring (~40deg). Amber and lime
+     were both tried against real CARTO tiles and rejected for exactly that —
+     amber is gold, lime reads as cafe at 30px.
+     What was measured (2026-09-15), against the paint colours the two
+     basemap styles actually use — background, water, landcover, road
+     casings and fills, read out of dark-matter-gl-style and
+     positron-gl-style. Not against rendered tiles: the browser tooling
+     used here cannot paint a WebGL map (see design/autonomous-run.md).
+       lowest contrast vs any basemap paint: night 2.16 (the existing
+       pins: bar 2.35, cafe 3.11, venue 1.54); day 4.58 (bar 3.25,
+       cafe 3.74, venue 5.43)
+       nearest other pin is --pin-venue: CIE76 dE 42 night / 35 day, and
+       under simulated protanopia only 20 / 21 — below the existing
+       bar/cafe pair (30). That is the weakest point of this proposal.
+     An earlier note here said amber and lime were tried on real tiles and
+     rejected; that could not be re-verified, so it is not repeated as fact.
+     Same lightness discipline as the other three: one hue, held, with day
+     darker so it reads on the near-white basemap. */
+  --pin-restaurant: #E64DC7;   /* HSL 312 / 75% / 60% */
   /* mood-card illustrations only (see vibeCardHtml() in js/app.js) — a
      literal coffee brown and a warm doorway-glow amber. Not --gold: that
      token is reserved for rewards/badges (see the design-tokens section
@@ -242,6 +273,12 @@
   --pin-bar:   #D93A1F;
   --pin-cafe:  #0F7A60;
   --pin-venue: #5B3DB0;
+  /* PROPOSED, day half — see the note on --pin-restaurant in :root. Hue 312
+     held exactly; lightness .60 -> .40 and saturation .75 -> .60, which is
+     the same move --pin-venue makes between themes (.62 -> .47, sat .69 ->
+     .49) and for the same reason: Positron is near-white, so a pin that
+     worked on near-black is too pale here. */
+  --pin-restaurant: #A3298B;   /* HSL 312 / 60% / 40% */
   --mc-coffee: #8B5A3C;
   --mc-glow:   #C97C2E;
   /* a bright top edge (dark theme's --card-edge) is invisible on cream, so
@@ -507,6 +544,11 @@ body {
   box-shadow: 0 3px 0 #C6432A;
 }
 .chip.on:active { transform: translateY(2px) scale(.97); box-shadow: 0 1px 0 #C6432A; }
+/* .chip's display:inline-flex outranks the UA's [hidden] rule, so a chip
+   syncTypeChips() hides (a type with no venues yet — see js/app.js) stayed
+   on screen. Caught on the Restaurants chip the first time it rendered.
+   Same trap CLAUDE.md lists as "[hidden] vs display:flex". */
+.chip[hidden] { display: none; }
 
 /* The chip row had a coloured legend dot per filter — --pin-bar/--pin-cafe/
    --pin-venue, the same three tokens pinSVG() paints markers with — so it
@@ -1570,6 +1612,18 @@ body {
 .sec-h + .card { margin-top: 10px; }
 .card .row { display: flex; justify-content: space-between; align-items: center; }
 .t-name { font-size: 15.5px; font-weight: 700; margin-top: 4px; }
+/* a card name is two lines at most. The name field allows 100 characters
+   and short_name is optional, so an owner who skips it puts the full name
+   on every card: measured with a 60-character name, the row card at 320px
+   grew to 6 lines / 199px (its neighbours are 124px), and a single word
+   wider than the 118px text column ("Extraordinarily") was cut off at the
+   card's own overflow edge rather than wrapping. overflow-wrap lets that
+   word break; the clamp keeps the card's height in the family. The full
+   name is still on the venue sheet title, which is not clamped. */
+.t-name {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere;
+}
 .t-sub  { font-size: 12px; color: var(--mute); margin-top: 2px; line-height: 1.45; }
 
 /* Sleek item 31 — a row card's hours on a line of their own (rowCard() in

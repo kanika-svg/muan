@@ -12,7 +12,10 @@ export const SIMPLE_FIELDS = ['name', 'short_name', 'name_lo', 'type', 'area', '
 // is optional — see the "ບໍ່ຈຳເປັນ / optional" marker in js/app.js
 // edLabelHtml(), which mirrors this exact set.
 export const REQUIRED_SIMPLE_FIELDS = new Set(['name', 'area']);
-export const VENUE_TYPES = ['bar', 'cafe', 'venue'];
+// restaurant: see VENUE_TYPE_META in js/app.js, which carries the client
+// half of every type (label, pin colour, glyph, chip) — keep the two lists
+// the same set.
+export const VENUE_TYPES = ['bar', 'cafe', 'restaurant', 'venue'];
 // fixed vocabulary for the Cafes tab's vibe chooser (js/app.js
 // vibeChooserHtml()) — all four can coexist on one venue, still capped at 4
 // (see validateVibe below). Deliberately not in SIMPLE_FIELDS: vibe is set
@@ -193,7 +196,7 @@ export function validateSimpleFields(body, errors, sets, binds) {
     if (!(field in body)) continue;
     const v = body[field];
     if (field === 'type') {
-      if (!VENUE_TYPES.includes(v)) { errors.type = 'must be bar, cafe, or venue'; continue; }
+      if (!VENUE_TYPES.includes(v)) { errors.type = `must be one of: ${VENUE_TYPES.join(', ')}`; continue; }
     } else {
       if (typeof v !== 'string') { errors[field] = 'must be text'; continue; }
       const trimmed = v.trim();

@@ -96,7 +96,17 @@ async function handleGet(context) {
       // TTL out. The TTL only governs how long a *stale-but-unedited*
       // response is reused, which is exactly where the round trip to D1
       // is pure cost.
-      { headers: { 'Cache-Control': 'public, max-age=3600' } }
+      // s-maxage, not max-age. The edge copy (caches.default above) is the
+      // one every write path purges; the BROWSER's own HTTP cache is not,
+      // and max-age=3600 let it serve this response for an hour without
+      // asking. So an owner who saved an edit and reloaded, or Kar
+      // approving a pin, got their own pre-edit copy back from disk and saw
+      // the change "not save". Measured locally: after a D1 edit and a
+      // purge, a reload served /api/venues with transferSize 0 and the old
+      // name. The Cache API honours s-maxage for the edge copy, so the hour
+      // of D1 savings stays; max-age=0 makes browsers come back to the
+      // edge each load, which is a cache hit there, not a D1 query.
+      { headers: { 'Cache-Control': 'public, max-age=0, s-maxage=3600' } }
     );
     context.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
@@ -144,7 +154,7 @@ function validateCreateFields(body, errors) {
   for (const field of SIMPLE_FIELDS) {
     const v = body[field];
     if (field === 'type') {
-      if (!VENUE_TYPES.includes(v)) { errors.type = 'must be bar, cafe, or venue'; continue; }
+      if (!VENUE_TYPES.includes(v)) { errors.type = `must be one of: ${VENUE_TYPES.join(', ')}`; continue; }
       out.type = v;
       continue;
     }

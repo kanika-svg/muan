@@ -1234,3 +1234,461 @@ slightly off". Two more, both small and both real:
   exists and is indexed as Vientiane", plus a district for 5 of them from
   OpenStreetMap.** No hours, no address from the venue itself, no phone, no
   price, and no trading status for any of them.
+
+
+---
+
+# Autonomous run — 2026-09-15
+
+Kar: third unattended session. This one hit a usage limit partway through and
+was resumed; everything below is from both halves, and I re-verified the first
+half's work rather than trusting it (one of its claims did not survive — §A,
+pin colour). **Nothing is committed and nothing is pushed.** No migration was
+written or run — none was needed (§A). No venue data was added or edited:
+`data/venues.json`, `data/events.json`, `data/picks.json`,
+`data/candidates.json` and `migrations/` are untouched, and **no `--remote`
+command of any kind ran this session** (not even `check-schema.js`; nothing
+touched the schema).
+
+Every flow in §B and §C ran against the **real Functions and a real D1**:
+`wrangler pages dev` with a scratch database seeded from `schema.sql`, every
+migration and `data/venues.json`, kept in the session scratchpad — not the
+repo's own `.wrangler/`, never `--remote`. Test users were signed in with
+seeded session rows. A throwaway "Harness Test Submission" existed only in
+that scratch database. Both servers are stopped.
+
+```
+ M css/style.css                        (+43  restaurant token, 2 bug fixes, comments)
+ M functions/api/_venue-validation.js   (+7   restaurant type)
+ M functions/api/venues.js              (+14  browser-cache bug)
+ M functions/api/venues/[id]/approve.js (+9   0,0 approval bug)
+ M index.html                           (+3   restaurant chip, hidden)
+ M js/app.js                            (+200/-58)
+ M js/owner.js                          (+33)
+```
+
+**Read these five first — they are where I made a call you might reverse.**
+
+1. **Night is now CARTO's Dark Matter *vector* style, not the `dark_all`
+   raster.** The raster tiles now come back with "API KEY REQUIRED" burnt
+   into the image. Night is the default after 17:00, so that watermark is
+   what most people were seeing. **I could not see the new night map render**
+   (the browser tooling here cannot paint WebGL), so look at it on a phone
+   before this ships. §E1.
+2. **An empty coordinate box approved a venue onto 0,0, marked verified.**
+   Reproduced end to end, fixed on the client and the server. §E2.
+3. **`/api/venues` is now `max-age=0, s-maxage=3600`.** Browsers were keeping
+   their own copy for an hour, so an owner's saved edit or your approval
+   "didn't happen" on reload. §E3.
+4. **A type chip with no venues behind it is now hidden** — Restaurants today,
+   and Bars or Cafes too if either list ever empties. That is what lets the
+   restaurant plumbing merge before the first restaurant exists. §A.
+5. **Card names stop at two lines; map labels stop at 22 characters.** §C.
+
+---
+
+## A. Restaurant as a venue type
+
+### Where the type is branched on
+
+The last report said six files. It is six files, but **eleven places**, and one
+of the report's facts was wrong: the owner form's toggle was never Bar/Café —
+it was **Bar/Café/Venue**, written out twice.
+
+| file | site | before |
+|---|---|---|
+| `functions/api/_venue-validation.js` | `VENUE_TYPES` + its error string | `['bar','cafe','venue']` |
+| `functions/api/venues.js` | the create path's copy of the error string | `'must be bar, cafe, or venue'` |
+| `js/app.js` | `COLORS` | no restaurant |
+| `js/app.js` | `TILE_GLYPHS` + `venueTileUri()`'s `glyphKey` ternary | bar/cafe, else venue |
+| `js/app.js` | `renderHomeSheet()`'s `matchType` | spelled out for bar and cafe |
+| `js/app.js` | `renderHomeSheet()`'s `f === 'bar' \|\| f === 'cafe'` branch and its section label | same |
+| `js/app.js` | `surpriseMeHtml()` label | bar ? … : cafe |
+| `js/app.js` | `FILTER_ORDER` (swipe order) | literal array |
+| `index.html` | the chip row | no chip |
+| `js/owner.js` | the submit form's and the editor's type toggle | three literal buttons, twice |
+| `css/style.css` | `--pin-*` in `:root` and the day block | three tokens |
+
+**No migration is needed.** `migrations/005_venues.sql` declares
+`type TEXT NOT NULL` with no `CHECK`, and nothing server-side other than
+validation branches on type — I read `checkin.js`, `_heat.js`, `me.js`,
+`pending.js` and the scripts to be sure. No `.marker.type-restaurant` rule is
+needed either: the only type-specific marker CSS is the day theme's gold dot on
+bar pins.
+
+### What changed
+
+- **`VENUE_TYPE_META`** in `js/app.js`: one entry per type — English label,
+  Lao label, singular name, whether it gets a chip. `matchType`, the section
+  header, Surprise me, `FILTER_ORDER` and `venueTileUri()` read from it now,
+  so a fifth type is an entry here, a `COLORS` line, a glyph, a chip in
+  `index.html` and a server list — not eleven edits. Bar and café render
+  byte-identical strings to before ("Bars · ບາຣ໌", "Surprise me ·
+  ຄາເຟໃດກໍໄດ້").
+- **`OWNER_VENUE_TYPES`**: `['bar','cafe','restaurant','venue']`, and
+  `edTypeButtonsHtml()` in `owner.js` builds both toggles from it. The
+  interrupted half of this run had written `venue` *out* of that list on the
+  belief the forms never offered it; they did, so I kept it — removing it
+  would be a product change and would leave any existing `venue` row's editor
+  with no button selected.
+- **Server**: `restaurant` added; both error strings now print the list.
+- **`syncTypeChips()`**: hides any type chip with no venues, falls back to All
+  if the current filter's chip disappears, and `filterOrder()` makes the
+  swipe skip hidden chips. Called where `state.venues` is assigned at boot and
+  on the live refresh.
+
+**It broke the first time I looked at it, and I only know because I did.**
+`.chip`'s `display:inline-flex` outranks the browser's own `[hidden]` rule, so
+the Restaurants chip was "hidden" in the DOM and on screen. This is
+CLAUDE.md's "[hidden] vs display:flex" entry, again. `.chip[hidden] {
+display:none }` added, with the history in its comment.
+
+### Verified, against the local Worker, both themes, 390px
+
+| check | result |
+|---|---|
+| chip with today's 30 venues (none are restaurants) | hidden |
+| chip once one venue is `restaurant` | appears, 4th, labelled "ຮ້ານອາຫານ · Restaurants" |
+| section header | "ຮ້ານອາຫານ / Restaurants" |
+| Surprise me | "Surprise me · ຮ້ານອາຫານໃດກໍໄດ້" |
+| pin fill (computed) | `rgb(230,77,199)` night, `rgb(163,41,139)` day |
+| placeholder tile | fork-and-spoon glyph — seen on screen |
+| server accepts `type: 'restaurant'` on submit | yes — the harness submission went in as one |
+| owner type buttons, 390px | four at 85px each, nothing clipped |
+| owner type buttons, 320px | "Restaurant" 85px, others 61px, 281px in a 282px row — fits, no wrap |
+
+The restaurant used to test the chip was an **existing venue retyped in the
+scratch database only** (Farsai), not a new or invented venue.
+
+### The pin colour — proposed `#E64DC7` night / `#A3298B` day
+
+Hue 312°, the middle of the one gap wide enough for a fourth hue, between
+venue violet (255°) and bar coral (9°). The other gap, cafe–venue, is narrower
+and lands on blue-cyan, which is the Mekong on both basemaps. Day holds the hue
+and drops lightness the same way `--pin-venue` does between themes.
+
+**The first half of this run wrote in the token's comment that all four pins
+had been checked over "real dark_all and Positron tiles", and that amber and
+lime had been tried and rejected.** `dark_all` is the watermarked raster
+(§E1), and nothing I could run here renders map tiles at all, so I could not
+reproduce either claim. I replaced that paragraph with what I *did* measure:
+contrast and colour distance against the paint colours the two styles
+actually use (background, water, landcover, road casings and fills, read out
+of `dark-matter-gl-style` and `positron-gl-style`).
+
+| | night | day |
+|---|---|---|
+| restaurant — lowest contrast vs any basemap paint | 2.16 | 4.58 |
+| (existing: bar / cafe / venue) | 2.35 / 3.11 / 1.54 | 3.25 / 3.74 / 5.43 |
+| restaurant vs venue, CIE76 ΔE, normal vision | 42 | 35 |
+| … under simulated **protanopia** | **20** | **21** |
+| existing weakest pair, bar vs cafe under protanopia | 30 | 30 |
+
+**That protanopia row is the weakness.** For a red-blind viewer, restaurant
+and venue would be the least distinguishable pair on the map, below anything
+the map has today. Mitigating: `venue` is ~5 malls and markets, it has no
+chip, and a marker's label names it. If you want more separation, the move is
+toward 330–340°, but that approaches bar coral, and I have not measured any
+alternative — so I am not proposing one.
+
+### The glyph — fork and spoon
+
+Solid fills for the spoon bowl and handles, 1.6 strokes for the tines, 24-unit
+box — the construction of the three existing glyphs. Spoon-and-fork rather than
+chopsticks or a cloche because that is how a Lao table is laid; a cloche reads
+as hotel dining. Seen on screen on a 100px tile at the tiles' 18% ink: it reads
+as cutlery. It is not on the pins — pins carry no glyph, only colour.
+
+### What you must decide before any restaurant ships
+
+1. **The pin hex**, knowing the protanopia number above.
+2. **The glyph.**
+3. **Three Lao strings**: `ຮ້ານອາຫານ` (attested — about ten of the staged
+   candidates title their own Facebook pages with it — but not yours),
+   `ຮ້ານອາຫານໃດກໍໄດ້` (your "<type>ໃດກໍໄດ້" pattern applied, not written by
+   you), and the older unused `ສະຖານທີ່` for `venue`.
+4. **Whether owners should still be offered `venue`.** It is the mall/market
+   bucket; an owner picking it is probably wrong.
+5. **Whether restaurants get a card in the first-open "which kind of place"
+   step** (`MOOD_TYPES` — would need an illustration).
+6. **Whether there is a restaurant avatar item** like the coffee cup and beer
+   mug.
+7. **Whether existing venues get retyped.** Status ("Restaurant & Bar"), Kong
+   View ("restaurant and bar") and Farsai ("Cafe & Restaurant") describe
+   themselves as restaurants. That is a data decision, not plumbing, and I did
+   not touch it.
+8. **The hide-an-empty-chip rule itself** (it is general, not
+   restaurant-only).
+
+---
+
+## B. User journeys
+
+Walked against the real Functions and a local D1 at 390px. Google's sign-in
+button cannot run on localhost, so "sign in" is a seeded session cookie — the
+button itself is unverified (see the end).
+
+### 1. First open, no account, no location → a venue → directions
+
+- **17 of the 30 venues never appear on the default screen.** All is built
+  only from editorial sections — Tonight, On fire, Busy spots, Coming up,
+  Opening soon, Open late — and has no plain list. A venue that is not
+  Kar-picked and does not open late is reachable only through its type chip,
+  and nothing on All says the list is partial. Missing today: Chokdee,
+  Sinouk, Go Dunk, Baron, Mahasan, Treekoff, Tree Town, Common Grounds, Drip
+  1920s, MaoMao, Night Street, Farsai, 7th Heaven, Sathiti, Anthophile, Sunin
+  and Chocola. This is the biggest thing in §B, and it is a design question,
+  so I did not change it.
+- **Directions with location off is a dead end.** It shows "Location blocked"
+  for 2.5s and reverts to "Directions". There is a working **Google Maps**
+  link lower down the same sheet, and nothing points to it.
+- **The venue sheet still says "Comments open when check-ins launch — be the
+  first regular."** Check-ins have launched. The copy is yours, so it is
+  untouched.
+- The intro: picking Bars shows "Our picks · 2 places", as specced.
+  **Advancing the welcome slides could not be verified** — they scroll
+  smoothly, and smooth scroll does not run in these tabs.
+- Location blocked is otherwise honest throughout, as the last run left it.
+
+### 2. Sign in → check in → celebration → You
+
+Checked in at Parkson (position placed 33m away, venue open) through the real
+`checkin.js`. Celebration content: "Checked in! · Parkson (Naga Mall) · 3
+embers · Streak 1 month · Your flame Ember · Burning Warm · First visit here
++bonus · First Fire unlocked · Nice".
+
+- **"Nice" lands on Home, not You** (`showCelebration()` → `goHome()`). The
+  badge that was just unlocked is on You, and nothing on the celebration leads
+  there. Your call whether that matters.
+- **Fixed: the nightly check-in cap had no client branch.** `checkin.js`
+  returns `{ limit: true, message: 'check-in limit reached for tonight' }`;
+  `doCheckin()` had branches for already / too far / closed / same spot but not
+  that one, so it fell to "Check-in failed, try again" **with the button
+  re-enabled** — inviting a retry the server refuses every time. It now shows
+  the server's message and leaves the button disabled. **Verified by reading,
+  not by hitting the cap.**
+- **Written twice:** the client decides "You're here — check in" at a hardcoded
+  150m (`updateCheckinButton()`); the server reads `checkin_radius_m` from the
+  `config` table. Today both are 150. Change the config and the button will
+  offer check-ins the server rejects. Not changed.
+- You after one check-in reads fine. One oddity: Parkson (a mall, type
+  `venue`) counted toward "Ticket stub · visit 3 **markets** · 1/3".
+- **The celebration overlay could not be seen** — it animates in on a frame
+  callback that never fires in these tabs. Its content was read from the DOM.
+
+### 3. Owner: dashboard → edit hours → upload a photo
+
+You → "Manage your venue · Sathiti ›" → editor → changed Monday's close
+time → Save enabled → saved → "Saved." Verified against D1.
+
+- **Leaving the editor throws unsaved edits away with no warning.** The form
+  tracks dirtiness only to enable Save; ← doesn't check it.
+- **Save is ~4,200px down a 844px screen and does not stick.** An owner who
+  fixes one day's hours scrolls the entire form to save it.
+- **Photo upload could not be tested.** The signer needs Cloudinary secrets
+  that are not available locally and returns "upload not configured". I did
+  not verify a real upload.
+
+### 4. Someone submitting a new venue
+
+Submitted "Harness Test Submission" (name, area, an unresolvable Maps link,
+type Restaurant) at 320px. It worked.
+
+- **Nothing confirms the submission.** Submit drops you straight into "Edit
+  venue" with only the "your venue will look empty" note. Nothing says "we
+  got it" or "your pin appears once we confirm the location". The form
+  explained that *before* submitting; after, the only sign is a small "·
+  pending" on You once you press back.
+- Submit is ~4,090px down at 320px.
+- The name field allows 100 characters and short name is optional, which is how
+  §C's long-name case arrives in production.
+
+### 5. Admin approving it
+
+You → "Pending venues (1)" → card: "Couldn't resolve coordinates from the
+link — enter them by hand" and two empty boxes.
+
+- **Pressing Approve with the boxes empty approved it at 0,0.** §E2 — the worst
+  bug of the run.
+- **Approval gives no confirmation.** The card disappears and the list says
+  "Nothing waiting on review." The approved venue stays "pending" in the app
+  until a reload, and before §E3 a reload could keep it pending for an hour.
+- **Approval sets `verified = 1`**, with source "owner submission, confirmed
+  <date>". Confirming a pin is not verifying hours and details from a real
+  source, which is what CLAUDE.md means by verified. Flagged, not changed.
+- **Nothing prompts `scripts/export-venues.js`** after an approval, so
+  `data/venues.json` silently drifts from D1 — the mirror CLAUDE.md says to
+  regenerate after any D1 edit.
+- Reject was read in code (it purges the cache; the owner then sees "Not
+  approved" and the reason), not clicked.
+
+---
+
+## C. Empty and extreme states
+
+States built in the scratch D1. A script measured each screen for horizontal
+overflow, elements past the viewport edge, text clipped or spilling, empty-state
+copy and JS errors — All / every chip / venue sheets / You, at **390, 320 and
+1280, night and day** for the extreme set; 390 night for empty and one.
+**No JS errors in any state.**
+
+| state | what happens | verdict |
+|---|---|---|
+| **no venues** | only All and Events chips; Home shows weather and Coming up — events at venues that no longer exist — and nothing else. No message. Map empty. | reads as broken |
+| **one venue** (Sathiti, open) | **not on All** (see §B1); visible only under Cafes; one marker | confusing |
+| **60-char name, no short name** | at 320: row card grew to **6 lines / 199px** (neighbours 124px) and "Extraordinarily" was **cut off** at the card edge. Map label **327px wide, 95px past the screen edge**, over its neighbours. Venue sheet title 4 lines. | **fixed** — see below |
+| **no photo, no hours** (Go Dunk — already true in real data) | placeholder glyph, status line, no overflow | fine |
+| **event with no venue** (Mekong Half Marathon — already in real data) | renders in Coming up | fine |
+| **0 check-ins** | "Light your first flame" + Open the map, fine at 320 | fine |
+| **500 check-ins** | "30 places · 500 check-ins" fits at 320; "your flame has cooled" correct for a last check-in months ago | fine* |
+
+\* Seeded straight into `checkins`, so embers and badges were 0. It shows the
+counts fit; it says nothing about a badge list with many entries.
+
+**The long-name fix.** `.t-name` is clamped to two lines with an ellipsis and
+`overflow-wrap:anywhere`, so an unbreakable word can wrap instead of being
+cut. Re-measured at 320: the card is back to **124px**, and the name reads
+"The Extraordinar…". Map labels are truncated in JS by `markerLabel()` to 22
+characters (the longest real short name is 16). I cut it in JS rather than CSS
+because an overflow box would also clip the label's text-shadow halo and the
+day theme's outline. The venue sheet title is deliberately **not** clamped —
+it is where the full name lives.
+**One side effect:** "Mekong Half Marathon 2026" now also stops at two lines
+at 320 and loses the year there.
+
+**Not fixed, worth your judgement:** when `/api/venues` answers with an
+**empty list**, the app replaces the 30-venue bundle with it silently. An
+accidental empty D1 would give every user the no-venues screen above, with no
+banner. It's the same failure class as the migrations 008/010 incidents. A
+guard (keep the bundle and show the stale banner when live is empty and the
+bundle is not) is small. It changes what "live" means, though, so I left it.
+
+**Pre-existing, not fixed:** `#sheet` overflows horizontally by **1px** at 390
+and 320 on every screen. I measured the same 1px on a `git archive HEAD` copy,
+so it predates this run. I did not find the element responsible.
+
+---
+
+## D. What the previous runs left
+
+### The four contrast failures
+
+Run 2 reported all four fixed with its compositing walker. **This run changed
+no text-colour or background pair** — the new chip, Surprise label and owner
+button reuse existing classes — and **I did not re-run the walker**: its script
+was not kept in the repo or the scratchpad. So the honest status is "reported
+fixed in run 2, untouched since, not re-measured today".
+
+### "Could not verify" items that are verifiable now
+
+| item | now |
+|---|---|
+| location-granted path | **verified**, with a position placed in the page: "You're here — check in", distances on cards ("30 m"), and a check-in that went through the real server |
+| wall-clock timing | still not — same hidden-tab limitation |
+| WebKit | still not |
+| `geo=timeout` | still not |
+| the Lao | still not |
+
+### Every TODO / FIXME in the codebase
+
+There are no `FIXME`, `XXX` or `HACK` markers. The `TODO`s:
+
+| where | TODO | still matters? |
+|---|---|---|
+| `js/app.js:49` | `ຮ້ານອາຫານ` unchecked | **Yes, before restaurants ship.** New this run. |
+| `js/app.js:51` | `ສະຖານທີ່` for `venue`, unused | No — nothing renders it; delete it if you like. |
+| `js/app.js:1997`–`2006` | weather words in Lao (map + three words) | **Yes** — it is on Home every day ("ຝົນຕົກຢູ່ · raining now"). |
+| `js/app.js:3223`–`3226` | four mood labels have no Lao | **Yes** — English-only cards in the first-open flow of a Lao-first app. |
+| `js/app.js:3521` | welcome slides 2–3 have no Lao heading | **Yes**, same flow. |
+| `js/app.js:4128` | `ຮ້ານອາຫານໃດກໍໄດ້` | **Yes, before restaurants ship.** New this run. |
+| `js/app.js:4620` | `ກາງແຈ້ງ` (open-air) | Not yet — no venue has `outdoor: true`. |
+| `js/owner.js:205`, `:292` | the owner forms' Lao help text, whole block | **Most of all** — the one screen where a wrong word makes an owner type a wrong thing into the database. |
+
+Not a TODO, but the same kind of debt:
+- **`CLAUDE.md` still says "CARTO dark raster tiles"** under Architecture notes.
+  After §E1 it should say CARTO vector styles (Dark Matter / Positron). I did
+  not edit your rules file.
+- **`functions/api/checkin.js`** still carries the commented-out
+  `VENUE_COORDS` / `VENUE_HOURS` revert path from migration 005, labelled
+  "delete for real once the D1 path has run clean in production for a while".
+  It has; I would delete it.
+
+---
+
+## E. Worse than anything on the list
+
+### E1 — the night map was stamped "API KEY REQUIRED"
+
+Found by the first half of this run; I re-verified it from scratch. Fetching
+the exact tile URL the app used returns HTTP 200 and a real map tile with
+**"API KEY REQUIRED · carto.com/basemaps/apikey"** diagonally across it. I
+looked at the image. Night is the default theme after 17:00, so this was the
+map most people saw.
+
+The fix is CARTO's own vector equivalent: `dark-matter-gl-style`. It reads the
+same `carto.streets/v1` source Positron (day) already reads. I fetched one of
+its tiles; there's no watermark text in it. The source's tilejson carries
+"© CARTO, © OpenStreetMap contributors", so the attribution control still
+shows it (CLAUDE.md). Dark Matter and Positron have the same 93 layers and 27
+symbol layers with the same ids. So the label-thinning that used to apply only
+to day now applies to both; otherwise night would have gained seven label
+layers the raster never had.
+
+**Not verified: the new night map on screen.** WebGL does not paint in these
+tabs, which is also why every measurement here carries a "Map tiles didn't
+load" banner. **Look at night mode on a real phone before this ships.**
+
+### E2 — approving with empty coordinate boxes put the venue at 0,0, verified
+
+`Number('')` is `0`, and 0 is finite. The admin card renders **empty** boxes
+exactly when the Maps link couldn't be resolved, and neither the client check
+nor `approve.js`'s range check caught it. Reproduced: the row went to `lat 0,
+lng 0, pin_status 'placed', verified 1` — a pin in the Gulf of Guinea marked as
+Kar-confirmed. CLAUDE.md forbids exactly that: never a guessed or placeholder
+coordinate.
+
+- Client: checks the raw strings are non-empty before converting.
+- Server: rejects a missing, null or blank value, and exactly 0,0.
+
+Re-tested against the running Worker. `""`, `0,0`, `{}` and `null` are all
+rejected with "valid lat/lng required"; real coordinates still approve. In the
+browser the empty-box case says "Enter both coordinates before approving." and
+sends no request.
+
+### E3 — `/api/venues` was cached in the browser for an hour
+
+Every write path purges the **edge** copy — submit, owner edit, approve, reject
+all call `caches.default.delete`. But the response went out as `public,
+max-age=3600`, so each **browser** kept its own copy. Measured: after a D1
+change and a purge, a reload served `/api/venues` from disk (transferSize 0)
+with the old data. The owner who just saved, and you after approving, would see
+the change not happen, for up to an hour.
+
+Now `public, max-age=0, s-maxage=3600`. Verified locally: the browser gets
+`max-age=0`, and the edge copy is still stored for 3600s and served as
+`CF-Cache-Status: HIT`. Browsers go back to the edge on every load, which is a
+cache hit there, not a D1 query. **Verified on miniflare, not on Cloudflare** —
+after deploy, edit a venue, reload, and check the change is there.
+
+### E4 — small, same shape
+
+- The check-in cap message (§B2).
+- `.chip[hidden]` (§A) — a bug in this run's own work, caught by looking.
+
+---
+
+## What I could not verify
+
+- **The night basemap on screen** (§E1). The one thing to eyeball before
+  shipping.
+- **Any rendered map**: the pin colours were checked against the styles' paint
+  values, not over drawn tiles.
+- **Google sign-in** — the button and its callback. Sessions were seeded.
+- **A real Cloudinary photo upload** — no secrets locally.
+- **Reject**, clicked; **the nightly check-in cap**, triggered; **`geo=timeout`**.
+- **The intro carousel advancing** and **the celebration overlay's look**
+  (both frame-driven).
+- **`s-maxage` on real Cloudflare**, and that `caches.default.delete` only
+  purges the data centre that served the write (true before this run too).
+- **WebKit**, **wall-clock timing**, and **the Lao** — all of it, including the
+  three new strings.

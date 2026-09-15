@@ -178,6 +178,9 @@
       <button class="chip on" data-filter="all"><span class="lao">ທັງໝົດ</span> · All</button>
       <button class="chip" data-filter="bar"><span class="lao">ບາຣ໌</span> · Bars</button>
       <button class="chip" data-filter="cafe"><span class="lao">ຄາເຟ</span> · Cafes</button>
+      <!-- hidden until at least one restaurant exists — see syncTypeChips()
+           in js/app.js. Order here must match FILTER_ORDER (swipe order). -->
+      <button class="chip" data-filter="restaurant" hidden><span class="lao">ຮ້ານອາຫານ</span> · Restaurants</button>
       <button class="chip" data-filter="event"><span class="lao">ອີເວັນ</span> · Events</button>
     </div>
   </header>
