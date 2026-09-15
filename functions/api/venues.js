@@ -24,6 +24,8 @@
 // fails, there's nothing sane to fall back to for a write.
 import venuesFallback from '../../data/venues.json';
 import { getSessionUser } from './_auth.js';
+import { isAdmin } from './_admin.js';
+import { readCheckinRadius } from './_checkin-config.js';
 import {
   SIMPLE_FIELDS, REQUIRED_SIMPLE_FIELDS, VENUE_TYPES, MAX_LEN, isUrlish,
   validateHours, validateContact, validateParking, validateSignature,
@@ -48,6 +50,22 @@ async function handleGet(context) {
               verified, status, source, signature, pin_status, vibe, outdoor
        FROM venues WHERE pin_status != 'rejected' ORDER BY rowid`
     ).all();
+
+    /* Zero venues is treated as a failure, not as a result. This app has
+       never had, and will never legitimately have, an empty venue table —
+       but an empty result is exactly what a truncated table, a botched
+       re-import or a query against the wrong database looks like. Served
+       as-is it was also CACHED for an hour and adopted by every client over
+       the bundled mirror, blanking the app with no error anywhere: the
+       August-outage shape (a broken response indistinguishable from a real
+       one). Throwing sends it down the same path as a D1 error: the
+       bundled mirror, marked stale, never cached. js/app.js refuses an
+       empty list too, so an older deploy of this file cannot cause it. */
+    if (!rows.results.length) throw new Error('venues query returned no rows');
+
+    // the check-in radius, from its one home (see _checkin-config.js), so the
+    // client's "You're here" button uses the server's own number
+    const checkinRadiusM = await readCheckinRadius(db);
 
     const venues = rows.results.map((r) => {
       const v = {
@@ -87,7 +105,7 @@ async function handleGet(context) {
     });
 
     const response = Response.json(
-      { venues },
+      { venues, checkin_radius_m: checkinRadiusM },
       // one hour, not five minutes: venue data changes weekly at most,
       // and every path that changes it purges this exact cache key
       // immediately afterwards — the POST below, and
@@ -169,10 +187,34 @@ function validateCreateFields(body, errors) {
   return out;
 }
 
+const MAX_PENDING_PER_OWNER = 3;
+
 async function handlePost(context) {
   try {
     const user = await getSessionUser(context);
     if (!user) return Response.json({ ok: false, need_auth: true }, { status: 401 });
+
+    /* One free account could submit without limit, and a pending venue is
+       publicly listed (CLAUDE.md: it appears in list sections and type
+       filters so the owner sees it went through) — so this was unlimited,
+       unreviewed public text for anyone with a Google account. Capped at
+       MAX_PENDING_PER_OWNER waiting at once; an approval or rejection frees
+       a slot. The admin is exempt. The number is a judgement, not a
+       measured need — see autonomous-run.md. It limits volume, not what a
+       single submission says; that is the moderation question flagged
+       there. */
+    if (!isAdmin(context, user)) {
+      const waiting = await context.env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM venue_owners o JOIN venues v ON v.id = o.venue_id
+         WHERE o.user_id = ? AND v.pin_status = 'pending'`
+      ).bind(user.id).first();
+      if ((waiting?.c || 0) >= MAX_PENDING_PER_OWNER) {
+        return Response.json({
+          ok: false,
+          error: `You already have ${MAX_PENDING_PER_OWNER} venues waiting for review — you can add another once one has been checked.`,
+        }, { status: 429 });
+      }
+    }
 
     const body = await context.request.json().catch(() => null);
     if (!body || typeof body !== 'object') {

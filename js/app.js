@@ -305,7 +305,7 @@ async function requestLocation() {
   try {
     // fast coarse fix (cell/wifi, usually well under a second) rather than
     // waiting on a cold GPS lock (up to 10s) — plenty for routing and for
-    // the 150m check-in radius. refineLocation() chases a sharper fix
+    // the check-in radius (the server's, see state.checkinRadiusM). refineLocation() chases a sharper fix
     // afterwards in the background without making the caller wait for it.
     const pos = await new Promise((resolve, reject) =>
       navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -461,6 +461,28 @@ function refreshVenuesFromLive(live) {
     console.warn('[muan] live venues unavailable — staying on the bundled mirror');
     return;
   }
+  /* an EMPTY list is a failure, never an answer. It used to be adopted like
+     any other difference from the bundle, which replaced 30 venues with
+     none and no message — a broken response indistinguishable from a real
+     one, the shape of the August outage. functions/api/venues.js now turns
+     zero rows into its stale fallback, but the client refuses it as well so
+     no server version can do this. We ARE showing saved data at that point,
+     so the stale banner is the true thing to say. */
+  if (!live.venues.length) {
+    console.error('[muan] /api/venues returned zero venues — treating as a failure, keeping the bundled mirror');
+    showStaleWarning();
+    return;
+  }
+  // the server's check-in radius (functions/api/_checkin-config.js) — kept
+  // before the no-change early return below, since the radius arrives with
+  // every live response whether or not the venues differ from the bundle
+  if (Number.isFinite(live.checkin_radius_m) && live.checkin_radius_m !== state.checkinRadiusM) {
+    state.checkinRadiusM = live.checkin_radius_m;
+    if (state.sheetView.type === 'venue') {
+      const open = venueById(state.sheetView.venueId);
+      if (open) updateCheckinButton(open);
+    }
+  }
   // D1 threw and the Function served its own copy of the same mirror we are
   // already showing (see functions/api/venues.js) — no re-render to do, but
   // the data really may be out of date, so say so
@@ -570,7 +592,8 @@ async function boot() {
     if (!bundle || !Array.isArray(bundle.venues)) {
       // livePromise already resolves to null on failure, so this cannot throw
       const live = await livePromise;
-      if (live && Array.isArray(live.venues)) {
+      // non-empty, not just an array — see refreshVenuesFromLive()
+      if (live && Array.isArray(live.venues) && live.venues.length) {
         bundle = live;
         // the live list IS the mirror when D1 threw (see functions/api/
         // venues.js) — same reason refreshVenuesFromLive() says so
@@ -4523,11 +4546,18 @@ function updateCheckinButton(v) {
          || state.geoError === 'failed') ? "Can't find you"
       : 'Enable location to check in';
   } else {
+    /* the radius is the SERVER's (state.checkinRadiusM, from /api/venues —
+       see functions/api/_checkin-config.js). This was a hardcoded 150 that
+       had to agree with a D1 config row by hand. Not known yet (booted off
+       the bundled mirror, live response not in): the button is offered
+       without claiming "you're here", and the server decides — a too_far
+       reply also teaches us its radius (see doCheckin()). */
     const d = haversine(state.userPos, v);
-    if (d <= 150) {
+    const radius = state.checkinRadiusM;
+    if (radius == null || d <= radius) {
       cbtn.disabled = false;
       cbtn.classList.add('ready');
-      lbl.textContent = "You're here — check in";
+      lbl.textContent = radius == null ? 'Check in' : "You're here — check in";
     } else {
       lbl.textContent = `${fmtDist(d)} away — get closer`;
     }
@@ -5207,6 +5237,7 @@ async function doCheckin(v) {
     } else if (data.already) {
       document.getElementById('checkinLabel').textContent = 'Already checked in tonight';
     } else if (data.too_far) {
+      if (Number.isFinite(data.radius_m)) state.checkinRadiusM = data.radius_m;
       document.getElementById('checkinLabel').textContent = 'Too far to check in';
     } else if (data.closed) {
       document.getElementById('checkinLabel').textContent = data.message || 'that place is closed right now';

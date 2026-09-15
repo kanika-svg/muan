@@ -1,5 +1,6 @@
 import { getSessionUser } from './_auth.js';
 import { computeHeat } from './_heat.js';
+import { checkinRadiusFrom } from './_checkin-config.js';
 
 const PHAI_STAGES = ['ember', 'flicker', 'flame', 'blaze', 'naga'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -213,6 +214,18 @@ export async function onRequest(context) {
         lng === undefined || lng === null) {
       return Response.json({ ok: false, error: 'missing venue_id, lat or lng' }, { status: 400 });
     }
+    /* Real numbers in range, or no check-in. The geofence below is
+       `distanceM > radiusM`, and haversine of a string is NaN, and
+       `NaN > 150` is false — so {lat: "x", lng: "x"} passed it and checked
+       in from anywhere, no location needed at all (reproduced 2026-09-15:
+       25 embers and a badge, junk stored in checkins.lat/lng). The client
+       always sends numbers, so nothing legitimate is refused. GPS itself
+       is still client-reported and spoofable — see autonomous-run.md. */
+    if (typeof venue_id !== 'string' ||
+        typeof lat !== 'number' || !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+        typeof lng !== 'number' || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      return Response.json({ ok: false, error: 'venue_id must be text and lat/lng numbers' }, { status: 400 });
+    }
 
     // lat/lng/name/hours read live from D1 (migrations/005_venues.sql) —
     // see the dead VENUE_COORDS/VENUE_HOURS comment above for the revert path
@@ -241,7 +254,7 @@ export async function onRequest(context) {
     const config = {};
     for (const row of configRows.results) config[row.key] = row.value;
 
-    const radiusM = config.checkin_radius_m !== undefined ? Number(config.checkin_radius_m) : 150;
+    const radiusM = checkinRadiusFrom(config.checkin_radius_m);
     const emberNewVenue = config.ember_new_venue !== undefined ? Number(config.ember_new_venue) : 25;
     const emberRepeat = config.ember_repeat !== undefined ? Number(config.ember_repeat) : 5;
     const phaiThresholds = config.phai_thresholds
@@ -318,18 +331,49 @@ export async function onRequest(context) {
     const dailyEmbers = await context.env.DB.prepare(
       `SELECT COALESCE(SUM(embers),0) AS s FROM checkins WHERE user_id = ? AND created_at > ?`
     ).bind(user.id, oneDayAgo).first();
-    const capped = dailyEmbers.s >= 100;
+    let capped = dailyEmbers.s >= 100;
     if (capped) embersEarned = 0;
-
-    const priorEmbersTotal = user.embers_total ?? 0;
-    const priorStreakMonths = user.streak_months ?? 0;
-    const priorLastCheckinMonth = user.last_checkin_month ?? null;
 
     const heatBefore = await computeHeat(context.env.DB, user.id);
 
-    await context.env.DB.prepare(
-      `INSERT INTO checkins (user_id, venue_id, created_at, lat, lng, embers) VALUES (?, ?, ?, ?, ?, ?)`
-    ).bind(user.id, venue_id, nowIso, lat, lng, embersEarned).run();
+    /* The checks above are read-then-write: SELECT, decide, INSERT, as
+       separate statements. Two requests fired together both read "no
+       recent check-in here" and "under the nightly limit" and "under the
+       daily ember cap" before either inserts, and both insert — so a script
+       firing N requests at once could take N first-visit bonuses at one
+       venue, past every cap. Here the three rules that limit farming are
+       part of the INSERT itself, one statement, which D1 executes
+       atomically: the row only goes in if no check-in at this venue in 4h,
+       fewer than 6 in 6h, and the ember amount is re-decided against the
+       daily sum at the moment of writing. The earlier checks stay only to
+       choose the right message. NOT reproduced locally — wrangler's local
+       runtime runs requests one at a time — so this closes a race that is
+       plausible on production's concurrent isolates rather than one seen. */
+    const inserted = await context.env.DB.prepare(
+      `INSERT INTO checkins (user_id, venue_id, created_at, lat, lng, embers)
+       SELECT ?, ?, ?, ?, ?,
+              CASE WHEN (SELECT COALESCE(SUM(embers), 0) FROM checkins WHERE user_id = ? AND created_at > ?) >= 100
+                   THEN 0 ELSE ? END
+       WHERE NOT EXISTS (SELECT 1 FROM checkins WHERE user_id = ? AND venue_id = ? AND created_at > ?)
+         AND (SELECT COUNT(*) FROM checkins WHERE user_id = ? AND created_at > ?) < 6`
+    ).bind(
+      user.id, venue_id, nowIso, lat, lng,
+      user.id, oneDayAgo, embersEarned,
+      user.id, venue_id, fourHoursAgo,
+      user.id, sixHoursAgo
+    ).run();
+    if (!inserted.meta?.changes) {
+      // lost a race with a concurrent check-in — say which rule it hit
+      const again = await context.env.DB.prepare(
+        `SELECT 1 FROM checkins WHERE user_id = ? AND venue_id = ? AND created_at > ? LIMIT 1`
+      ).bind(user.id, venue_id, fourHoursAgo).first();
+      return again
+        ? Response.json({ ok: false, already: true, message: 'already checked in here recently' })
+        : Response.json({ ok: false, limit: true, message: 'check-in limit reached for tonight' });
+    }
+    const insertedRow = await context.env.DB.prepare('SELECT embers FROM checkins WHERE id = ?')
+      .bind(inserted.meta.last_row_id).first();
+    if (insertedRow && insertedRow.embers !== embersEarned) { embersEarned = insertedRow.embers; capped = embersEarned === 0; }
 
     const { heat, heat_level } = await computeHeat(context.env.DB, user.id);
 
@@ -338,17 +382,19 @@ export async function onRequest(context) {
     ).bind(user.id).all();
     const visitedVenueIds = visitedRows.results.map(r => r.venue_id);
 
-    const embersTotal = priorEmbersTotal + embersEarned;
-    let streakMonths = priorStreakMonths;
-    let lastCheckinMonth = priorLastCheckinMonth;
-    if (lastCheckinMonth !== currentMonth) {
-      streakMonths += 1;
-      lastCheckinMonth = currentMonth;
-    }
-
+    // incremented in place: this used to write back user.embers_total + n,
+    // read when the request began, so two concurrent check-ins each wrote
+    // their own total and one silently erased the other's embers
     await context.env.DB.prepare(
-      `UPDATE users SET embers_total = ?, streak_months = ?, last_checkin_month = ? WHERE id = ?`
-    ).bind(embersTotal, streakMonths, lastCheckinMonth, user.id).run();
+      `UPDATE users SET embers_total = embers_total + ?,
+         streak_months = CASE WHEN last_checkin_month = ? THEN streak_months ELSE streak_months + 1 END,
+         last_checkin_month = ?
+       WHERE id = ?`
+    ).bind(embersEarned, currentMonth, currentMonth, user.id).run();
+    const totals = await context.env.DB.prepare('SELECT embers_total, streak_months FROM users WHERE id = ?')
+      .bind(user.id).first();
+    const embersTotal = totals.embers_total;
+    const streakMonths = totals.streak_months;
 
     const badgeCandidates = [];
 

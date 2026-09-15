@@ -2060,3 +2060,243 @@ the pin colour decision from the last run's list, and it is still yours.
   ຝົນອາດຕົກ is your reviewed string reused for the now-state. Neither is new,
   but both are in new places.
 - **WebKit** and **wall-clock timing** generally, as before.
+
+
+---
+
+# Autonomous run — 2026-09-15, third session
+
+Kar: fifth unattended session, on top of `bb65f23`. **Nothing is committed
+and nothing is pushed.** No migration was written or run — none of this needs
+one. **No `--remote` command of any kind ran.** No venue data was touched:
+`data/venues.json`, `data/events.json`, `data/picks.json`, production D1 and
+`migrations/` are unchanged.
+
+Everything was tested against the **real Functions and a local D1** (`wrangler
+pages dev`, scratch database, seeded sessions). Test rows made along the way —
+check-ins, "Cap Test 1–3", "Cap Test Admin" — exist only in that scratch
+database. Server stopped, tab closed.
+
+```
+ M functions/api/checkin.js             (geofence bypass, atomic caps, atomic totals)
+ M functions/api/mood-pick.js           (tag whitelist)
+ M functions/api/venues.js              (zero rows = failure, radius in response, submission cap)
+ M functions/api/venues/[id]/approve.js (no longer sets verified or overwrites source)
+ M js/app.js                            (refuse an empty list, server's radius)
+?? functions/api/_checkin-config.js     (the one reader of the check-in radius)
+?? scripts/check-data.js                (CLAUDE.md's data rules, enforced)
+```
+
+**Read these four first.**
+
+1. **Anyone signed in could check in from anywhere without any GPS at all**
+   by sending `lat: "x"`. Reproduced (25 embers and a badge), fixed. §B,
+   the worst thing in this run.
+2. **Approval no longer marks a venue verified — and nothing else can yet.**
+   There is no endpoint to mark a venue verified, so until one exists that is
+   a D1 edit by hand. §A3.
+3. **Owners can have at most 3 submissions waiting for review.** The number
+   is mine. §B.
+4. **`check-data.js` found no data problems**, so there was nothing to fix. It
+   found five in its first draft, all my regex's fault. §C.
+
+---
+
+## A. What previous runs left open
+
+### A1 — an empty `/api/venues` no longer replaces the bundle
+
+Closed on **both** sides, so neither an old client nor an old server can bring
+it back:
+
+- **Server** (`functions/api/venues.js`): zero rows from D1 throws, which takes
+  the existing D1-error path — the bundled mirror, `stale: true`,
+  `Cache-Control: no-store`. Before, zero rows was served and **cached for an
+  hour**.
+- **Client** (`refreshVenuesFromLive()` and the boot fallback): a live response
+  with no venues is refused, logged as an error, and the stale banner goes up
+  — which is true, because the bundle is what is on screen.
+
+Verified: emptied the scratch venues table → `/api/venues` returned the 30-venue
+mirror, `stale: true`, `no-store`; restored. In the browser at 390 night, 320
+day and 1280 day, feeding the refresh an empty list kept all 35 local venues on
+screen and showed "Showing saved venue data — some details may be out of date."
+No JS errors.
+
+### A2 — the check-in radius has one home
+
+It was three: the client's hardcoded `150`, the D1 `config` row, and a second
+`150` fallback inside `checkin.js`.
+
+- The **`checkin_radius_m` config row** is the only setting.
+  `functions/api/_checkin-config.js` is the only thing that reads it, for both
+  `checkin.js` (which enforces it) and `/api/venues` (which now returns it as
+  `checkin_radius_m`).
+- The **client has no copy.** It uses the server's number once the live
+  response arrives. Before that — booted off the bundle, or the stale mirror —
+  the button offers "Check in" without claiming "you're here" and lets the
+  server decide. A `too_far` reply also hands the client the server's radius.
+- The one literal left is a guard used only when the config row is missing, and
+  it logs an error every time it is used. A missing seed row is a thing to fix,
+  not paper over.
+
+Verified in all three sizes/themes above: radius arrives as 150; unknown radius
+and 3 km away → "Check in" (enabled); known → "3.0 km away — get closer"
+(disabled); at the venue → "You're here — check in"; a real far-away check-in →
+"Too far to check in" and the radius learned from the reply.
+
+**One trade-off.** `/api/venues` is edge-cached for an hour, so if you change
+the config row the *button* can lag for up to an hour. The server enforces the
+new radius immediately regardless.
+
+### A3 — approval no longer means verified
+
+`approve.js` set `pin_status = 'placed'`, **`verified = 1`**, and overwrote
+`source` with "owner submission, confirmed <date>". Now it sets the pin and
+`pin_status` only. `pin_status = 'placed'` already *is* the record that the pin
+was confirmed — no new column, no migration. `verified` stays as the submission
+set it (false), and `source` keeps saying where the details came from.
+
+Verified: submitted a venue, approved it — `verified 0`, `source "owner
+submission, 2026-09-15"`, `pin_status placed`, coordinates set.
+
+**What reads `verified`, and what happens to each:**
+
+| reader | effect |
+|---|---|
+| venue sheet, `js/app.js` | an approved owner venue now shows "details unconfirmed — hours may differ" until you verify it — the honest state |
+| `/api/venues`, `/api/my-venues`, the owner edit response | pass the flag through unchanged |
+| `scripts/export-venues.js` / `import-venues.js` | round-trip it unchanged |
+| owner edit (`PATCH`) | cannot write it (not in the whitelist) — re-checked |
+| events' `verified` | a separate field on events; untouched |
+
+Nothing breaks.
+
+**Two things for you:**
+
+- **There is no way to mark a venue verified** except editing D1 by hand. It
+  wants an admin action that takes a source (CLAUDE.md: verified only with a
+  real source). A design decision, not something to add unasked.
+- **Rows the old approval promoted.** The mirror has none with the "owner
+  submission, confirmed" source, so as of the last export none exist. Worth one
+  look after your next export; un-verifying any is a D1 edit, which I cannot do.
+
+---
+
+## B. Security and abuse
+
+Every probe run as a stranger with a free account, against the local Worker.
+
+### Fixed
+
+| severity | finding | fix | verified |
+|---|---|---|---|
+| **High** | **Check-in from anywhere, no location needed.** The geofence is `distanceM > radiusM`; a string coordinate makes the distance `NaN`, and `NaN > 150` is false. `{lat:"x",lng:"x"}` checked in — 25 embers, a badge, junk stored in `checkins.lat`. | lat/lng must be finite numbers in range, `venue_id` a string; otherwise 400 | `"x"` and `1e999` both 400; a real check-in still succeeds |
+| **Medium** | **Caps could be raced.** The 4-hour-per-venue rule, 6-per-6-hours limit and 100-ember daily cap were each SELECT-then-INSERT, so simultaneous requests could all pass before any inserted: N first-visit bonuses at once. | the three rules are now conditions of one `INSERT … SELECT … WHERE`, which D1 runs atomically; the earlier checks only pick the message | the shipped SQL, run against SQLite: second at same venue within 4h refused; 7th in 6h refused; embers zeroed at the daily cap; 5h later accepted; other users unaffected. **The race itself was not reproduced** — local wrangler serialises requests, so eight parallel check-ins gave one success there before and after |
+| **Medium** | **Concurrent check-ins erased each other's embers.** `embers_total` was written back as the value read at request start plus this check-in's. | `embers_total = embers_total + ?`, streak by `CASE`, read back after | a check-in took a user from 5 to 10 in D1 |
+| **Medium** | **Unlimited submissions of public, unreviewed text.** Pending venues are publicly listed by design, so one account could publish any number of venues with any name and description. | at most **3** pending per owner (admin exempt); a 4th gets a 429 with a plain message the form already displays | 3 accepted, 4th refused; admin accepted |
+| **Low** | **`/api/mood-pick` stored any string, any length, no sign-in.** | only the vocabulary the client logs: vibe tags, `type:<venue type>`, `list:<short key>`, `dismissed` | real tags accepted; `<script>`, `type:spaceship`, a 500-char string refused |
+
+**The 3 is a judgement.** It limits volume, not what a single submission says.
+
+### Checked and found sound
+
+- **Writing to a venue you don't own:** the owner edit checks ownership first —
+  403 for someone else's venue. The owner edit ignores
+  `lat/lng/verified/pin_status/source` ("nothing to update"). No other endpoint
+  writes venue rows except the admin-gated approve/reject.
+- **Another venue's Cloudinary folder:** the upload signer checks ownership and
+  signs the folder — 403 for someone else's venue, 403 for a `../users/1`
+  traversal id. Saving another venue's photo id → 400; another user's avatar
+  folder → 400.
+- **Claiming admin client-side:** every admin endpoint checks the session's
+  user id against `ADMIN_USER_IDS` server-side. Pending, approve, reject and
+  mood-stats all 403 for a normal user, including with `is_admin: true` in the
+  body.
+- **Leaking other users' data:** no email is stored at all (sign-in keeps
+  Google's `sub` only). `/api/me` and `/api/my-venues` return only the caller's
+  own. `/api/venues` carries no owner or user fields. Check-in coordinates are
+  stored and exposed nowhere. The only cross-user field is the submitter's
+  handle, shown to the admin on pending cards.
+- **Unescaped input reaching the DOM:** scripted every `${…}` interpolation in
+  `app.js`, `owner.js` and `avatar.js` (108 candidates) and read each by hand.
+  Every owner, venue, handle and event string goes through `esc()`, which
+  escapes `& < > " '`. Links are http(s)-only server-side, so no `javascript:`.
+  Photo and avatar ids are shape-checked server-side. Upload errors and file
+  names go through `textContent`. **No XSS found.**
+- **CSRF:** the session cookie is `HttpOnly; Secure; SameSite=Lax`, so a
+  cross-site POST carries no session.
+
+### Needs a design decision — flagged, not changed
+
+| severity | finding |
+|---|---|
+| **Medium** | **Check-in location is whatever the client says.** The server validates distance, but on coordinates the phone reports, and anyone can report any coordinates. PHASE2.md's "GPS validation server-side" is true only in that sense. Real resistance needs something else (attestation, plausibility over time, venue-side codes). Today the caps above are what bound the damage: 6 check-ins per 6h, 100 embers per day. |
+| **Medium** | **Unreviewed text is public.** A pending venue's owner-written name and description show in lists before anyone looks at them, and an owner of an already-approved venue can rename or re-describe it with no review. The submission cap limits volume only. |
+| **Low** | **No rate limiting anywhere.** `/api/route` (an OpenRouteService proxy, open to anyone, destination fenced to Vientiane and cached) can burn the ORS quota; `/api/mood-pick` can still be spammed with valid tags to skew counts. |
+| **Low** | A Cloudinary signature can be reused within Cloudinary's validity window — unlimited uploads, but only into the uploader's own folder (storage cost, not a breach). |
+| **Low** | Sessions are never pruned, and there is no "sign out everywhere". |
+| **Info** | `/api/ping` shows `config.ember_base`. Harmless. |
+
+---
+
+## C. `scripts/check-data.js`
+
+```
+node scripts/check-data.js     # exits 1 and lists every problem, or prints OK
+```
+
+Offline and read-only. It checks what you asked plus two cheap rules it would
+be strange to leave out (duplicate ids, pending with coordinates):
+
+| rule | check |
+|---|---|
+| V1 | venue `verified: true` with no `source` |
+| V2 | hours not an object of mon..sun, each null or a valid `HH:MM-HH:MM` (close up to 27:59 for past-midnight — the same rule the owner API applies) |
+| V3 | status `opening-soon` with hours |
+| V4 | a photo that is not `v<digits>/<publicId>` |
+| V5 | `pin_status: placed` with null coordinates |
+| V6 | `pin_status: pending` **with** coordinates (a placeholder) |
+| V7 / E4 | duplicate venue / event ids |
+| E1 | event with no `source_url` |
+| E2 | event `venue_id` that doesn't exist |
+| E3 | event `photo` of the wrong shape |
+| P1 | a pick id that doesn't exist |
+
+**Result: `check-data: OK — 30 venues, 7 events, picks`.** No data problems, so
+nothing was fixed. The first run reported five V4 failures (`mahasan.bar_x77hwf`,
+`drip1920.1_td5jwz`…) — my regex forbade dots, and real Cloudinary ids have
+them. The rule was wrong, not the photos.
+
+**Had it found venue problems** I would have reported them, not fixed them:
+your task said fix clear errors, but the standing rule says never touch venue
+data. Events and picks are not venue data and would have been fair game.
+
+**Its limit:** venues are checked in the **mirror**, as of the last export — not
+production D1. It fixes nothing and is wired into nothing. Worth a line in
+CLAUDE.md next to `check-schema.js` (run the export, then this, before a data
+change goes out). I did not edit your rules file.
+
+---
+
+## D. My own judgement
+
+The geofence bypass and the ember race were not on your list and are worse
+than most of it; they are in §B. The atomic `embers_total` update came with
+them. Nothing else rose above what is flagged.
+
+---
+
+## What I could not verify
+
+- **The check-in race on production.** Closed by an atomic statement whose
+  rules were tested directly, but never reproduced — local wrangler runs one
+  request at a time.
+- **Cloudflare's edge honouring `s-maxage` with the radius in the body** —
+  miniflare only, as last run.
+- **Google sign-in itself** — sessions were seeded, so account creation and
+  abuse at that step were read, not exercised.
+- **Real Cloudinary uploads** — no secrets locally; ownership checks refuse
+  before the signer ever reaches Cloudinary, which is what was tested.
+- **Production data.** `check-data.js` read the mirror; D1 was not queried.
+- **WebKit, wall-clock timing, and the Lao** — as before. No Lao changed.

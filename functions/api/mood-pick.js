@@ -1,4 +1,19 @@
 import { getSessionUser } from './_auth.js';
+import { VIBE_TAGS, VENUE_TYPES } from './_venue-validation.js';
+
+/* This endpoint takes no sign-in (a first-time visitor's intro taps are the
+   point of it), so anything accepted is a row anyone can write, forever,
+   with no cap. It accepted ANY string of any length as `tag`. Now only the
+   vocabulary js/app.js actually logs (logMoodPick()): a vibe tag, "type:"
+   a venue type, "list:" a short list key, or "dismissed". That stops
+   arbitrary text and large payloads; it does NOT stop someone repeating a
+   valid tag to skew the counts — that needs rate limiting, which nothing
+   in this project has yet (see autonomous-run.md). */
+function isKnownTag(tag) {
+  if (tag === 'dismissed' || VIBE_TAGS.includes(tag)) return true;
+  if (tag.startsWith('type:')) return VENUE_TYPES.includes(tag.slice(5));
+  return /^list:[a-z0-9-]{1,32}$/.test(tag);
+}
 
 // POST /api/mood-pick — logs one mood-chooser selection (migrations/
 // 015_mood_picks.sql), the app's first analytics table. Called
@@ -22,6 +37,9 @@ export async function onRequest(context) {
     const tag = body ? body.tag : undefined;
     if (!tag || typeof tag !== 'string') {
       return Response.json({ ok: false, error: 'missing tag' }, { status: 400 });
+    }
+    if (!isKnownTag(tag)) {
+      return Response.json({ ok: false, error: 'unknown tag' }, { status: 400 });
     }
 
     // best-effort: a session lookup failing shouldn't stop the log from
