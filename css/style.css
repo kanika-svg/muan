@@ -3455,6 +3455,51 @@ body:has(#sheet.collapsed) #sheetToggle { left: 0; }
    confirmation is not a venue being open. The word "Saved" plus the error
    variant's flame below is enough to tell the two states apart. */
 .ed-save-note-ok { color: var(--mute); }
+
+/* the owner forms' Save/Submit, pinned to the bottom of the sheet. Save
+   was the last element of a ~4,200px form, so an owner who changed one
+   day's hours scrolled the whole form to reach it — and the save note
+   ("Saved.", errors, the submission confirmation) sits in here with it,
+   so it is seen too. Sticks inside #sheet's own bottom padding. The owner
+   forms are sheet-detail screens, which hide #bottomNav at every width, so
+   that padding is the plain safe-area + 16px and the bar sits 12px above
+   the bottom edge (measured: 832 of 844 at 390px, 628 of 640 at 320px,
+   798 of 800 on desktop). Full-bleed via --sheet-pad-x, the same token the
+   pinned chip bar uses for the same reason. The downward box-shadow paints
+   that 16px of padding below the bar in the ground colour, so fields do
+   not show through beneath it as they scroll past. */
+.ed-save-bar {
+  position: sticky; bottom: 0; z-index: 3;
+  margin: 14px calc(-1 * var(--sheet-pad-x)) 0;
+  padding: 2px var(--sheet-pad-x) 12px;
+  background: var(--ground); background-image: var(--weave);
+  border-top: 1px solid var(--ink4);
+  box-shadow: 0 16px 0 var(--ground);
+}
+.ed-save-bar .btn-row { margin-top: 10px; }
+/* .btn-row and .ed-leave are flex rows, and a class's display outranks the
+   UA's [hidden] — CLAUDE.md's "[hidden] vs display:flex". edBlocksLeave()
+   swaps them by .hidden. */
+.ed-save-bar .btn-row[hidden], .ed-leave[hidden] { display: none; }
+.ed-leave {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px;
+}
+.ed-leave-text { flex: 1 1 100%; font-size: 13px; font-weight: 700; color: var(--bone); }
+.ed-leave-btn {
+  flex: 1; min-height: 44px; border-radius: 12px; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 700;
+}
+.ed-leave-keep { background: var(--ink3); color: var(--bone); border: 1px solid var(--ink4); }
+.ed-leave-discard { background: transparent; color: var(--flame-text); border: 1px solid var(--ink4); }
+
+/* the admin queue's resolved card (admResolveCard() in js/owner.js) */
+.adm-done-note { font-size: 13.5px; color: var(--bone); line-height: 1.45; }
+.adm-done-sub { font-size: 12px; color: var(--secondary); margin-top: 4px; }
+
+/* Directions' no-location fallback rings the venue's Google Maps link
+   (toggleRoute() in js/app.js). Static on purpose — nothing to gate for
+   reduced motion. Same weight and offset as the focus ring. */
+.vd-link-ring { outline: 3px solid var(--flame); outline-offset: 2px; border-radius: 6px; }
 .ed-save-note-error { color: var(--flame-text); }
 
 /* ============================================================

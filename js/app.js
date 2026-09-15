@@ -716,6 +716,10 @@ async function boot() {
     document.querySelectorAll('#bottomNav .nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
         const target = btn.dataset.nav;
+        // defensive: the nav is hidden while an owner form is open (the forms
+        // are sheet-detail screens), but if that ever changes, Home and You
+        // replace the sheet and must ask first. Map re-renders nothing.
+        if (target !== 'map' && typeof edBlocksLeave === 'function' && edBlocksLeave(() => btn.click())) return;
         if (state.sheetView.type === 'venue') { leaveVenue(target); return; }
         if (target === 'map') {
           const arrivingFresh = state.screen !== 'map';
@@ -1360,6 +1364,10 @@ async function injectEmptyIcons() {
 }
 
 async function openFlameSheet() {
+  // the owner forms' back arrow, the You tab and the avatar pill all land
+  // here — see edBlocksLeave() in js/owner.js (absent until that chunk loads,
+  // and no owner form can be open before it has)
+  if (typeof edBlocksLeave === 'function' && edBlocksLeave(openFlameSheet)) return;
   // every route into signing in lands here (the avatar pill, the You tab,
   // a 401 from check-in), so this one line is enough to have the sign-in
   // script downloading in parallel with the /api/me read below instead of
@@ -2030,12 +2038,25 @@ const HOT_C = 33;
 // cold threshold would mean inventing the copy that goes with it.
 function weatherReadHtml(cat, tempC, isDay) {
   if (tempC >= HOT_C) return 'too hot to walk far';
-  if (cat === 'clear') return isDay ? 'fine for sitting outside' : 'good night for a rooftop';
+  // "looks": the sky here is Open-Meteo's grid model, not an observation —
+  // see the note on rainPartOfDay() below for why that matters in Vientiane.
+  if (cat === 'clear') return isDay ? 'looks fine for sitting out' : 'looks like a rooftop night';
   return 'mild out';
 }
 // "8pm", not "20:00" or "8:00pm" — matches the one-line, glance-length copy
 // the card is built for
 const formatHour12 = h => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'pm' : 'am'}`;
+// the rain line names a stretch of the day, not an hour (see
+// weatherWidgetHtml()). The forecast window is six hours, so a start hour
+// can be past midnight: an hour earlier in the clock than now, but 5am or
+// later, is tomorrow morning, and "this morning" at 11pm would be wrong.
+function rainPartOfDay(h, nowH = new Date().getHours()) {
+  if (h < nowH && h >= 5) return 'early tomorrow';
+  if (h >= 5 && h < 12) return 'this morning';
+  if (h >= 12 && h < 17) return 'this afternoon';
+  if (h >= 17 && h < 21) return 'this evening';
+  return 'tonight';
+}
 // state.weather is either a trimmed {ok:true, ...} body or null — boot()'s
 // fetch hasn't resolved yet, or failed. Either way, rendering nothing here
 // is the entire failure/absence UI: no placeholder, no error text, no
@@ -2105,15 +2126,28 @@ function weatherWidgetHtml() {
     // reads as forty minutes of warning that do not exist. Say "within the
     // hour" instead. No hour at all (a stale cached body with neither
     // field) degrades to the vaguer line rather than to no line.
-    const enNow = 'raining now';
-    const enSoon = from == null ? 'rain likely later'
-      : from === new Date().getHours() ? 'rain likely within the hour'
-      : `rain likely from ${formatHour12(from)}`;
+    // Claims less than it used to, on purpose. Kar reports the forecast is
+    // often wrong, and it will be: Open-Meteo is a global grid model, and a
+    // Vientiane evening shower is convective — it can soak one ban and miss
+    // the next. A grid cell cannot say "from 8pm" with the precision that
+    // sentence implies, and "raining now" is the model's current cell, not
+    // a rain gauge. So: a part of the day rather than an hour, "around"
+    // rather than "likely"/"now". Was 'raining now' / 'rain likely from
+    // 8pm' / 'rain likely within the hour' / 'rain likely later'.
+    // precip_start_hour is still what picks the part of the day.
+    const enNow = 'rain around now';
+    const enSoon = from == null ? 'rain around later'
+      : from === new Date().getHours() ? 'rain around soon'
+      : `rain around ${rainPartOfDay(from)}`;
     // ຝົນຕົກຢູ່ = "rain is falling" (ຢູ່ marks it as happening now).
     // ຝົນອາດຕົກ = "rain may fall" — ອາດ is the hedge, and it is doing the
     // same job "likely" does in the English half. See the report on why
     // this is ອາດ and not ຈະ.
-    const lo = rain === 'now' ? 'ຝົນຕົກຢູ່' : 'ຝົນອາດຕົກ';
+    // both states take the hedge now. ຝົນຕົກຢູ່ ("rain is falling") asserted
+    // exactly what the English stopped asserting; ຝົນອາດຕົກ is the existing,
+    // reviewed string, not new Lao. If Kar wants the two states told apart
+    // in Lao again, that wording is his to write.
+    const lo = 'ຝົນອາດຕົກ';
     const en = rain === 'now' ? enNow : enSoon;
     return `
       <div class="weather-bar weather-rain">
@@ -2169,7 +2203,7 @@ function outdoorNoteHtml(v) {
 // the same state.weather check as the widget itself: crediting a source for
 // data that isn't currently on screen would be worse than not crediting it.
 const weatherAttributionHtml = () =>
-  state.weather ? '<div class="hint">weather &middot; Open-Meteo</div>' : '';
+  state.weather ? '<div class="hint">forecast &middot; Open-Meteo &middot; local showers can differ</div>' : '';
 
 /* mobile bottom nav — same stroke-icon style as icoLocate/icoSun/icoMoon
    above (24x24 viewBox, stroke-width 2, currentColor) rather than emoji,
@@ -2690,6 +2724,23 @@ function bigCard(v, sub, photoOverride) {
 // renderHomeSheet()). The status/distance line always renders — "every
 // card gets" it, per the redesign brief — extraLine (event date/title,
 // for Coming up) renders as an additional line above it, never in place of it.
+// desktop's vertical list card — the type lists' and the All list's. Was
+// written inline in renderHomeSheet()'s type-list branch; lifted out,
+// unchanged, when All grew the same list, so the two cannot drift.
+function plainListCardHtml(v) {
+  const st = openStatus(v);
+  const thumb = (v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
+  return `
+    <div class="card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
+      ${photoWrap(thumb, v, false)}
+      <div class="card-body">
+        <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
+        <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
+        ${outdoorNoteHtml(v)}
+      </div>
+    </div>`;
+}
+
 function rowCard(v, extraLine) {
   const st = openStatus(v);
   const thumb = (v.photos && v.photos.length)
@@ -4102,6 +4153,7 @@ function openVibePop(tagKey, type = 'cafe') {
 // a sticky routed venue (state.routeVenueId) wins over an incidental
 // re-render, per clearRoute()'s comment on when a route is allowed to die
 function goHome() {
+  if (typeof edBlocksLeave === 'function' && edBlocksLeave(goHome)) return;
   // the lightbox is appended to document.body, not to #sheet, so re-rendering
   // the sheet underneath leaves it covering the fresh content (see
   // openLightbox()). closeLightbox() is a guarded no-op when nothing is open,
@@ -4109,8 +4161,8 @@ function goHome() {
   // and NOT by routing this function through leaveVenue(): the sticky-route
   // branch below re-opens a venue rather than leaving one, so goHome() is not
   // always a close and must not run leaveVenue()'s full teardown. Callers
-  // reaching this: the map background tap and the post-check-in
-  // celebration's "Done" — see the same call in bindChips().
+  // reaching this: the map background tap (the post-check-in celebration
+  // used to be one too; it opens You now) — see the same call in bindChips().
   closeLightbox();
   if (state.routeVenueId) { openVenue(state.routeVenueId); return; }
   renderHomeSheet();
@@ -4141,6 +4193,9 @@ function surpriseMeHtml(filter) {
    put back. Mobile only either way — desktop's On fire section is unchanged
    and never reads this. */
 const ON_FIRE_CAROUSEL = true;
+
+// see the All list at the bottom of renderHomeSheet()
+const ALL_LIST_SKIPS_SHOWN = false;
 
 function renderHomeSheet() {
   state.selectedId = null; if (state.map) updateSelection();
@@ -4263,19 +4318,7 @@ function renderHomeSheet() {
       } else if (isMobile()) {
         html += typeVenues.map(v => rowCard(v)).join('');
       } else {
-        for (const v of typeVenues) {
-          const st = openStatus(v);
-          const thumb = (v.photos && v.photos.length) ? `<img class="thumb" src="${esc(cloudinaryUrl(v.photos[0], 200))}" alt="" loading="lazy">` : `<img class="thumb" src="${venueTileUri(v.short_name || v.name, v.type, false)}" alt="" loading="lazy">`;
-          html += `
-            <div class="card${st.open ? '' : ' closed'}" data-open-venue="${v.id}">
-              ${photoWrap(thumb, v, false)}
-              <div class="card-body">
-                <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
-                <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
-                ${outdoorNoteHtml(v)}
-              </div>
-            </div>`;
-        }
+        html += typeVenues.map(plainListCardHtml).join('');
       }
     }
     if (f === 'cafe') html += moodRelinkHtml();
@@ -4362,7 +4405,7 @@ function renderHomeSheet() {
     const fireCards = pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('');
     html += secH('On fire · ໄຟລຸກ', esc(state.picks?.note_en)) +
       (mobile && ON_FIRE_CAROUSEL ? `<div class="fire-rail">${fireCards}</div>` : fireCards) +
-      `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">live check-in rankings coming soon</div>`;
+      `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">picked by us, not ranked by check-ins</div>`;
   }
 
   const busyVenuesQ = sortEditorial(busyVenues);
@@ -4370,7 +4413,7 @@ function renderHomeSheet() {
     rendered = true;
     html += secH('Busy spots · ບ່ອນຄົນຫຼາຍ', esc(state.picks?.busy_note_en)) +
       sectionWrap(busyVenuesQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, esc(v.area || '')))).join('')) +
-      `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">our picks for now — live counts when check-ins launch</div>`;
+      `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">our picks, not live counts</div>`;
   }
 
   if (showEvents && upcoming.length) {
@@ -4412,6 +4455,36 @@ function renderHomeSheet() {
     rendered = true;
     html += secH('Open late · ເປີດເດິກ') +
       sectionWrap(lateQ.map(v => mobile ? rowCard(v) : sectionCard(v, venueLine(v, openStatus(v).label))).join(''));
+  }
+
+  /* Every venue, beneath the editorial sections. All used to be ONLY those
+     sections (Kar's picks, busy spots, what's on, opening soon, open late),
+     so a venue that was none of them — 17 of the 30 on 2026-09-15 — could
+     only be found by changing the filter, and nothing on All said the
+     list was partial. Sorted exactly the way the type lists sort: by name,
+     then sortForDisplay() — open first, nearest first when location is
+     known, closed sinking. Same cards as the type lists too (rowCard() on
+     a phone, plainListCardHtml() on desktop), vertical on both: 30 cards in
+     desktop's side-scroll carousel would hide the list all over again.
+     Pending venues are in it, as they are in the type lists (CLAUDE.md).
+     The count in the header is a plain count, not a popularity figure.
+     ALL_LIST_SKIPS_SHOWN: false lists every venue, so one already in a
+     section above appears twice — the list is predictable (everything,
+     once each, in one order) at the cost of repeats. true lists only the
+     venues not already on screen. Kar's call; see autonomous-run.md. */
+  if (f === 'all' && state.venues.length) {
+    const shownAbove = new Set([
+      ...pickVenuesQ, ...busyVenuesQ, ...openingSoonQ, ...lateQ,
+      ...tonight.map(ev => venueById(ev.venue_id)), ...upcoming.map(ev => venueById(ev.venue_id)),
+    ].filter(Boolean).map(v => v.id));
+    const everyVenue = sortForDisplay(state.venues
+      .filter(v => !ALL_LIST_SKIPS_SHOWN || !shownAbove.has(v.id))
+      .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name)));
+    if (everyVenue.length) {
+      rendered = true;
+      html += secH('All places · ທັງໝົດ', plural(everyVenue.length, 'place', 'places')) +
+        (mobile ? everyVenue.map(v => rowCard(v)).join('') : everyVenue.map(plainListCardHtml).join(''));
+    }
   }
 
 
@@ -4476,6 +4549,8 @@ function updateCheckinButton(v) {
 
 /* ---------- sheet: venue detail ---------- */
 function openVenue(id) {
+  // a map pin is tappable on desktop while an owner form is open
+  if (typeof edBlocksLeave === 'function' && edBlocksLeave(() => openVenue(id))) return;
   const v = venueById(id);
   if (!v) return;
   // mobile back-button support (see leaveVenue()/the popstate listener):
@@ -4622,8 +4697,10 @@ function openVenue(id) {
      WEATHER_LABELS_LO map further up — see the TODO(lao) note there. */
   if (v.outdoor === true) {
     const rain = rainState();
-    const sub = rain === 'now'   ? 'raining now — it may be shut'
-              : rain === 'likely' ? 'rain likely tonight — it may shut'
+    // softened with the widget — see weatherWidgetHtml(). Was 'raining now
+    // — it may be shut' / 'rain likely tonight — it may shut'.
+    const sub = rain === 'now'   ? 'rain around — it may be shut'
+              : rain === 'likely' ? 'rain around later — it may shut'
               : 'no cover if the weather turns';
     detail.push(vdRow(icoPartlyCloudy(20), `
       <div class="vd-row-label">Open-air · <span class="lao">ກາງແຈ້ງ</span></div>
@@ -4636,7 +4713,7 @@ function openVenue(id) {
   const links = [];
   // the old fourth action button folded in here — Maps is a link, not an
   // action that should compete with Check in for the eye
-  if (v.links?.maps) links.push(`<a href="${esc(v.links.maps)}" target="_blank" rel="noopener">Google Maps</a>`);
+  if (v.links?.maps) links.push(`<a id="vdMapsLink" href="${esc(v.links.maps)}" target="_blank" rel="noopener">Google Maps</a>`);
   if (v.links?.facebook) links.push(`<a href="${esc(v.links.facebook)}" target="_blank" rel="noopener">Facebook page</a>`);
   if (v.links?.website) links.push(`<a href="${esc(v.links.website)}" target="_blank" rel="noopener">Website</a>`);
   if (links.length) detail.push(vdRow(icoLink(20), `<div class="vd-links">${links.join('')}</div>`));
@@ -4673,7 +4750,7 @@ function openVenue(id) {
     <div class="section-h">Comments</div>
     <div class="comment-empty">
       No comments yet.<br>
-      Comments open when check-ins launch — be the first regular. 🔥
+      Comments aren't open yet — they're coming.
     </div>
     ${v.verified ? '' : '<div class="hint">details unconfirmed — hours may differ</div>'}
     <div id="routeAttribution"></div>`;
@@ -4800,6 +4877,24 @@ async function toggleRoute(v) {
     const pos = await requestLocation();
     dirBtn.disabled = false;
     if (!pos) {
+      /* no fix, but the venue's own Google Maps link sits further down this
+         same sheet and needs no location from us at all. The button used to
+         say "Location blocked" for 2.5s and go back to "Directions", which
+         left the one thing that would work unmentioned. Now the failure
+         names it, brings it into view and rings it. A timeout is different
+         — the fix may simply be slow — so it still asks for a retry. Venues
+         without a Maps link keep the old messages. The ring is static (no
+         animation), so reduced motion needs nothing extra; the scroll goes
+         through scrollBehavior() for the same reason. */
+      const mapsLink = document.getElementById('vdMapsLink');
+      if (mapsLink && state.geoError !== 'timeout') {
+        lbl.textContent = 'Use Google Maps ↓';
+        mapsLink.scrollIntoView({ block: 'center', behavior: scrollBehavior() });
+        mapsLink.classList.add('vd-link-ring');
+        setTimeout(() => mapsLink.classList.remove('vd-link-ring'), 3000);
+        setTimeout(() => { if (lbl.isConnected) lbl.textContent = 'Directions'; }, 4000);
+        return;
+      }
       lbl.textContent =
         state.geoError === 'blocked' ? 'Location blocked' :
         state.geoError === 'timeout' ? 'Timed out — retry' : 'No location';
@@ -5147,7 +5242,7 @@ function showCelebration(data) {
       <div class="cel-rows">
         <div class="cel-row"><span>Streak</span><b>${data.streak_months} month${data.streak_months>1?'s':''}</b></div>
         <div class="cel-row"><span>Your flame</span><b>${stageLabels[data.phai_stage]||data.phai_stage}</b></div>
-        ${data.heat_level && data.heat_level !== data.prev_heat_level ? `<div class="cel-row"><span>Burning</span><b>${cap(data.heat_level)}</b></div>` : ''}
+        ${data.heat_level && data.heat_level !== data.prev_heat_level ? `<div class="cel-row"><span>Heat</span><b>${cap(data.heat_level)}</b></div>` : ''}
         ${data.first_visit ? '<div class="cel-row cel-new"><span>First visit here</span><b>+bonus</b></div>' : `<div class="cel-row"><span>Visits here</span><b>${data.venue_checkins}</b></div>`}
         ${data.new_badges?.length ? data.new_badges.map(b =>
           `<div class="cel-row cel-badge"><span class="cel-badge-label">${badgeIcon(b, 16)}${esc(b.name)}</span><b>unlocked</b></div>`
@@ -5178,10 +5273,15 @@ function showCelebration(data) {
   let n = 0;
   const step = Math.max(1, Math.round(target/20));
   const t = setInterval(() => { n = Math.min(target, n+step); num.textContent = n; if (n>=target) clearInterval(t); }, 40);
+  // to You, not Home: the flame this check-in just fed, the streak and any
+  // badge it just unlocked all live there, and the celebration is the one
+  // moment someone is sure to want to look. Home was the old destination.
   ov.querySelector('.cel-done').addEventListener('click', () => {
     ov.classList.remove('show');
     setTimeout(() => ov.remove(), 300);
-    goHome();
+    closeLightbox();
+    if (state.map) clearRoute();
+    openFlameSheet();
   });
 }
 
@@ -5540,6 +5640,8 @@ function syncChipState() {
 function bindChips() {
   document.querySelectorAll('.chip').forEach(ch => {
     ch.addEventListener('click', () => {
+      // desktop shows the chip row beside an open owner form
+      if (typeof edBlocksLeave === 'function' && edBlocksLeave(() => ch.click())) return;
       state.filter = ch.dataset.filter;
       syncChipState();
       // a filter change is an explicit "browse elsewhere" action — return to

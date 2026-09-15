@@ -60,9 +60,11 @@ export async function onRequest(context) {
     // precip_start_hour existing. peakHour is where the probability is
     // HIGHEST in the window; startHour is the FIRST hour it crosses
     // RAIN_LIKELY. Given 6pm 55%, 7pm 60%, 8pm 80%, the peak is 8pm but
-    // rain is likely from 6pm — and the widget's copy is "rain likely from
-    // <hour>", which is an onset, not a peak. Reading peakHour for that
-    // sentence told people they had two more hours than they had.
+    // rain is likely from 6pm. The widget names the part of the day the
+    // rain STARTS in ("rain around this evening" — it used to name the
+    // hour, and was softened because a grid model cannot place a convective
+    // shower to the hour), and an onset is still an onset, not a peak.
+    // Reading peakHour told people they had two more hours than they had.
     // RAIN_LIKELY must stay in step with RAIN_LIKELY_PCT in js/app.js: the
     // client decides whether to show the rain treatment at all from
     // precip_chance, and this decides which hour that sentence names. If

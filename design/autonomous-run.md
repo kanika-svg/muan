@@ -1692,3 +1692,371 @@ after deploy, edit a venue, reload, and check the change is there.
   purges the data centre that served the write (true before this run too).
 - **WebKit**, **wall-clock timing**, and **the Lao** — all of it, including the
   three new strings.
+
+
+---
+
+# Autonomous run — 2026-09-15, second session
+
+Kar: fourth unattended session, the same day as the third (you committed that
+one as `9064164`, so everything below is a fresh diff on top of it).
+**Nothing is committed and nothing is pushed.** No migration was written or
+run, **no `--remote` command of any kind ran**, and no venue data was touched:
+`data/venues.json`, `data/events.json`, `data/picks.json`,
+`data/candidates.json`, `migrations/` and production D1 are all unchanged.
+
+Every journey below was driven against the **real Functions and a local D1**
+(`wrangler pages dev`, scratch database in the session scratchpad, seeded
+sessions), not mocks. Two throwaway submissions — "Harness Pending Test" and
+"Harness Confirm Test" — exist only in that scratch database. Server stopped,
+tab closed.
+
+```
+ M css/style.css            (sticky save bar, leave prompt, admin note, link ring)
+ M functions/api/weather.js (one comment)
+ M js/app.js                (All list, weather copy, Directions fallback, guards, copy)
+ M js/owner.js              (leave guard, save bars, confirmations)
+```
+
+**Read these five first — they are where I made a call you might reverse.**
+
+1. **The All list shows every venue, so 13 of 30 appear twice** (once in an
+   editorial section, once in the list). One constant turns that off. I left
+   it on for a reason that is about your Lao, not layout. §A.
+2. **The Lao rain line no longer says "rain is falling".** Both rain states now
+   use the hedge you already reviewed, ຝົນອາດຕົກ — no new Lao was written, but
+   the "now" state means something different than it did. §C.
+3. **Save and Submit are pinned to the bottom of the owner forms**, and leaving
+   with unsaved input asks first — inline, in that bar, not a browser dialog.
+   §B5.
+4. **The celebration row "Burning" is now "Heat".** It printed "Burning ·
+   Burning" whenever the heat level was `burning`. "Burning" was my word from
+   the first run; "Heat" is also mine. §E.
+5. **The pin colour is not changed in code.** Two alternatives are below; the
+   stronger one needs a small change to `pinSVG()`. §D.
+
+---
+
+## A. The All tab
+
+### What changed
+
+A plain list of **every venue** now follows the editorial sections on All:
+header **"ທັງໝົດ / All places"** with a plain count ("30 places"), sorted
+exactly the way the type lists sort — alphabetical, then `sortForDisplay()`
+(open first, nearest first when location is known, closed sinking). Same cards
+as the type lists: `rowCard()` on a phone, and on desktop a vertical card that
+used to be written inline in the type-list branch and is now one function,
+`plainListCardHtml()`, which both lists call. Vertical on desktop too — 30
+cards in desktop's side-scroll carousel would have hidden the list all over
+again. Pending venues are in it, as they are in the type lists.
+
+### How long All becomes
+
+| | editorial sections | + the list | whole Home | screens | per card |
+|---|---|---|---|---|---|
+| 390px, night and day | 2,845px | 4,251px | 7,178px | 8.6 | 142px |
+| 320px, night and day | ~2,960px | 4,251px | 7,215px | 11.5 | 142px |
+| 1280px, night and day | 2,252px | 2,933px | 5,187px | 6.5 | 98px |
+
+Identical in both themes, as layout should be. No horizontal overflow at any
+width (the 1px `#sheet` overflow on phones predates run 3, see there), no
+card wider than its box, no JS errors.
+
+### Does it need a header?
+
+**Yes.** On a phone the section directly above it, Open late, is also a
+column of row cards in exactly the same shape; without a header the list reads
+as Open late going on for thirty more venues, which would be false. The count
+is there so the list says what it is — everything — at a glance.
+
+### Is anything listed twice?
+
+**Yes: 13 of 30** — every venue that is also in On fire, Busy spots, Coming up
+or Open late today (Status, Kong View, Parkson, KOKKOK, ITECC, Night Market,
+Corebeer, Rustic, MADAME, Tipsy Elephant, Stellar, Blues Box, Wind West).
+
+`ALL_LIST_SKIPS_SHOWN` in `js/app.js` lists only the other 17 instead:
+**2,414px on a phone, 1,666px on desktop** rather than 4,251 / 2,933. I left it
+`false`, and the reason is the header, not the pixels. "ທັງໝົດ / All places" is
+only true if the list is all places. A list of "the ones not shown above"
+needs a different header — "More places" or similar — and its Lao is yours to
+write, not mine to compose. If you flip the constant, change the header in the
+same edit.
+
+### Verified
+
+- No location: open venues A→Z, then closed A→Z.
+- Location placed near Nam Phou: open nearest-first (Chokdee 348m, Sathiti
+  354m, Sinouk 421m…), then closed nearest-first (…7th Heaven 1,082m, Kong View
+  2,808m, ITECC 3,946m). Both groups strictly ascending.
+- The type lists still render through the shared card (they are the same cards
+  they were).
+
+---
+
+## B. The last run's journey findings
+
+### B1 — Directions with location off now points at Google Maps
+
+When there is no fix and the venue has a Maps link, Directions now says
+**"Use Google Maps ↓"**, scrolls the venue's own Google Maps link into view and
+rings it for 3s (a static outline, nothing to gate for reduced motion), then
+reads "Directions" again after 4s. A **timeout** still says "Timed out — retry"
+— the fix may just be slow. A venue without a Maps link keeps the old messages,
+but **all 30 venues have one today**.
+
+Verified at 320px (the narrowest button, 282px): the label fits; the link gets
+its ring; the ring is gone at 3s and the label back at 4s. The scroll itself:
+the link lands in view (409px down) with instant scrolling. The smooth scroll
+the app actually uses **does not run in these tabs**, so the animated version
+is correct code I could not watch.
+
+### B2 — submission confirmation
+
+After Submit, the editor it hands you to now says, in the Save bar:
+**"Submitted — you're on the list now. Your pin goes on the map once we've
+checked your Maps link."** It is in the bar rather than at the top because
+the editor scrolls down to the photo field on arrival — a note at the top
+would open off-screen — and the bar is always on screen (§B5). It repeats the
+promise the form made before Submit, and stays until the next save. Verified at
+320px day: visible.
+
+### B3 — approval and rejection confirmation
+
+A reviewed card no longer vanishes. It turns into a note:
+
+- **"Approved. {name} is on the map now."** with, beneath it, **"D1 changed —
+  run scripts/export-venues.js to update data/venues.json."** — the export
+  CLAUDE.md asks for after any D1 edit, which nothing prompted before.
+- **"Rejected. {name} — the owner sees your reason when they next open it."**
+
+When the last card is resolved, "Nothing else waiting on review." appears
+below the notes. The app's own venue list is re-fetched straight after, so an
+approved venue **gets its pin without a reload** — before, it stayed "pending"
+in the app until you reloaded. Verified both: approve at 390px night (state
+went `pending` → `placed`, marker present), reject with a reason.
+
+### B4 — the celebration goes to You
+
+"Nice" now opens You (the flame sheet, You active in the nav) instead of Home.
+Verified with a real check-in at KOKKOK Mega Mall through `checkin.js`.
+
+### B5 — unsaved edits, and Save at the bottom of a 4,200px form
+
+**Save is pinned.** Both owner forms (edit and submit) put Save/Submit, its
+note and the leave prompt in a bar stuck to the bottom of the sheet. The owner
+forms hide the bottom nav at every width, so the bar sits 12px above the screen
+edge:
+
+| | bar | contrast in the bar (prompt text / Keep / Discard) |
+|---|---|---|
+| 320px day (submit) | 555–628 of 640, on screen at the top of the form | — |
+| 390px night (edit) | 759–832 of 844, same at the top and 1,500px down | 15.5 / 14.3 / 5.65 |
+| 390px day | 739–832 of 844 with the prompt open | 15.0 / 12.9 / 5.41 |
+| 1280px night and day | 705–798 of 800 | 15.5 / 14.3 / 5.65 and 15.0 / 12.9 / 5.41 |
+
+The pixel just below the bar is sheet background, not form content. Prompt
+buttons are 44px tall.
+
+**Leaving asks first.** Each form registers what "unsaved" means for it (the
+editor: anything different from the last save; the submit form: anything
+typed or toggled since it opened). Tapping ← with unsaved input swaps the Save
+row for **"You have unsaved changes. [Keep editing] [Discard]"**, with focus on
+Keep editing. Keep editing puts Save back; Discard leaves. Not
+`window.confirm()` — a native dialog blocks the page and is a different voice
+from the app.
+
+Verified at 390px night: edit Tuesday's close → ← → prompt (Save row hidden)
+→ Keep editing → Save row back → Discard → left, and on reopening the value was
+the original (the edit really was discarded) → edit again → Save → "Saved."
+visible in the bar → ← leaves with no prompt. Also verified the submit form's
+bar and guard.
+
+The same check sits on every other way out of the form: the avatar pill (via
+`openFlameSheet()`), and on desktop — where the map and chips stay beside the
+form — a filter chip, a map tap and a pin. The bottom nav is hidden on these
+screens, so its check is defensive only. `beforeunload` covers a reload or
+closing the tab.
+
+**One CSS trap caught before it shipped:** `.btn-row` and the prompt are flex
+rows, and a class's `display` outranks `[hidden]` — CLAUDE.md's entry. Both
+have explicit `[hidden] { display:none }` rules; the measurement above
+confirms `display: none` / `flex` swap correctly.
+
+### B6 — "Comments open when check-ins launch"
+
+Check-ins launched; comments have not. Changed, along with the two notes on
+Home that made the same stale promise:
+
+| where | was | now |
+|---|---|---|
+| venue sheet, Comments | "Comments open when check-ins launch — be the first regular. 🔥" | "Comments aren't open yet — they're coming." |
+| On fire, under the section | "live check-in rankings coming soon" | "picked by us, not ranked by check-ins" |
+| Busy spots, under the section | "our picks for now — live counts when check-ins launch" | "our picks, not live counts" |
+
+The two Home notes now say what the sections are rather than promise a
+feature on a date nobody has set. All three are your voice; change freely.
+
+---
+
+## C. Weather honesty
+
+The rain treatment still appears on the same condition (current code is rain,
+or any hour in the next six at ≥50%). It claims less once it does.
+
+| where | was | now |
+|---|---|---|
+| widget, raining (current code) | ຝົນຕົກຢູ່ · raining now | ຝົນອາດຕົກ · rain around now |
+| widget, starts this hour | ຝົນອາດຕົກ · rain likely within the hour | ຝົນອາດຕົກ · rain around soon |
+| widget, starts later | ຝົນອາດຕົກ · rain likely from 8pm | ຝົນອາດຕົກ · rain around this evening |
+| widget, no start hour | ຝົນອາດຕົກ · rain likely later | ຝົນອາດຕົກ · rain around later |
+| widget, dry, clear, day | fine for sitting outside | looks fine for sitting out |
+| widget, dry, clear, night | good night for a rooftop | looks like a rooftop night |
+| venue sheet, open-air, raining | raining now — it may be shut | rain around — it may be shut |
+| venue sheet, open-air, later | rain likely tonight — it may shut | rain around later — it may shut |
+| Home attribution | weather · Open-Meteo | forecast · Open-Meteo · local showers can differ |
+
+**The hour became a part of the day.** `rainPartOfDay()` maps the forecast's
+start hour to this morning / this afternoon / this evening / tonight, and to
+**"early tomorrow"** when the six-hour window crosses midnight into the
+morning (5am seen at 11pm is not "this morning"). Tested on seven hour pairs,
+all correct.
+
+**Unchanged, on purpose:** "too hot to walk far" and "mild out" (temperature
+from a grid model is reliable to a degree or two; convective rain is the thing
+it gets wrong), the card note "open-air · may close in rain" (already
+conditional), "no cover if the weather turns", and the Lao condition words.
+
+**Your call:** the 50% threshold. It decides how *often* the rain line appears
+at all; raising it would make the feature claim less often, not just more
+softly. I did not move it.
+
+---
+
+## D. The restaurant pin colour
+
+The three existing pins already use up the red–green axis that protanopia and
+deuteranopia collapse: bar coral and cafe teal fall toward the same
+yellow-grey, venue violet holds the blue end. Hue alone cannot fit a fourth
+colour that survives simulation — I searched every hue off gold and the river
+first, and the magenta family tops out at the current proposal's weakness. **A
+fourth pin has to differ in lightness**: lighter than every pin at night,
+darker than every pin by day.
+
+There is a second constraint the last run did not check: every pin's head has
+a fixed **#131019** disc. A dark pin swallows it. For reference, the existing
+day venue pin is already only 2.45:1 against it.
+
+### The two alternatives
+
+- **A — light orchid `#F0A3FF` (night) / dark plum `#441A4D` (day), with a
+  light centre (`#F5F1E8`) on the day pin.** Strongest. The plum's centre would
+  be 1.34:1 against the fixed dark disc, so it needs `pinSVG()` to take a
+  per-type centre colour — a small change, **not made**. The inverted centre is
+  itself a non-colour cue, which is the best help there is for colour-blind
+  users.
+- **B — lavender `#C7A5E9` (night) / electric purple `#8A14FF` (day).** No code
+  change (centre 8.95 / 3.25:1). Holds up under simulation, but for normal
+  vision it reads as a second purple beside venue violet — which is the
+  confusion we set out to avoid.
+
+Lime/green was searched too and fails: by day it is nearly indistinguishable
+from cafe teal under tritanopia (ΔE 5), and green sits next to the open-now
+teal that CLAUDE.md reserves.
+
+### All four pins together — CIE76 ΔE, normal / protan / deutan / tritan
+
+Simulation: Machado et al. 2009, severity 1. Existing map's own weakest pair
+for reference: bar/cafe, protan **33 night / 30 day**.
+
+**Current proposal** `#E64DC7` / `#A3298B`
+
+| pair | night | day |
+|---|---|---|
+| bar/cafe | 117 / 33 / 53 / 126 | 105 / 30 / 53 / 117 |
+| bar/venue | 116 / 103 / 121 / 94 | 111 / 97 / 114 / 100 |
+| cafe/venue | 117 / 81 / 70 / 46 | 100 / 70 / 62 / 32 |
+| bar/restaurant | 84 / 84 / 82 / 28 | 79 / 77 / 78 / 44 |
+| cafe/restaurant | 125 / 62 / **30** / 107 | 99 / 50 / **25** / 84 |
+| venue/restaurant | 42 / **20** / 40 / 72 | 35 / **21** / 37 / 60 |
+
+**A** `#F0A3FF` / `#441A4D` (light centre by day)
+
+| pair | night | day |
+|---|---|---|
+| bar/restaurant | 88 / 80 / 88 / 63 | 86 / 70 / 84 / 80 |
+| cafe/restaurant | 100 / 51 / 36 / 71 | 75 / 49 / 35 / 57 |
+| venue/restaurant | 41 / 37 / 45 / 45 | 40 / 38 / 41 / 32 |
+| *worst protan/deutan* | **36** | **35** |
+
+**B** `#C7A5E9` / `#8A14FF`
+
+| pair | night | day |
+|---|---|---|
+| bar/restaurant | 89 / 74 / 84 / 78 | 143 / 128 / 143 / 94 |
+| cafe/restaurant | 81 / 45 / 32 / 52 | 151 / 100 / 93 / 49 |
+| venue/restaurant | 46 / 40 / 44 / 30 | 53 / 34 / 34 / **20** |
+| *worst protan/deutan* | **32** | **34** |
+
+(The three existing pairs are identical in every table, so they are only
+printed once.)
+
+Both alternatives clear the existing map's own weakest pair; the current
+proposal does not. Legibility on the basemap paint: A 3.94 night / 9.90 day,
+B 3.45 / 4.10 (current 2.16 / 4.58).
+
+**Seen, not only computed.** I drew all four pins for the current proposal, A
+and B over the basemap paint colours, in both themes, normal and through SVG
+protanopia and deuteranopia filters. Under both simulations the current
+magenta turns into the same blue as venue. A's orchid is visibly lighter than
+everything at night, and by day its light centre stands out whatever your
+colour vision. B holds up in simulation but is plainly "another purple" to
+normal vision.
+
+**My recommendation is A**, including the one-line `pinSVG()` change. This is
+the pin colour decision from the last run's list, and it is still yours.
+
+---
+
+## E. My own judgement
+
+- **Fixed: "Burning · Burning".** The celebration row was labelled "Burning"
+  and printed `cap(heat_level)` — and one of the heat levels
+  (`functions/api/_heat.js`) is literally `burning`. Seen on a real check-in
+  this session. Now "Heat · Burning" / "Heat · Warm".
+- **Found in testing, not in the app:** after a tab has been hidden for ~5
+  minutes, Chrome throttles chained timers to about once a minute. My test
+  scripts stalled at the 45s limit and looked like a frozen page. Waits now use
+  a MessageChannel loop; written into the browser-automation memory so the next
+  session does not lose time to it.
+- **Still open from the last run, not done this time** (the list above was
+  long enough, and none of these is urgent):
+  - an **empty** `/api/venues` still silently replaces the bundle
+  - the check-in radius is still written twice (client 150 vs server config)
+  - approval still sets `verified = 1`
+
+  The export reminder, at least, is now in the approval note (§B3).
+
+---
+
+## What I could not verify
+
+- **Smooth scrolling**: the Directions fallback's scroll to the Maps link and
+  the editor's scroll to the photo field on arrival. Both are correct with
+  instant scrolling; the animated versions do not run in these tabs.
+- **The `beforeunload` dialog** — a native browser dialog, deliberately not
+  triggered.
+- **Sticky on WebKit.** This codebase has had Safari-only sticky bugs, and
+  the new Save bar is `position: sticky; bottom: 0` inside `#sheet`. **Check the
+  owner forms on a real iPhone before shipping.**
+- **Real touch and scroll feel** of a 7,000px Home, and loading 30 more
+  (lazy) images on a slow phone.
+- **Whether the softer weather copy matches what people see** — it claims
+  less; it cannot be more accurate than the model behind it.
+- **The pin colours over rendered map tiles** — the swatch used the styles'
+  paint colours; and colour-blindness simulation is a model, not people.
+- **The Lao.** ທັງໝົດ is your chip word reused as a section header;
+  ຝົນອາດຕົກ is your reviewed string reused for the now-state. Neither is new,
+  but both are in new places.
+- **WebKit** and **wall-clock timing** generally, as before.

@@ -30,6 +30,49 @@ const MAX_SIG_NAME = 60;
 const MAX_SIG_NOTE = 80;
 const MAX_PHOTOS = 8;
 
+/* ---------- unsaved input on the owner forms ----------
+   Leaving the editor used to throw away unsaved edits with no warning: the
+   form tracked dirtiness only to enable Save, and the back arrow never
+   asked. An owner who fixed three days of hours and tapped ← lost them.
+   Each form registers { root, dirty } here; every user-driven way out of
+   the sheet calls edBlocksLeave(retry) first: ← and the avatar pill (both
+   via openFlameSheet()), and on desktop, where the map and chip row stay
+   beside the form, a filter chip, a map tap (goHome()) and a pin
+   (openVenue()). The bottom nav is hidden on these screens at every width
+   (sheet-detail), so its check is defensive only. Clean, or the form is no longer on screen:
+   returns false and the exit goes ahead. Dirty: shows the prompt in the
+   form's sticky save bar — which is always on screen, wherever the exit
+   was tapped — and returns true; Discard clears the guard and re-runs
+   the exit. Not window.confirm(): a native dialog blocks the page and is
+   a different voice from the rest of the app.
+   beforeunload covers a reload or closing the tab, where the browser's own
+   dialog is the only one allowed. */
+let edLeaveCheck = null;
+function edSetLeaveCheck(root, dirty) { edLeaveCheck = { root, dirty }; }
+function edBlocksLeave(retry) {
+  if (!edLeaveCheck) return false;
+  const { root, dirty } = edLeaveCheck;
+  const prompt = root.isConnected ? root.querySelector('.ed-leave') : null;
+  if (!prompt || !dirty()) { edLeaveCheck = null; return false; }
+  const row = root.querySelector('.ed-save-bar .btn-row');
+  prompt.hidden = false;
+  if (row) row.hidden = true;
+  prompt.querySelector('.ed-leave-keep').onclick = () => { prompt.hidden = true; if (row) row.hidden = false; };
+  prompt.querySelector('.ed-leave-discard').onclick = () => { edLeaveCheck = null; retry(); };
+  prompt.querySelector('.ed-leave-keep').focus();
+  return true;
+}
+window.addEventListener('beforeunload', (e) => {
+  if (edLeaveCheck && edLeaveCheck.root.isConnected && edLeaveCheck.dirty()) { e.preventDefault(); e.returnValue = ''; }
+});
+function edLeavePromptHtml() {
+  return `<div class="ed-leave" hidden>
+      <span class="ed-leave-text">You have unsaved changes.</span>
+      <button type="button" class="ed-leave-btn ed-leave-keep">Keep editing</button>
+      <button type="button" class="ed-leave-btn ed-leave-discard">Discard</button>
+    </div>`;
+}
+
 // the type toggle on both forms — was three buttons written out twice, once
 // per form. Order and set come from OWNER_VENUE_TYPES, names from
 // VENUE_TYPE_META, both in js/app.js. `selected` not in the list (a type
@@ -477,8 +520,11 @@ function openVenueSubmitForm() {
       <div class="ed-err" data-err-for="maps_url"></div>
     </div>
 
-    <div class="ed-save-note" id="subSaveNote" hidden></div>
-    <div class="btn-row"><button class="btn btn-go" id="subSaveBtn" style="flex:1;">Submit</button></div>
+    <div class="ed-save-bar">
+      <div class="ed-save-note" id="subSaveNote" hidden></div>
+      <div class="btn-row"><button class="btn btn-go" id="subSaveBtn" style="flex:1;">Submit</button></div>
+      ${edLeavePromptHtml()}
+    </div>
     <div class="ed-hint" style="text-align:center;">You'll add photos in the next step</div>
   `);
 
@@ -561,6 +607,11 @@ function wireVenueSubmitForm() {
       signature: signature.length ? signature : null,
     };
   };
+
+  // unsaved-input guard (see edBlocksLeave()): anything typed or toggled
+  // since the form opened
+  const initialState = JSON.stringify(readState());
+  edSetLeaveCheck(root, () => JSON.stringify(readState()) !== initialState);
 
   saveBtn.addEventListener('click', async () => {
     clearErrors();
@@ -760,8 +811,11 @@ function openVenueEditor(venue, opts = {}) {
       <div class="ed-err" data-err-for="maps_url"></div>
     </div>
 
-    <div class="ed-save-note" id="edSaveNote" hidden></div>
-    <div class="btn-row"><button class="btn btn-go" id="edSaveBtn" disabled style="flex:1;">Save</button></div>
+    <div class="ed-save-bar">
+      <div class="ed-save-note" id="edSaveNote" hidden></div>
+      <div class="btn-row"><button class="btn btn-go" id="edSaveBtn" disabled style="flex:1;">Save</button></div>
+      ${edLeavePromptHtml()}
+    </div>
   `);
 
   const sheet = document.getElementById('sheet');
@@ -844,6 +898,21 @@ function wireVenueEditor(venue, opts = {}) {
   const refreshDirty = () => {
     saveBtn.disabled = JSON.stringify(readState()) === JSON.stringify(baselineState);
   };
+  edSetLeaveCheck(root, () => JSON.stringify(readState()) !== JSON.stringify(baselineState));
+
+  // the submit form hands over to this editor on success, and nothing used to
+  // say the submission had gone through — the owner simply found themselves
+  // on a different form. Said here, in the sticky save bar, because the
+  // editor scrolls down to the photo field on arrival (see the nudge below)
+  // and a note at the top would open off-screen. Same promise the submit
+  // form made before they pressed Submit; it stays until their next save.
+  if (opts.justSubmitted) {
+    saveNote.hidden = false;
+    saveNote.className = 'ed-save-note ed-save-note-ok';
+    saveNote.textContent = venue.pin_status === 'pending'
+      ? "Submitted — you're on the list now. Your pin goes on the map once we've checked your Maps link."
+      : "Submitted — you're on the list now.";
+  }
 
   edRenderPhotos(document.getElementById('edPhotos'), photosState, refreshDirty);
 
@@ -1044,14 +1113,21 @@ function adminPendingCardHtml(v) {
     </div>`;
 }
 
-// removes a card once its venue has been approved/rejected, and swaps in
-// the empty state if that was the last one — no full re-fetch needed since
-// the server call already told us it succeeded
-function admRemoveCard(card) {
-  card.remove();
+// a card that has been approved or rejected turns into a one-line note of
+// what just happened instead of vanishing. It used to vanish, and the last
+// one left "Nothing waiting on review." — which reads the same whether the
+// approval went through or the card was simply never there. The note stays
+// until the queue is next opened; the empty state only counts cards still
+// waiting. Then the app's own venue list is re-fetched: an approved venue
+// was still "pending" in state.venues — no pin — until a full reload.
+function admResolveCard(card, noteHtml) {
+  card.classList.add('adm-done');
+  card.innerHTML = `<div class="adm-done-note">${noteHtml}</div>`;
+  fetch('/api/venues', { cache: 'no-store' }).then(r => r.json()).then(refreshVenuesFromLive)
+    .catch(e => console.warn('[muan] venue refresh after review failed', e));
   const list = document.getElementById('admList');
-  if (list && !list.querySelector('.adm-card')) {
-    list.innerHTML = '<div class="s-sub" style="text-align:center;padding:30px 0;">Nothing waiting on review.</div>';
+  if (list && !list.querySelector('.adm-card:not(.adm-done)')) {
+    list.insertAdjacentHTML('beforeend', '<div class="s-sub" style="text-align:center;padding:30px 0;">Nothing else waiting on review.</div>');
   }
 }
 
@@ -1092,7 +1168,8 @@ function wireAdminPendingSheet() {
         });
         const data = await res.json().catch(() => null);
         if (!data?.ok) throw new Error(data?.error || 'approve failed');
-        admRemoveCard(card);
+        const name = card.querySelector('.adm-name')?.textContent || 'This venue';
+        admResolveCard(card, `<b>Approved.</b> ${esc(name)} is on the map now.<div class="adm-done-sub">D1 changed — run scripts/export-venues.js to update data/venues.json.</div>`);
       } catch (e) {
         errEl.textContent = 'Could not approve — try again.';
         approveBtn.disabled = false;
@@ -1118,7 +1195,8 @@ function wireAdminPendingSheet() {
         });
         const data = await res.json().catch(() => null);
         if (!data?.ok) throw new Error(data?.error || 'reject failed');
-        admRemoveCard(card);
+        const name = card.querySelector('.adm-name')?.textContent || 'This venue';
+        admResolveCard(card, `<b>Rejected.</b> ${esc(name)} — the owner sees your reason when they next open it.`);
       } catch (e) {
         errEl.textContent = 'Could not reject — try again.';
         rejectConfirm.disabled = false;
