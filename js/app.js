@@ -103,6 +103,7 @@ const state = {
   trackWatchId: null,
   cafeTab: 'recommended', // 'recommended' | 'all' — sub-tab inside the Cafes filter
   distanceFilterM: null,  // null (Any) | 500 | 1000 | 3000 | 5000 — see withinDistance()
+  homeQuery: '',          // the Discover search box — see wireHomeSearch()
   screen: 'home',           // mobile only: 'home' | 'map' | 'you' — see setMobileScreen()
   screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
@@ -2267,6 +2268,11 @@ function icoPersonNav(size) {
     <path d="M4.5 21c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6"/></svg>`;
 }
 
+function icoSearch(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>`;
+}
 function icoSurprise(size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -4221,59 +4227,154 @@ function goHome() {
 // f === 'bar' || 'cafe' branch now — All/Events render nothing here at all,
 // not a hidden button. `filter` is always 'bar' or 'cafe' for that reason;
 // quickSurpriseMe() below scopes its pick the same way.
-/* ---------- Home: category tiles (All tab) ---------- */
-// Replace the chip row on All with one photo tile per filter — Bars, Cafes,
-// Events today, Restaurants as a fourth the moment its chip becomes visible
-// (syncTypeChips()). The set and the order come from FILTER_ORDER and the
-// chips' own hidden state, so a tile can never exist for a filter the chip
-// row would not offer. Tapping one clicks that chip: one filter path, not a
-// second copy of what a chip tap does. Chips stay on the Map screen and on
-// the type/Events tabs, where they are the way back to All.
-//
-// Which photo, and why it is stable rather than random (a background that
-// changed on every render would read as a glitch):
-//   a venue type — the first of Kar's own picks (picks.venue_ids, then
-//     busy_venue_ids) of that type that has a photo; failing that, the venue
-//     of that type with the most photos (first in data order on a tie). Its
-//     LEAD photo, photos[0] — the one Kar chose to lead with.
-//   events — the soonest upcoming event that carries its own photo (a
-//     poster); failing that, the soonest event whose venue has a photo.
-//   neither — no photo at all, a plain tile. Never a guessed image.
-// Pending venues are skipped: no Kar-confirmed anything yet.
-function categoryTilePhoto(key) {
-  const hasPhoto = v => !!v && v.pin_status !== 'pending' && (v.photos?.length || 0) > 0;
-  if (key === 'event') {
-    const today = todayISO();
-    const coming = state.events
-      .filter(ev => eventDate(ev) && eventDate(ev) >= today)
-      .sort((a, b) => (eventDate(a) < eventDate(b) ? -1 : eventDate(a) > eventDate(b) ? 1 : 0));
-    const withOwn = coming.find(ev => ev.photo);
-    if (withOwn) return withOwn.photo;
-    const atVenue = coming.map(ev => venueById(ev.venue_id)).find(hasPhoto);
-    return atVenue ? atVenue.photos[0] : null;
-  }
-  const picked = [...(state.picks?.venue_ids || []), ...(state.picks?.busy_venue_ids || [])]
-    .map(venueById).find(v => hasPhoto(v) && v.type === key);
-  if (picked) return picked.photos[0];
-  const most = state.venues.filter(v => v.type === key && hasPhoto(v))
-    .reduce((best, v) => (!best || v.photos.length > best.photos.length ? v : best), null);
-  return most ? most.photos[0] : null;
+/* ---------- Home / Discover (the All tab) ----------
+   Built to screen 1 of Kar's design mockup: a photo hero carrying the
+   brand, a search bar sitting on the hero's bottom edge, a row of round
+   category buttons, then On fire as a carousel and "What's happening".
+   What the mockup has that this does NOT build, and why, is in the report:
+   star ratings and review counts (no reviews exist — ratingLineHtml()
+   renders nothing until they do), "Trending" as a measured thing (no
+   footfall data; the slot keeps its honest name, On fire, which is Kar's
+   own picks), the heart / Saved (no saved-places feature), "More" (no
+   further categories), and the search filter icon (no filters to open
+   from here). The other tabs keep their list header and the chip row.
+
+   The hero photo is the app's own first welcome illustration
+   (WELCOME_SLIDES[0], the theme's variant), not the That Luang photo in the
+   mockup, which is not an asset this project has. Swap the id here when
+   Kar picks a real hero photo. */
+function homeDiscoverHeaderHtml() {
+  const slide = WELCOME_SLIDES[0];
+  const photo = state.theme === 'light' ? slide.photoLight : slide.photoDark;
+  const when = isNight() ? 'tonight' : 'today';
+  return `
+    <section class="home-hero" aria-label="Paisaidee">
+      ${photo ? `<img class="home-hero-img" src="${esc(cloudinaryUrl(photo, 900))}" alt="" fetchpriority="high">` : ''}
+      <div class="home-hero-scrim"></div>
+      <div class="home-hero-text">
+        <div class="home-hero-brand">${logoMark(18, '#131019')}<span>PAISAIDEE</span></div>
+        <div class="home-hero-lo lao">ໄປໃສດີ</div>
+        <div class="home-hero-en">Where should we go ${when}?</div>
+      </div>
+    </section>
+    <label class="home-search" role="search">
+      <span class="home-search-ico">${icoSearch(18)}</span>
+      <input id="homeSearch" type="search" autocomplete="off" enterkeyhint="search"
+        placeholder="Search places &amp; events" aria-label="Search places and events">
+    </label>
+    <div id="homeBody">
+      ${homeCategoriesHtml()}
+      <div class="s-subrow home-weather">${weatherWidgetHtml()}</div>`;
 }
 
-function categoryTilesHtml() {
+// round category buttons, one per filter the chip row offers — Bars, Cafes,
+// Events today, Restaurants the moment its chip is visible (syncTypeChips()).
+// A tap clicks that chip, so there is one filter path. These replace the
+// photo tiles from the previous change, which came from the mockup's
+// Explore screen (2), not Home (1). Neutral discs, not the mockup's four
+// colours: coral stays the one accent, and it marks actions, not categories.
+const CATEGORY_GLYPHS = {
+  ...TILE_GLYPHS,
+  event: '<rect x="4" y="5.5" width="16" height="14.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+};
+function homeCategoriesHtml() {
   const keys = FILTER_ORDER.filter(k => k !== 'all' && !chipBarEl.querySelector(`.chip[data-filter="${k}"]`)?.hidden);
-  // Lao leads, English beneath — the chip row's own words for each filter
   const label = k => k === 'event'
     ? { lo: 'ອີເວັນ', en: 'Events' }
     : { lo: VENUE_TYPE_META[k].label_lo, en: VENUE_TYPE_META[k].label };
-  return `<div class="cat-tiles">${keys.map(k => {
-    const photo = categoryTilePhoto(k);
+  return `<div class="home-cats">${keys.map(k => {
     const l = label(k);
-    return `<button type="button" class="cat-tile" data-cat-tile="${k}">
-        ${photo ? `<img class="cat-tile-img" src="${esc(cloudinaryUrl(photo, 600))}" alt="" loading="lazy">` : ''}
-        <span class="cat-tile-label"><span class="cat-tile-lo lao">${esc(l.lo)}</span><span class="cat-tile-en">${esc(l.en)}</span></span>
+    return `<button type="button" class="home-cat" data-cat="${k}">
+        <span class="home-cat-disc"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${CATEGORY_GLYPHS[k] || CATEGORY_GLYPHS.venue}</svg></span>
+        <span class="home-cat-lo lao">${esc(l.lo)}</span><span class="home-cat-en">${esc(l.en)}</span>
       </button>`;
   }).join('')}</div>`;
+}
+
+// On fire's carousel card, to the mockup's shape: photo on top, then name and
+// one "Type · distance" line (the area when there is no fix). The line where
+// the mockup prints stars is ratingLineHtml(), which prints nothing until
+// Paisaidee has reviews of its own. No heart: there is no Saved feature.
+function railCardHtml(v) {
+  const photo = v.photos?.length ? v.photos[0] : null;
+  const media = photo
+    ? `<img class="big-thumb" src="${esc(cloudinaryUrl(photo, 600))}" alt="" loading="lazy">`
+    : `<img class="big-thumb" src="${venueTileUri(v.short_name || v.name, v.type, true)}" alt="" loading="lazy">`;
+  const d = distanceTo(v);
+  const line = [VENUE_TYPE_META[v.type]?.one, d != null ? fmtDist(d) : v.area].filter(Boolean).map(esc).join(' · ');
+  return `<div class="card rail-card${openStatus(v).open ? '' : ' closed'}" data-open-venue="${v.id}">
+    ${photoWrap(media, v, true)}
+    <div class="rail-card-body">
+      <div class="rail-card-name">${esc(v.short_name || v.name)}</div>
+      ${line ? `<div class="rail-card-sub">${line}</div>` : ''}
+      ${ratingLineHtml(v)}
+    </div>
+  </div>`;
+}
+
+// one event row for "What's happening" (and search results): thumbnail,
+// title, "Tonight · 8 pm" or the date, the venue, and a chevron only when
+// there is a venue to open. Photo: the event's own, else its venue's lead,
+// else the neutral placeholder. "unconfirmed" stays for an unverified event.
+function eventRowHtml(ev) {
+  const v = venueById(ev.venue_id);
+  const photo = ev.photo || (v?.photos?.length ? v.photos[0] : null);
+  const thumb = photo
+    ? `<img class="thumb" src="${esc(cloudinaryUrl(photo, 300))}" alt="" loading="lazy">`
+    : `<img class="thumb" src="${venueTileUri(ev.title, 'venue', false)}" alt="" loading="lazy">`;
+  const date = eventDate(ev);
+  const when = (date === todayISO() ? 'Tonight' : fmtDate(date)) + (ev.start_time ? ` · ${fmtTime(toMins(ev.start_time))}` : '');
+  const where = v ? esc(v.short_name || v.name) : (ev.short ? esc(ev.short) : '');
+  return `<div class="card row-card event-row${v ? '' : ' event-row-static'}"${v ? ` data-open-venue="${v.id}"` : ''}>
+    <div class="photo-wrap">${thumb}</div>
+    <div class="card-body">
+      <span class="t-name">${esc(ev.title)}</span>
+      <div class="t-sub">${esc(when)}${ev.verified ? '' : ' · unconfirmed'}</div>
+      ${where ? `<div class="t-sub">${where}</div>` : ''}
+    </div>
+    ${v ? '<span class="event-row-chev" aria-hidden="true">›</span>' : ''}
+  </div>`;
+}
+
+// search on the Discover header. Client-side over what the app already
+// holds: venue names (English and Lao), short name, area, tagline and type;
+// event titles (English and Lao), their line and venue. Every word typed
+// must match, accents ignored. Results replace #homeBody until the box is
+// cleared; the query survives a re-render of Home (a live data refresh, a
+// location fix), though focus does not.
+const searchNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function wireHomeSearch() {
+  const input = document.getElementById('homeSearch');
+  if (!input) return;
+  input.value = state.homeQuery || '';
+  const run = () => { state.homeQuery = input.value; renderHomeSearchResults(); };
+  input.addEventListener('input', run);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { input.value = ''; run(); }
+    if (e.key === 'Enter') input.blur();
+  });
+  if (state.homeQuery) renderHomeSearchResults();
+}
+function renderHomeSearchResults() {
+  const body = document.getElementById('homeBody');
+  const box = document.getElementById('homeResults');
+  if (!body || !box) return;
+  const q = searchNorm(state.homeQuery).trim();
+  if (!q) { box.hidden = true; box.innerHTML = ''; body.hidden = false; return; }
+  const terms = q.split(/\s+/);
+  const hit = parts => { const h = searchNorm(parts.join(' ')); return terms.every(t => h.includes(t)); };
+  const venues = sortForDisplay(state.venues.filter(v => hit([
+    v.name, v.short_name, v.name_lo, v.area, v.short, VENUE_TYPE_META[v.type]?.label, VENUE_TYPE_META[v.type]?.label_lo,
+  ])));
+  const events = state.events.filter(ev => hit([ev.title, ev.title_lo, ev.short, venueById(ev.venue_id)?.name]));
+  const count = [venues.length && plural(venues.length, 'place', 'places'), events.length && plural(events.length, 'event', 'events')].filter(Boolean).join(' · ');
+  box.innerHTML = (venues.length || events.length)
+    ? `<div class="home-results-count">${count}</div>${venues.map(v => isMobile() ? rowCard(v) : plainListCardHtml(v)).join('')}${events.map(eventRowHtml).join('')}`
+    : `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing matches “${esc(state.homeQuery.trim())}”.</div>`;
+  box.querySelectorAll('[data-open-venue]').forEach(el => el.addEventListener('click', () => openVenue(el.dataset.openVenue)));
+  body.hidden = true;
+  box.hidden = false;
+  injectEmptyIcons();
 }
 
 /* ---------- type lists: distance filter ---------- */
@@ -4469,14 +4570,15 @@ function renderHomeSheet() {
     return;
   }
 
-  let html = `
+  // All is the Discover screen (homeDiscoverHeaderHtml()); Events, the other
+  // filter this branch draws, keeps the list header and the chip row, since
+  // the chip row is the way back
+  let html = f === 'all' ? homeDiscoverHeaderHtml() : `
     ${greetEyebrowHtml()}
     <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
     <div class="s-subrow"><div class="s-sub">${sub}</div>${weatherWidgetHtml()}</div>
-    ${f === 'all' ? categoryTilesHtml() : `<div id="chipSentinel"></div>
-    <div id="chipSlot"></div>`}`;
-  // ^ All gets the category tiles in place of the chip row; Events (the other
-  // filter this branch draws) keeps the chip row, since it is the way back
+    <div id="chipSentinel"></div>
+    <div id="chipSlot"></div>`;
   let rendered = false;
   const mobile = isMobile();
   // horizontal-scroll carousel (desktop, unchanged) vs. a vertical list of
@@ -4484,7 +4586,7 @@ function renderHomeSheet() {
   // these the same way
   const sectionWrap = cardsHtml => mobile ? cardsHtml : `<div class="hcards">${cardsHtml}</div>`;
 
-  if (showEvents && tonight.length) {
+  if (f === 'event' && tonight.length) {
     rendered = true;
     html += secH('Tonight · ຄືນນີ້');
     for (const ev of tonight) {
@@ -4525,7 +4627,7 @@ function renderHomeSheet() {
     }
   }
 
-  if (showEvents && !tonight.length && !upcoming.length) {
+  if (f === 'event' && !tonight.length && !upcoming.length) {
     rendered = true;
     /* two different facts, two different sentences. "Nothing verified yet"
        is a statement about the week's curation and is only true when
@@ -4542,10 +4644,28 @@ function renderHomeSheet() {
   const pickVenuesQ = sortEditorial(pickVenues);
   if (showVenueSections && pickVenuesQ.length) {
     rendered = true;
-    const fireCards = pickVenuesQ.map(v => bigCard(v, venueLine(v, esc(v.area || '')))).join('');
+    const railed = mobile && ON_FIRE_CAROUSEL;
+    const fireCards = pickVenuesQ.map(v => railed ? railCardHtml(v) : bigCard(v, venueLine(v, esc(v.area || '')))).join('');
     html += secH('On fire · ໄຟລຸກ', esc(state.picks?.note_en)) +
-      (mobile && ON_FIRE_CAROUSEL ? `<div class="fire-rail">${fireCards}</div>` : fireCards) +
+      (railed ? `<div class="fire-rail">${fireCards}</div>` : fireCards) +
       `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">picked by us, not ranked by check-ins</div>`;
+  }
+
+  /* What's happening — the mockup's second section, on All only: the
+     soonest few events (tonight first) as rows, and See all to the Events
+     tab, which keeps the fuller Tonight / Coming up layout. Lao is ອີເວັນ,
+     the Events chip's own word, not a new phrase. The two empty states are
+     the ones the Tonight section already had, for the same two reasons. */
+  if (f === 'all') {
+    const HAPPENING_MAX = 3;
+    const happening = [...tonight, ...upcoming];
+    rendered = true;
+    const seeAll = happening.length ? '<button type="button" class="sec-see-all" data-see-all="event">See all</button>' : '';
+    html += secH("What's happening · ອີເວັນ", seeAll) + (happening.length
+      ? happening.slice(0, HAPPENING_MAX).map(eventRowHtml).join('')
+      : state.eventsFailed
+        ? `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Couldn't load what's on — check your connection and reload. The venues below still work.</div>`
+        : `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing verified yet — new list every Thursday.</div>`);
   }
 
   const busyVenuesQ = sortEditorial(busyVenues);
@@ -4556,7 +4676,7 @@ function renderHomeSheet() {
       `<div style="font-size:10.5px;color:var(--secondary);margin-top:8px;">our picks, not live counts</div>`;
   }
 
-  if (showEvents && upcoming.length) {
+  if (f === 'event' && upcoming.length) {
     rendered = true;
     html += secH('Coming up · ອີເວັນຕໍ່ໄປ') + sectionWrap(upcoming.map(ev => {
       const v = venueById(ev.venue_id);
@@ -4632,9 +4752,11 @@ function renderHomeSheet() {
     html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
   }
 
+  if (f === 'all') html += `</div><div id="homeResults" class="home-results" hidden></div>`;
   html += weatherAttributionHtml();
   setSheet(html);
   injectEmptyIcons();
+  if (f === 'all') wireHomeSearch();
   history.replaceState(null, '', location.pathname);
   const sh = document.getElementById('sheet');
   sh.classList.remove('sheet-anim'); void sh.offsetWidth; sh.classList.add('sheet-anim');
@@ -5752,9 +5874,12 @@ function setSheet(html) {
       state.cafeTab = el.dataset.cafeTab;
       renderHomeSheet();
     }));
-  inner.querySelectorAll('[data-cat-tile]').forEach(el =>
+  inner.querySelectorAll('[data-cat]').forEach(el =>
     el.addEventListener('click', () =>
-      chipBarEl.querySelector(`.chip[data-filter="${el.dataset.catTile}"]`)?.click()));
+      chipBarEl.querySelector(`.chip[data-filter="${el.dataset.cat}"]`)?.click()));
+  inner.querySelectorAll('[data-see-all]').forEach(el =>
+    el.addEventListener('click', () =>
+      chipBarEl.querySelector(`.chip[data-filter="${el.dataset.seeAll}"]`)?.click()));
   inner.querySelectorAll('[data-dist]').forEach(el =>
     el.addEventListener('click', () => {
       state.distanceFilterM = el.dataset.dist === '' ? null : Number(el.dataset.dist);

@@ -550,40 +550,130 @@ body {
    Same trap CLAUDE.md lists as "[hidden] vs display:flex". */
 .chip[hidden] { display: none; }
 
-/* ---------- Home, All tab: category tiles (categoryTilesHtml() in app.js) ----------
-   Two columns; a tile left alone on the last row spans both. So three
-   filters (Bars, Cafes, Events) are two side by side with Events full width
-   beneath, and Restaurants arriving as a fourth makes a plain 2x2 — no
-   change here. 24px above, the gap #chipSentinel gives the chip row on the
-   tabs that still have one.
-   The label sits on the photo, so its colours are the photo's, not the
-   theme's — the same literals .collage-name/.collage-scrim already use for
-   text over a venue photo, for the same reason. A tile with no photo falls
-   back to --ink3 and still gets the scrim, so the label stays legible. */
-.cat-tiles {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
-  margin-top: 24px;
+/* ---------- Home / Discover (homeDiscoverHeaderHtml() in app.js) ----------
+   Screen 1 of the design mockup. The hero is full-bleed sideways (negative
+   margins against --sheet-pad-x, the same token the pinned chip bar uses)
+   but starts below #sheetTopCover's strip at the top of a phone rather than
+   under it: that strip is what stops a scrolled card being tappable through
+   the status-bar area, and moving the hero into it would reopen that bug.
+   Text on the hero sits on a photo in both themes, so its colours are the
+   photo's — the literals .collage-name/.collage-scrim already use. */
+.home-hero {
+  position: relative; overflow: hidden;
+  margin: 0 calc(-1 * var(--sheet-pad-x));
+  height: clamp(210px, 32vh, 270px);
+  background: var(--ink3);
 }
-.cat-tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
-.cat-tile {
-  position: relative; display: block; height: 92px; padding: 0; overflow: hidden;
-  border: none; border-radius: 14px; cursor: pointer; text-align: left;
-  background: var(--ink3); font-family: var(--font);
-  box-shadow: var(--card-edge), var(--card-lift);
+.home-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.home-hero-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(19,16,25,.72), rgba(19,16,25,.30) 58%, rgba(19,16,25,.50));
 }
-.cat-tile-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-.cat-tile::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(to top, rgba(19,16,25,.88), rgba(19,16,25,.45) 70%, rgba(19,16,25,.3));
+.home-hero-text {
+  position: absolute; top: 22px; left: var(--sheet-pad-x); right: var(--sheet-pad-x);
+  color: #F5F1E8; text-shadow: 0 1px 6px rgba(0,0,0,.35);
 }
-.cat-tile-label {
-  position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 1;
-  display: flex; flex-direction: column; gap: 1px;
+.home-hero-brand { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; letter-spacing: 2px; }
+.home-hero-brand svg { flex-shrink: 0; }
+.home-hero-lo { font-size: 38px; font-weight: 700; line-height: 1.15; margin-top: 6px; }
+.home-hero-en { font-size: 15px; font-weight: 600; margin-top: 4px; color: rgba(245,241,232,.92); }
+
+/* the search bar straddles the hero's bottom edge, as in the mockup */
+.home-search {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 10px;
+  margin: -28px 2px 0; padding: 0 16px; min-height: 52px; border-radius: 16px;
+  background-color: var(--ink3); background-image: var(--card-fill);
+  box-shadow: var(--card-edge), var(--card-lift), 0 8px 20px rgba(0,0,0,.18);
+  color: var(--mute); cursor: text;
 }
-.cat-tile-lo { font-size: 17px; font-weight: 700; line-height: 1.2; color: #F5F1E8; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
-.cat-tile-en { font-size: 12px; font-weight: 700; color: rgba(245,241,232,.82); }
-.cat-tile:active { transform: scale(.98); }
-@media (prefers-reduced-motion: reduce) { .cat-tile:active { transform: none; } }
+.home-search-ico { display: flex; line-height: 0; }
+/* 16px, not the 13–14px the mockup draws: under 16px iOS Safari zooms the
+   whole page on focus. outline is removed on the input only because the
+   :focus-within ring below replaces it on the bar. */
+.home-search input {
+  flex: 1; min-width: 0; min-height: 48px; border: none; background: none; outline: none;
+  font-family: var(--font); font-size: 16px; color: var(--bone);
+}
+.home-search input::placeholder { color: var(--secondary); opacity: 1; }
+.home-search:focus-within { box-shadow: var(--card-edge), var(--card-lift), 0 0 0 2px var(--bone); }
+
+/* round category buttons (homeCategoriesHtml()). Neutral discs; the whole
+   column — disc and label — is the tap target, well over 44px. */
+.home-cats { display: flex; justify-content: space-around; gap: 8px; margin-top: 22px; }
+.home-cat {
+  flex: 1 1 0; min-width: 0; max-width: 96px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 0; border: none; background: none; cursor: pointer;
+  font-family: var(--font); color: var(--bone);
+}
+.home-cat-disc {
+  width: 56px; height: 56px; margin-bottom: 6px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background-color: var(--ink3); background-image: var(--card-fill);
+  box-shadow: var(--card-edge), var(--card-lift); color: var(--bone);
+}
+.home-cat-disc svg { width: 26px; height: 26px; }
+.home-cat-lo { font-size: 12.5px; font-weight: 700; line-height: 1.2; }
+.home-cat-en { font-size: 11px; font-weight: 500; line-height: 1.2; color: var(--secondary); }
+.home-cat:active .home-cat-disc { transform: scale(.95); }
+@media (prefers-reduced-motion: reduce) { .home-cat:active .home-cat-disc { transform: none; } }
+
+/* the weather line keeps its place under the categories — the mockup has no
+   weather, but the app does, and it is the one weather fact that changes a
+   plan. Empty until /api/weather answers (see boot()'s late insert). */
+.s-subrow.home-weather { margin-top: 18px; }
+.s-subrow.home-weather:empty { display: none; }
+
+/* On fire's carousel card to the mockup's shape (railCardHtml()): photo on
+   top, text below, the next card peeking. Restates display/padding/gap/
+   align because .card and the mobile .card rules set all four, and CSS
+   cascades per property. */
+/* Selectors are deliberately heavier than they look like they need to be.
+   Measured in the browser: `.fire-rail > .card { flex: 0 0 262px }` (phone
+   block, later in this file, same weight) kept the card at 262px, and
+   `.card:not(.card-big) .photo-wrap { 124px x 124px }` (phone block, 0,3,0)
+   plus the base `.card .photo-wrap { border-radius: 10px }` shrank the
+   photo to a rounded square in the card's corner with the rest of the card
+   empty. Out-ranking them here, rather than moving this block or reaching
+   for !important, keeps it next to the markup it styles. */
+.fire-rail > .card.rail-card {
+  flex: 0 0 min(66%, 280px); margin-top: 0;
+  display: block; padding: 0; gap: 0; align-items: stretch; overflow: hidden;
+}
+.card.rail-card:not(.card-big) .photo-wrap { width: 100%; height: auto; aspect-ratio: 16 / 10; border-radius: 0; }
+.rail-card .big-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rail-card-body { padding: 10px 12px 12px; }
+.rail-card-name { font-size: 15px; font-weight: 700; color: var(--bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-card-sub { font-size: 12.5px; color: var(--secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* What's happening rows (eventRowHtml()) — a row card plus a chevron when
+   the event has a venue to open */
+.event-row { position: relative; }
+/* 88px, not the 124px .row-card thumbnail: the mockup's event row has a small
+   square thumb, and at 124px the text column at 320px was too narrow for
+   "THU 17 SEPT · 7 pm" (measured: title and date both truncated). Same
+   specificity reasoning as .rail-card above. */
+.card.row-card.event-row:not(.card-big) .photo-wrap { width: 88px; height: 88px; }
+.event-row .card-body { padding-right: 30px; }
+.event-row-chev {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  font-size: 22px; line-height: 1; color: var(--mute); pointer-events: none;
+}
+.event-row-static { cursor: default; }
+
+/* See all, in a section header's note slot (the mockup's right-hand link).
+   Coral: it is an action. Negative block margin so the 44px target does
+   not make the header taller. */
+.sec-h .sec-see-all {
+  display: inline-flex; align-items: center; min-height: 44px; margin: -14px 0; padding: 0 2px;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--flame-text);
+}
+
+/* search results (renderHomeSearchResults()) */
+.home-results { margin-top: 20px; }
+.home-results-count { font-size: 12.5px; color: var(--secondary); margin-bottom: 2px; }
 
 /* ---------- type lists: distance filter (distanceRowHtml() in app.js) ----------
    Deliberately quieter than the chip row: the active distance is --ink3 /
