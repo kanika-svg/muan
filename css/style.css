@@ -550,6 +550,67 @@ body {
    Same trap CLAUDE.md lists as "[hidden] vs display:flex". */
 .chip[hidden] { display: none; }
 
+/* ---------- Home, All tab: category tiles (categoryTilesHtml() in app.js) ----------
+   Two columns; a tile left alone on the last row spans both. So three
+   filters (Bars, Cafes, Events) are two side by side with Events full width
+   beneath, and Restaurants arriving as a fourth makes a plain 2x2 — no
+   change here. 24px above, the gap #chipSentinel gives the chip row on the
+   tabs that still have one.
+   The label sits on the photo, so its colours are the photo's, not the
+   theme's — the same literals .collage-name/.collage-scrim already use for
+   text over a venue photo, for the same reason. A tile with no photo falls
+   back to --ink3 and still gets the scrim, so the label stays legible. */
+.cat-tiles {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  margin-top: 24px;
+}
+.cat-tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.cat-tile {
+  position: relative; display: block; height: 92px; padding: 0; overflow: hidden;
+  border: none; border-radius: 14px; cursor: pointer; text-align: left;
+  background: var(--ink3); font-family: var(--font);
+  box-shadow: var(--card-edge), var(--card-lift);
+}
+.cat-tile-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.cat-tile::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(19,16,25,.88), rgba(19,16,25,.45) 70%, rgba(19,16,25,.3));
+}
+.cat-tile-label {
+  position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 1;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.cat-tile-lo { font-size: 17px; font-weight: 700; line-height: 1.2; color: #F5F1E8; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.cat-tile-en { font-size: 12px; font-weight: 700; color: rgba(245,241,232,.82); }
+.cat-tile:active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) { .cat-tile:active { transform: none; } }
+
+/* ---------- type lists: distance filter (distanceRowHtml() in app.js) ----------
+   Deliberately quieter than the chip row: the active distance is --ink3 /
+   --bone, not flame — flame already marks which filter tab you are on, and
+   two flame selections stacked would compete. Five pills share the row
+   (flex:1) so all five fit at 320px without scrolling. */
+.dist-row { display: flex; gap: 6px; margin: 10px 0 4px; }
+.dist-btn {
+  flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 4px; white-space: nowrap;
+  border-radius: 999px; border: 1px solid var(--ink4); background: var(--ink); color: var(--mute);
+  font-family: var(--font); font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.dist-btn.on { background: var(--ink3); border-color: var(--ink3); color: var(--bone); }
+/* the one-tap undo inside a distance-emptied list (typeListEmptyHtml()) */
+.sec-empty-action {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
+  background: none; border: none; color: var(--flame-text); font-family: var(--font);
+  font-size: inherit; font-weight: 700; text-decoration: underline; cursor: pointer;
+}
+
+/* ---------- ratings (ratingLineHtml() in app.js) — only ever rendered when
+   review_count > 0, which is no venue yet. Quiet on purpose, and not gold:
+   CLAUDE.md reserves gold for rewards and badges. */
+.v-rating { font-size: 12px; font-weight: 700; color: var(--secondary); margin-top: 2px; }
+.v-rating-n { font-weight: 400; }
+.collage-info .v-rating { color: rgba(245,241,232,.82); }
+
 /* The chip row had a coloured legend dot per filter — --pin-bar/--pin-cafe/
    --pin-venue, the same three tokens pinSVG() paints markers with — so it
    would say out loud what the pin colours mean. Removed: three saturated
@@ -2706,6 +2767,18 @@ body {
 .vd-desc { margin-top: 24px; font-size: 13px; line-height: 1.55; color: var(--bone); }
 .vd-desc-rest { display: none; }
 .vd-desc.open .vd-desc-rest { display: inline; }
+
+/* "Why you'll like it" (openVenue() in app.js) — absent entirely when a
+   venue has no `why`. Same 24px step as .vd-desc below it, which then
+   follows at its own margin. The heading is the small uppercase-free label
+   style the sheet already uses for its row labels, not a section header:
+   this is one paragraph, not a section. */
+.vd-why { margin-top: 24px; }
+.vd-why-h { font-size: 12px; font-weight: 700; color: var(--mute); }
+.vd-why-body { margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--bone); }
+/* rating under the title's meta line, same rule as the cards */
+.vd-rating { margin-top: 4px; font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.vd-rating .v-rating-n { font-weight: 400; }
 .vd-more {
   background: none; border: none; padding: 0;
   font-family: var(--font); font-size: 13px; font-weight: 700;

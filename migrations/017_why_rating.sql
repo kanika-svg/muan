@@ -1,0 +1,34 @@
+-- why, rating, review_count — three nullable editorial columns on venues.
+--
+-- why: a short paragraph saying who the place suits ("a laid-back rooftop
+--   bar with great cocktails and stunning views — perfect for sunset"),
+--   shown on the venue detail above the description under "Why you'll like
+--   it". NULL for every venue when this runs; the block is not rendered at
+--   all while it is NULL (openVenue() in js/app.js).
+--
+-- rating / review_count: the SHAPE for Paisaidee's own reviews, built before
+--   any exist so the cards and the detail sheet have somewhere to put them.
+--   rating is the mean of those reviews (REAL, 1–5); review_count is how
+--   many there are. They are set together or not at all, and the client
+--   renders a rating ONLY when review_count > 0 — no "No reviews yet" on
+--   every card (see ratingLineHtml() in js/app.js).
+--   NEVER fill these from Google, Tripadvisor or any other aggregator. A
+--   number copied from elsewhere is someone else's claim printed as ours,
+--   which CLAUDE.md's "never fabricate popularity numbers, review counts"
+--   rule exists to stop. scripts/check-data.js fails a mirror row with a
+--   rating and no review_count > 0.
+--
+-- All three are Kar-only, by the same mechanism as `vibe` (013) and
+-- `outdoor` (016): not in SIMPLE_FIELDS in functions/api/_venue-validation.js,
+-- so neither the owner submission POST nor the owner PATCH will accept them.
+-- There is no admin write endpoint for venue fields yet; Kar sets them
+-- directly against D1.
+--
+-- DEPLOY ORDER (CLAUDE.md): functions/api/venues.js and
+-- scripts/export-venues.js now SELECT these columns by name. Run this with
+-- --remote BEFORE deploying that code, and confirm with
+-- `node scripts/check-schema.js`. Deployed first, /api/venues would fail on
+-- every request and fall back to the stale bundled mirror.
+ALTER TABLE venues ADD COLUMN why TEXT;
+ALTER TABLE venues ADD COLUMN rating REAL;
+ALTER TABLE venues ADD COLUMN review_count INTEGER;

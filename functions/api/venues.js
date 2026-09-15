@@ -47,7 +47,8 @@ async function handleGet(context) {
     const rows = await db.prepare(
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
               description, photos, hours, hours_note, contact, parking, links,
-              verified, status, source, signature, pin_status, vibe, outdoor
+              verified, status, source, signature, pin_status, vibe, outdoor,
+              why, rating, review_count
        FROM venues WHERE pin_status != 'rejected' ORDER BY rowid`
     ).all();
 
@@ -101,6 +102,15 @@ async function handleGet(context) {
       // it's indoors" from "nobody has looked" — see outdoorNoteHtml() in
       // js/app.js and migrations/016_outdoor.sql.
       if (r.outdoor !== null) v.outdoor = !!r.outdoor;
+      // why / rating / review_count (migrations/017_why_rating.sql) — omitted
+      // when NULL, the same absence convention as the fields above. NULL for
+      // every venue when 017 runs, so this payload (and the bundle
+      // fingerprint js/app.js compares it against) is unchanged until Kar
+      // sets one. rating is only meaningful with review_count > 0; the client
+      // checks that itself rather than trusting the pair.
+      if (r.why !== null) v.why = r.why;
+      if (r.rating !== null) v.rating = r.rating;
+      if (r.review_count !== null) v.review_count = r.review_count;
       return v;
     });
 

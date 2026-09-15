@@ -33,6 +33,12 @@
 //     V5  pin_status "placed" means real, Kar-confirmed lat/lng — never null
 //     V6  pin_status "pending" means NO coordinates — never a placeholder
 //     V7  ids are unique
+//     V8  why, when present, is a non-empty string (absent = not written)
+//     V9  rating, when present, is a number from 1 to 5; review_count, when
+//         present, is a whole number >= 0
+//     V10 rating and review_count > 0 come together — a rating with no
+//         reviews of our own behind it came from somewhere else
+//         (migrations/017_why_rating.sql: never an aggregator's rating)
 //   events
 //     E1  every event has a source_url
 //     E2  venue_id is null or the id of a venue that exists
@@ -106,6 +112,13 @@ for (const v of venues) {
   const hasCoords = v.lat !== null && v.lat !== undefined && v.lng !== null && v.lng !== undefined;
   if (v.pin_status === 'placed' && !hasCoords) fail('V5', where, 'pin_status "placed" but lat/lng are null');
   if (v.pin_status === 'pending' && (v.lat != null || v.lng != null)) fail('V6', where, 'pin_status "pending" but has coordinates');
+
+  if ('why' in v && !(typeof v.why === 'string' && v.why.trim())) fail('V8', where, 'why is present but not a non-empty string (omit it instead)');
+  if ('rating' in v && !(typeof v.rating === 'number' && v.rating >= 1 && v.rating <= 5)) fail('V9', where, `rating ${JSON.stringify(v.rating)} is not a number from 1 to 5`);
+  if ('review_count' in v && !(Number.isInteger(v.review_count) && v.review_count >= 0)) fail('V9', where, `review_count ${JSON.stringify(v.review_count)} is not a whole number >= 0`);
+  const reviewed = Number.isInteger(v.review_count) && v.review_count > 0;
+  if ('rating' in v && !reviewed) fail('V10', where, 'rating with no review_count > 0 — a rating must come from Paisaidee\'s own reviews');
+  if (reviewed && !('rating' in v)) fail('V10', where, 'review_count > 0 but no rating');
 }
 
 const eventIds = new Set();

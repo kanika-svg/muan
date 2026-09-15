@@ -102,6 +102,7 @@ const state = {
   tracking: null,
   trackWatchId: null,
   cafeTab: 'recommended', // 'recommended' | 'all' — sub-tab inside the Cafes filter
+  distanceFilterM: null,  // null (Any) | 500 | 1000 | 3000 | 5000 — see withinDistance()
   screen: 'home',           // mobile only: 'home' | 'map' | 'you' — see setMobileScreen()
   screenBeforeVenue: null,  // mobile only: screen to return to when the open venue closes
   venuePushed: false,       // mobile only: whether openVenue() pushed a history entry for the open venue
@@ -2601,6 +2602,21 @@ function statusPillHtml(v, full) {
 // positioned over its top-left corner without the fade applied to .closed
 // cards' text ever touching the photo itself (see .status-pill/.photo-wrap
 // in style.css)
+/* ---------- ratings: Paisaidee's own reviews, when there are any ---------- */
+// rating / review_count (migrations/017_why_rating.sql) are the SHAPE for
+// reviews this app does not have yet. The rule that matters is the empty
+// case: return '' — no line, no "No reviews yet", nothing — unless
+// review_count is a whole number above zero AND rating is a real number.
+// Thirty cards each saying there is nothing to say is worse than thirty
+// clean cards. Never fed from Google or any aggregator (see the migration).
+// The star is not --gold: CLAUDE.md keeps gold for rewards and badges, and
+// a rating is neither — it takes the line's own quiet colour.
+function ratingLineHtml(v, cls = 'v-rating') {
+  const n = v.review_count, r = v.rating;
+  if (!Number.isInteger(n) || n <= 0 || typeof r !== 'number' || !Number.isFinite(r)) return '';
+  return `<div class="${cls}"><span aria-hidden="true">★</span> ${r.toFixed(1)} <span class="v-rating-n">· ${plural(n, 'review', 'reviews')}</span></div>`;
+}
+
 function photoWrap(imgHtml, v, full) {
   return `<div class="photo-wrap">${imgHtml}${statusPillHtml(v, full)}</div>`;
 }
@@ -2694,6 +2710,7 @@ function sectionCard(v, sub, photoOverride, sub2) {
       <div style="font-size:12.5px;font-weight:700;">${esc(v.short_name || v.name)}</div>
       <div class="hc-sub" style="font-size:11px;color:var(--mute);">${esc(sub)}</div>
       ${sub2 ? `<div class="hc-sub" style="font-size:10.5px;color:var(--secondary);">${esc(sub2)}</div>` : ''}
+      ${ratingLineHtml(v)}
       ${outdoorNoteHtml(v)}
     </div>
   </div>`;
@@ -2734,6 +2751,7 @@ function bigCard(v, sub, photoOverride) {
     <div class="card-body">
       ${nameHtml}
       <div class="t-sub">${subHtml}</div>
+      ${ratingLineHtml(v)}
       ${outdoorNoteHtml(v)}
     </div>
   </div>`;
@@ -2759,6 +2777,7 @@ function plainListCardHtml(v) {
       <div class="card-body">
         <span style="font-size:13.5px;font-weight:700;">${esc(v.short_name || v.name)}</span>
         <div class="t-sub">${venueLine(v, esc(v.area || ''))}</div>
+        ${ratingLineHtml(v)}
         ${outdoorNoteHtml(v)}
       </div>
     </div>`;
@@ -2789,6 +2808,7 @@ function rowCard(v, extraLine) {
       ${extraLine ? `<div class="t-sub">${extraLine}</div>` : ''}
       ${place ? `<div class="t-sub">${place}</div>` : ''}
       <div class="t-hours${st.open ? ' open' : ''}">${esc(st.label)}</div>
+      ${ratingLineHtml(v)}
       ${outdoorNoteHtml(v)}
     </div>
   </div>`;
@@ -3277,6 +3297,7 @@ function collageCardHtml(v) {
       <div class="collage-info">
         <div class="collage-name">${esc(v.short_name || v.name)}</div>
         <div class="collage-status">${esc(collageStatusLine(v))}</div>
+        ${ratingLineHtml(v)}
         ${descLine ? `<div class="collage-desc">${esc(descLine)}</div>` : ''}
         ${outdoorNoteHtml(v)}
         ${facts.length ? `<div class="collage-facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
@@ -4036,7 +4057,9 @@ function moodRelinkHtml() {
 // whatever screen was underneath the intro — the same place "Just show me
 // around" leaves you.
 function openTypeList(type) {
-  document.querySelector(`.chip[data-filter="${type}"]`)?.click();
+  // chipBarEl, not document: on mobile All the bar is not in the page (the
+  // category tiles replace it), and a document lookup would find nothing
+  chipBarEl.querySelector(`.chip[data-filter="${type}"]`)?.click();
 }
 
 // { ov, sheetEl } while open, else null — a fresh overlay element created
@@ -4198,6 +4221,97 @@ function goHome() {
 // f === 'bar' || 'cafe' branch now — All/Events render nothing here at all,
 // not a hidden button. `filter` is always 'bar' or 'cafe' for that reason;
 // quickSurpriseMe() below scopes its pick the same way.
+/* ---------- Home: category tiles (All tab) ---------- */
+// Replace the chip row on All with one photo tile per filter — Bars, Cafes,
+// Events today, Restaurants as a fourth the moment its chip becomes visible
+// (syncTypeChips()). The set and the order come from FILTER_ORDER and the
+// chips' own hidden state, so a tile can never exist for a filter the chip
+// row would not offer. Tapping one clicks that chip: one filter path, not a
+// second copy of what a chip tap does. Chips stay on the Map screen and on
+// the type/Events tabs, where they are the way back to All.
+//
+// Which photo, and why it is stable rather than random (a background that
+// changed on every render would read as a glitch):
+//   a venue type — the first of Kar's own picks (picks.venue_ids, then
+//     busy_venue_ids) of that type that has a photo; failing that, the venue
+//     of that type with the most photos (first in data order on a tie). Its
+//     LEAD photo, photos[0] — the one Kar chose to lead with.
+//   events — the soonest upcoming event that carries its own photo (a
+//     poster); failing that, the soonest event whose venue has a photo.
+//   neither — no photo at all, a plain tile. Never a guessed image.
+// Pending venues are skipped: no Kar-confirmed anything yet.
+function categoryTilePhoto(key) {
+  const hasPhoto = v => !!v && v.pin_status !== 'pending' && (v.photos?.length || 0) > 0;
+  if (key === 'event') {
+    const today = todayISO();
+    const coming = state.events
+      .filter(ev => eventDate(ev) && eventDate(ev) >= today)
+      .sort((a, b) => (eventDate(a) < eventDate(b) ? -1 : eventDate(a) > eventDate(b) ? 1 : 0));
+    const withOwn = coming.find(ev => ev.photo);
+    if (withOwn) return withOwn.photo;
+    const atVenue = coming.map(ev => venueById(ev.venue_id)).find(hasPhoto);
+    return atVenue ? atVenue.photos[0] : null;
+  }
+  const picked = [...(state.picks?.venue_ids || []), ...(state.picks?.busy_venue_ids || [])]
+    .map(venueById).find(v => hasPhoto(v) && v.type === key);
+  if (picked) return picked.photos[0];
+  const most = state.venues.filter(v => v.type === key && hasPhoto(v))
+    .reduce((best, v) => (!best || v.photos.length > best.photos.length ? v : best), null);
+  return most ? most.photos[0] : null;
+}
+
+function categoryTilesHtml() {
+  const keys = FILTER_ORDER.filter(k => k !== 'all' && !chipBarEl.querySelector(`.chip[data-filter="${k}"]`)?.hidden);
+  // Lao leads, English beneath — the chip row's own words for each filter
+  const label = k => k === 'event'
+    ? { lo: 'ອີເວັນ', en: 'Events' }
+    : { lo: VENUE_TYPE_META[k].label_lo, en: VENUE_TYPE_META[k].label };
+  return `<div class="cat-tiles">${keys.map(k => {
+    const photo = categoryTilePhoto(k);
+    const l = label(k);
+    return `<button type="button" class="cat-tile" data-cat-tile="${k}">
+        ${photo ? `<img class="cat-tile-img" src="${esc(cloudinaryUrl(photo, 600))}" alt="" loading="lazy">` : ''}
+        <span class="cat-tile-label"><span class="cat-tile-lo lao">${esc(l.lo)}</span><span class="cat-tile-en">${esc(l.en)}</span></span>
+      </button>`;
+  }).join('')}</div>`;
+}
+
+/* ---------- type lists: distance filter ---------- */
+// Any · 500m · 1km · 3km · 5km above the list on Bars / Cafes / Restaurants.
+// Only drawn when there is a location fix — a distance filter with no
+// position to measure from would be a row of dead buttons. It FILTERS the
+// list and never re-sorts it: sortForDisplay() already orders by open-then-
+// distance, and a filter that also reordered would move cards under a
+// finger. While a distance is chosen, a venue with no confirmed location
+// (pending) is hidden, since it cannot be shown to be within anything. The
+// choice persists across the type tabs; it is ignored — not cleared — while
+// there is no fix, and comes back when one arrives. The map's markers are
+// not filtered: this is the list's filter, the map already shows distance.
+const DISTANCE_FILTERS = [null, 500, 1000, 3000, 5000];
+const distanceLabel = m => (m == null ? 'Any' : m < 1000 ? `${m}m` : `${m / 1000}km`);
+const distanceFilterActive = () => state.distanceFilterM != null && !!state.userPos;
+function withinDistance(v) {
+  if (!distanceFilterActive()) return true;
+  const d = distanceTo(v);
+  return d != null && d <= state.distanceFilterM;
+}
+function distanceRowHtml() {
+  if (!state.userPos) return '';
+  return `<div class="dist-row" role="group" aria-label="Distance">${DISTANCE_FILTERS.map(m => {
+    const on = state.distanceFilterM === m;
+    return `<button type="button" class="dist-btn${on ? ' on' : ''}" data-dist="${m ?? ''}" aria-pressed="${on}">${distanceLabel(m)}</button>`;
+  }).join('')}</div>`;
+}
+// the empty state for a type list. When a distance is what emptied it, say
+// so and offer the one tap that undoes it, rather than the generic line —
+// "Nothing here right now" would read as "there are no bars".
+function typeListEmptyHtml() {
+  const body = distanceFilterActive()
+    ? `Nothing within ${distanceLabel(state.distanceFilterM)} of you. <button type="button" class="sec-empty-action" data-dist="">Show any distance</button>`
+    : 'Nothing here right now — try another filter.';
+  return `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>${body}</div>`;
+}
+
 function surpriseMeHtml(filter) {
   // '<type>ໃດກໍໄດ້' is Kar's own pattern from the bar and café buttons.
   // TODO(lao): the restaurant one ('ຮ້ານອາຫານໃດກໍໄດ້') is that pattern
@@ -4320,24 +4434,25 @@ function renderHomeSheet() {
           <button class="seg-btn ${cafeTab === 'all' ? 'on' : ''}" data-cafe-tab="all" role="tab" aria-selected="${cafeTab === 'all'}">All cafés</button>
         </div>`;
     }
+    html += distanceRowHtml();
 
     if (f === 'cafe' && cafeTab === 'recommended') {
       // cafés with enough photos for a collage card to be worth showing —
       // pending venues excluded, same as On fire/Busy spots above
       const cafeGallery = sortForDisplay(state.venues
-        .filter(v => v.type === 'cafe' && v.pin_status !== 'pending' && (v.photos?.length || 0) >= 2)
+        .filter(v => v.type === 'cafe' && v.pin_status !== 'pending' && (v.photos?.length || 0) >= 2 && withinDistance(v))
         .sort((a, b) => (b.photos.length - a.photos.length) ||
           (a.short_name || a.name).localeCompare(b.short_name || b.name)));
       if (!cafeGallery.length) {
-        html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
+        html += typeListEmptyHtml();
       } else {
         html += cafeGallery.map(v => collageCardHtml(v)).join('');
       }
     } else {
-      const typeVenues = sortForDisplay(state.venues.filter(v => v.type === f)
+      const typeVenues = sortForDisplay(state.venues.filter(v => v.type === f && withinDistance(v))
         .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name)));
       if (!typeVenues.length) {
-        html += `<div class="sec-empty"><div class="sec-empty-ico" data-empty-svg></div>Nothing here right now — try another filter.</div>`;
+        html += typeListEmptyHtml();
       } else if (isMobile()) {
         html += typeVenues.map(v => rowCard(v)).join('');
       } else {
@@ -4358,8 +4473,10 @@ function renderHomeSheet() {
     ${greetEyebrowHtml()}
     <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
     <div class="s-subrow"><div class="s-sub">${sub}</div>${weatherWidgetHtml()}</div>
-    <div id="chipSentinel"></div>
-    <div id="chipSlot"></div>`;
+    ${f === 'all' ? categoryTilesHtml() : `<div id="chipSentinel"></div>
+    <div id="chipSlot"></div>`}`;
+  // ^ All gets the category tiles in place of the chip row; Events (the other
+  // filter this branch draws) keeps the chip row, since it is the way back
   let rendered = false;
   const mobile = isMobile();
   // horizontal-scroll carousel (desktop, unchanged) vs. a vertical list of
@@ -4693,6 +4810,21 @@ function openVenue(id) {
         <button class="vd-btn vd-btn-icon" id="shareBtn" aria-label="Share">${icoShare(16)}</button>
       </div>`;
 
+  /* "Why you'll like it" (migrations/017_why_rating.sql): Kar's short
+     editorial paragraph on who the place suits, above the owner-written
+     description. Skipped ENTIRELY when `why` is absent — no heading, no
+     placeholder — which is every venue on the day this ships, so the sheet
+     reads exactly as it did before. Shown in full, not truncated behind
+     "More" like the description: it is short by design and is the reason to
+     read on.
+     TODO(lao): "ເປັນຫຍັງຄວນໄປ" is the heading as given in the task, not yet
+     checked by a native speaker. */
+  const whyHtml = (typeof v.why === 'string' && v.why.trim()) ? `
+    <div class="vd-why">
+      <div class="vd-why-h"><span class="lao">ເປັນຫຍັງຄວນໄປ</span> · Why you'll like it</div>
+      <p class="vd-why-body">${esc(v.why.trim())}</p>
+    </div>` : '';
+
   const [descFirst, descRest] = firstSentence(v.description || '');
   const descHtml = !descFirst ? '' : `
     <div class="vd-desc" id="vdDesc">
@@ -4762,8 +4894,10 @@ function openVenue(id) {
     ${heroHtml}
     <div class="vd-title">${v.name_lo ? `<span class="vd-title-lo lao">${esc(v.name_lo)}</span><span class="vd-title-sep"> · </span>` : ''}${esc(v.name)}</div>
     <div class="vd-meta">${metaBits.join(' <span class="vd-dot">·</span> ')}</div>
+    ${ratingLineHtml(v, 'vd-rating')}
     ${vibes.length ? `<div class="vd-vibes">${vibes.map(t => `<span class="vd-vibe">${esc(t.label)}</span>`).join('')}</div>` : ''}
     ${actionsHtml}
+    ${whyHtml}
     ${descHtml}`;
 
   for (const ev of evs) {
@@ -5491,7 +5625,7 @@ function initSheetDrag() {
 // chip syncTypeChips() has hidden, so a swipe can't land on a hidden tab.
 const FILTER_ORDER = ['all', ...Object.keys(VENUE_TYPE_META).filter(k => VENUE_TYPE_META[k].chip), 'event'];
 const filterOrder = () => FILTER_ORDER.filter(k =>
-  !document.querySelector(`.chip[data-filter="${k}"]`)?.hidden);
+  !chipBarEl.querySelector(`.chip[data-filter="${k}"]`)?.hidden);
 const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* scrollIntoView/scrollTo take their own behavior argument and ignore the
@@ -5507,7 +5641,7 @@ function changeFilter(dir) {
   const order = filterOrder();
   const next = order.indexOf(state.filter || 'all') + dir;
   if (next < 0 || next >= order.length) return;
-  const chip = document.querySelector(`.chip[data-filter="${order[next]}"]`);
+  const chip = chipBarEl.querySelector(`.chip[data-filter="${order[next]}"]`);
   if (!chip) return;
   chip.click();
   chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: scrollBehavior() });
@@ -5566,7 +5700,7 @@ function changeFilterAnimated(dir) {
     const finishGesture = () => { inner.classList.remove('settling'); endGesture(); };
     inner.addEventListener('transitionend', finishGesture, { once: true });
     setTimeout(finishGesture, 300);
-    const activeChip = document.querySelector('.chip.on');
+    const activeChip = chipBarEl.querySelector('.chip.on');
     if (activeChip) activeChip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: scrollBehavior() });
   }, 200);
 }
@@ -5618,6 +5752,14 @@ function setSheet(html) {
       state.cafeTab = el.dataset.cafeTab;
       renderHomeSheet();
     }));
+  inner.querySelectorAll('[data-cat-tile]').forEach(el =>
+    el.addEventListener('click', () =>
+      chipBarEl.querySelector(`.chip[data-filter="${el.dataset.catTile}"]`)?.click()));
+  inner.querySelectorAll('[data-dist]').forEach(el =>
+    el.addEventListener('click', () => {
+      state.distanceFilterM = el.dataset.dist === '' ? null : Number(el.dataset.dist);
+      renderHomeSheet();
+    }));
   inner.querySelectorAll('[data-mood-relink]').forEach(el =>
     el.addEventListener('click', () => showMoodIntro({ startAtMood: true })));
   inner.querySelectorAll('[data-surprise-me]').forEach(el =>
@@ -5656,7 +5798,12 @@ function setSheet(html) {
    type chip, so a bar/café list that ever empties out gets the same. If the
    current filter's chip just disappeared, fall back to All. */
 function syncTypeChips() {
-  for (const ch of document.querySelectorAll('.chip')) {
+  /* every chip lookup in this file reads chipBarEl, never document: since
+     the All tab shows category tiles instead of the chip row, the bar is
+     detached from the page on mobile All, and document.querySelectorAll()
+     would silently skip it — the active chip would stop tracking the
+     filter, and a hidden Restaurants chip would count as visible. */
+  for (const ch of chipBarEl.querySelectorAll('.chip')) {
     if (!VENUE_TYPE_META[ch.dataset.filter]) continue;
     ch.hidden = !state.venues.some(v => v.type === ch.dataset.filter);
     if (ch.hidden && state.filter === ch.dataset.filter) state.filter = 'all';
@@ -5664,12 +5811,12 @@ function syncTypeChips() {
 }
 
 function syncChipState() {
-  document.querySelectorAll('.chip').forEach(c =>
+  chipBarEl.querySelectorAll('.chip').forEach(c =>
     c.classList.toggle('on', c.dataset.filter === (state.filter || 'all')));
 }
 
 function bindChips() {
-  document.querySelectorAll('.chip').forEach(ch => {
+  chipBarEl.querySelectorAll('.chip').forEach(ch => {
     ch.addEventListener('click', () => {
       // desktop shows the chip row beside an open owner form
       if (typeof edBlocksLeave === 'function' && edBlocksLeave(() => ch.click())) return;

@@ -41,12 +41,18 @@ const SCHEMA_NOTES =
   "enough that rain doesn't change the plan. Kar-set only. OMITTED = not " +
   "yet audited, which is not the same as false: the rain note on a card is " +
   "shown only for true and skipped entirely when the field is absent, so an " +
-  "unchecked venue never claims either way. See migrations/016_outdoor.sql.";
+  "unchecked venue never claims either way. See migrations/016_outdoor.sql. " +
+  "Optional \"why\": a short Kar-written paragraph on who the place suits, " +
+  "shown as 'Why you'll like it' on the venue detail; omitted = not written " +
+  "yet, and the block does not render. Optional \"rating\" (1-5) and " +
+  "\"review_count\": Paisaidee's OWN reviews only, set together, rating shown " +
+  "only when review_count > 0 — never a Google or aggregator rating. All three " +
+  "Kar-set only. See migrations/017_why_rating.sql.";
 
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a
 // multi-line value doesn't survive that quoting intact
-const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status, vibe, outdoor FROM venues ORDER BY rowid;";
+const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status, vibe, outdoor, why, rating, review_count FROM venues ORDER BY rowid;";
 
 // mirrors functions/api/venues.js's row -> JSON reassembly exactly; if that
 // shape ever changes, change it there and here together
@@ -79,6 +85,11 @@ function rowToVenue(r) {
   // state convention functions/api/venues.js uses, which this function has
   // to mirror exactly (see the note above rowToVenue)
   if (r.outdoor !== null) v.outdoor = !!r.outdoor;
+  // migrations/017_why_rating.sql — omitted when NULL, mirroring
+  // functions/api/venues.js exactly
+  if (r.why !== null) v.why = r.why;
+  if (r.rating !== null) v.rating = r.rating;
+  if (r.review_count !== null) v.review_count = r.review_count;
   return v;
 }
 

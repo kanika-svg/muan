@@ -29,6 +29,9 @@ export const VIBE_TAGS = ['under-trees', 'tucked-away', 'for-coffee', 'settle-in
 // Kar-only. There is no admin field-write endpoint yet (only the
 // pending-review approve/reject actions), so Kar sets it against D1 directly
 // and validateOutdoor below is here for whenever that endpoint exists.
+// `why`, `rating` and `review_count` (migrations/017_why_rating.sql) are
+// Kar-only the same way: not in SIMPLE_FIELDS, so no owner path can write an
+// editorial paragraph about their own venue or a rating for it.
 export const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const MAX_LEN = { name: 100, short_name: 40, name_lo: 60, area: 80, short: 120, description: 500, hours_note: 80 };
 export const MAX_PARKING_NOTE = 60;
