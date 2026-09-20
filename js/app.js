@@ -4220,6 +4220,110 @@ function goHome() {
   renderHomeSheet();
 }
 
+/* ---------- Home hero images ----------
+   The hero shows ONE of these, picked when app.js is parsed — i.e. once per
+   app open — and then held for the whole session in HOME_HERO below. Not
+   picked inside homeDiscoverHeaderHtml(): that function re-runs on every
+   Home render (a chip/filter change, a search keystroke, coming back from a
+   venue), and picking there would reshuffle the hero under the user several
+   times a minute. No crossfade, no timer, no second image preloaded — the
+   image is a constant for the session and the only thing that ever changes
+   it is a fresh load of the page.
+
+   Every entry is a day/night pair, so the two kinds of image here are the
+   same shape at the call site (see heroVariant()): the illustration has a
+   genuine light and dark version, the photo repeats one id in both fields.
+
+   veilDark/veilLight are that variant's scrim alpha — how much of
+   .home-hero-scrim's near-black is laid over the image behind the text.
+   Per variant, not one global number, because the three variants are not
+   remotely equally bright: the night photo's sky and the night
+   illustration carry text on their own, the daytime illustration's
+   near-white sky does not. Measured, not eyeballed — each is the lowest
+   value at which all four pieces of hero text clear WCAG AA on the image's
+   real pixels, at 320x210 / 390x270 / 409x256 / 409x210, plus a margin:
+
+     variant             veil   worst measured ratio (logo / PAISAIDEE / ໄປໃສດີ / question)
+     photo, either theme  .62    3.44  9.25  7.01  5.29
+     illustration night   .74    3.37 10.20  9.28  6.94
+     illustration day     .80    3.46  9.52  9.23  8.03
+
+   Thresholds: 4.5:1 for PAISAIDEE and the question (both 15px, so not
+   WCAG "large text"), 3:1 for ໄປໃສດີ at 38px and for the logo droplet as
+   a graphic. Lowering a veil without re-measuring that variant's pixels
+   is how this silently breaks.
+
+   objectPosition is per image because the two do not crop the same way.
+   The hero is clamp(210px, 32vh, 270px) tall and as wide as the sheet, and
+   both ends of that clamp are reachable, so the box ratio ranges from 1.44
+   to 1.95 — object-fit: cover therefore crops these two images on opposite
+   axes depending on the window. Measured boxes, and what each loses at
+   50% 50% (the browser's own default, written out here so it is a decision
+   rather than an omission):
+
+     box                      ratio   16:9 photo        3:2 illustration
+     320x210 phone            1.52    7.1% a side       0.8% top+bottom
+     390x270 phone            1.44    9.3% a side       1.9% a side
+     409x256 desktop          1.60    5.0% a side       3.1% top+bottom
+     409x210 short desktop    1.95    4.5% top+bottom   11.5% top+bottom
+
+   Centred is right for both. The photo's subject (the stupa, 64% across)
+   and the palm that frames it at the left edge both survive the widest
+   side crop; nothing in the illustration lives in the outer 2%. The one
+   case with a real vertical crop is a short desktop window, and there
+   both images lose sky at the top and paving at the bottom, neither of
+   which is the subject — pulling either image up or down to protect
+   something would only move the loss onto content that matters more.
+   Checked at all four boxes rather than assumed.
+
+   (409, not 420: the desktop sheet is 420px wide and its scrollbar takes
+   the rest. A phone's overlay scrollbar takes nothing, which is why the
+   phone rows are the full 320/390.)
+
+   The field is per image because the next one appended here will not
+   necessarily be either ratio. */
+const HOME_HERO_IMAGES = [
+  // That Luang at sunset. A photograph, not an illustration, so there is no
+  // day/night pair to pick from — the same id in both fields is the honest
+  // encoding of "this image is used in both themes", and it keeps
+  // heroVariant() free of a has-a-light-variant branch. Its sky is already
+  // dark at the top, so it needs the least veil of the three variants.
+  {
+    photoDark:  'v1789486872/ChatGPT_Image_Sep_15_2026_10_39_23_PM_mnfpiq',
+    photoLight: 'v1789486872/ChatGPT_Image_Sep_15_2026_10_39_23_PM_mnfpiq',
+    veilDark: .62, veilLight: .62,
+    objectPosition: '50% 50%',
+  },
+  // the welcome carousel's first illustration, read from WELCOME_SLIDES[0]
+  // rather than copied, so it stays theme-matched to the intro if either of
+  // those two ids is ever changed. The daytime one is a cream street scene
+  // whose top third is near-white sky, which is why its veil is the
+  // heaviest here: bone text on cream needs it.
+  {
+    photoDark:  WELCOME_SLIDES[0].photoDark,
+    photoLight: WELCOME_SLIDES[0].photoLight,
+    veilDark: .74, veilLight: .80,
+    objectPosition: '50% 50%',
+  },
+];
+const HOME_HERO = HOME_HERO_IMAGES[Math.floor(Math.random() * HOME_HERO_IMAGES.length)];
+
+// the image AND its veil for the theme being rendered, picked by one branch
+// on purpose: a photo chosen for night under a veil chosen for day is
+// exactly the illegible pairing the veils exist to prevent, and two separate
+// ternaries reading state.theme are two things that can drift apart.
+// Returns veil: undefined for an entry that declares none, which the call
+// site turns into "no inline --hero-veil" so .home-hero-scrim's own default
+// (the heaviest value, see style.css) applies — a new image is veiled too
+// much until someone measures it, never too little.
+function heroVariant(h) {
+  const light = state.theme === 'light';
+  return {
+    photo: light ? h.photoLight : h.photoDark,
+    veil:  light ? h.veilLight  : h.veilDark,
+  };
+}
+
 // mobile Home only (see style.css's .surprise-btn) — CSS hides it on
 // desktop. Bars/Cafes only: "surprise me" from every venue was too broad on
 // All (the whole point of the other sections) and meaningless on Events (no
@@ -4239,17 +4343,14 @@ function goHome() {
    further categories), and the search filter icon (no filters to open
    from here). The other tabs keep their list header and the chip row.
 
-   The hero photo is the app's own first welcome illustration
-   (WELCOME_SLIDES[0], the theme's variant), not the That Luang photo in the
-   mockup, which is not an asset this project has. Swap the id here when
-   Kar picks a real hero photo. */
+   The hero image is picked from HOME_HERO_IMAGES, once per app open. */
 function homeDiscoverHeaderHtml() {
-  const slide = WELCOME_SLIDES[0];
-  const photo = state.theme === 'light' ? slide.photoLight : slide.photoDark;
+  const { photo, veil } = heroVariant(HOME_HERO);
   const when = isNight() ? 'tonight' : 'today';
   return `
-    <section class="home-hero" aria-label="Paisaidee">
-      ${photo ? `<img class="home-hero-img" src="${esc(cloudinaryUrl(photo, 900))}" alt="" fetchpriority="high">` : ''}
+    <section class="home-hero" aria-label="Paisaidee"${typeof veil === 'number' ? ` style="--hero-veil:${veil}"` : ''}>
+      ${photo ? `<img class="home-hero-img" src="${esc(cloudinaryUrl(photo, 900))}" alt=""
+        style="object-position:${HOME_HERO.objectPosition}" fetchpriority="high">` : ''}
       <div class="home-hero-scrim"></div>
       <div class="home-hero-text">
         <div class="home-hero-brand">${logoMark(18, '#131019')}<span>PAISAIDEE</span></div>

@@ -562,12 +562,46 @@ body {
   position: relative; overflow: hidden;
   margin: 0 calc(-1 * var(--sheet-pad-x));
   height: clamp(210px, 32vh, 270px);
-  background: var(--ink3);
+  /* the colour behind a hero image that has not arrived yet, so it is a
+     surface the hero's text has to be readable on. A literal from the dark
+     palette, NOT var(--ink3): in the light theme that token is #F2EAD8, and
+     the hero's text is bone in both themes (see the note above), so the
+     light theme's placeholder was cream-on-cream — 2.08:1 for the question
+     line, measured, for however long the image took to load. Dark in both
+     themes it measures 13.5:1. */
+  background: #241E31;
 }
+/* object-position is set inline per image by homeDiscoverHeaderHtml()
+   (HOME_HERO_IMAGES in app.js) because the hero's images are not all the
+   same aspect ratio and so do not all crop the same way. Deliberately not
+   declared here as well: an inline style wins over this rule whatever it
+   says, so a value here would be dead code that reads as the live one. */
 .home-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The first stop is held to a PIXEL depth, not a percentage, and that is
+   the whole point of this shape. .home-hero-text is positioned in px
+   (top: 22px) and its three lines are px font sizes, so the text always
+   ends at the same ~117px from the hero's top edge whatever the hero's
+   height is — but the hero's height is clamp(210px, 32vh, 270px). The old
+   gradient faded from .72 to .30 by 58%, which on a 270px hero put the
+   question line at ~40% (still fairly dark) and on a 210px hero put it at
+   ~55%, i.e. essentially on the .30 stop. Same CSS, same text, 2.59:1
+   instead of 6:1, purely because the hero got shorter. Holding the veil
+   flat to 124px covers the text block at every hero height, and everything
+   below that — where there is no text — is free to fade and let the image
+   through. Contrast now depends only on --hero-veil, never on the height.
+
+   --hero-veil is set inline per image by homeDiscoverHeaderHtml(), because
+   how much veil is enough depends on the image behind it. The fallback
+   here is the heaviest of the measured values, so an image that arrives
+   without one is over-veiled rather than illegible. Measured ratios per
+   image are tabulated on HOME_HERO_IMAGES in js/app.js. */
 .home-hero-scrim {
   position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(19,16,25,.72), rgba(19,16,25,.30) 58%, rgba(19,16,25,.50));
+  background: linear-gradient(to bottom,
+    rgba(19,16,25, var(--hero-veil, .80)) 0,
+    rgba(19,16,25, var(--hero-veil, .80)) 124px,
+    rgba(19,16,25,.26) 78%,
+    rgba(19,16,25,.50));
 }
 .home-hero-text {
   position: absolute; top: 22px; left: var(--sheet-pad-x); right: var(--sheet-pad-x);
