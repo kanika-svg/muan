@@ -1,5 +1,5 @@
 {
-  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am = '26:00', 03:00 am = '27:00'. hours_note: shown instead of 'hours unconfirmed' when hours is null but there's a known reason (e.g. a venue with no daily schedule) rather than nobody having looked — only read when hours is null. photos (and events.json's photo field): '<version>/<publicId>', e.g. 'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. See cloudinaryUrl() in js/app.js, the only place that turns this into a delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, not in the stored value). vibe: 0-4 tags from a fixed vocabulary (under-trees, tucked-away, for-coffee, settle-in — see VIBE_TAGS in functions/api/_venue-validation.js), Kar-set only. Omitted/null = not yet tagged. outdoor: true = exposed to the weather (rooftop, open-air, riverside, garden/courtyard with nowhere indoors to sit it out), false = indoors enough that rain doesn't change the plan. Kar-set only. OMITTED = not yet audited, which is not the same as false: the rain note on a card is shown only for true and skipped entirely when the field is absent, so an unchecked venue never claims either way. See migrations/016_outdoor.sql.",
+  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am = '26:00', 03:00 am = '27:00'. hours_note: shown instead of 'hours unconfirmed' when hours is null but there's a known reason (e.g. a venue with no daily schedule) rather than nobody having looked — only read when hours is null. photos (and events.json's photo field): '<version>/<publicId>', e.g. 'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. See cloudinaryUrl() in js/app.js, the only place that turns this into a delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, not in the stored value). vibe: 0-4 tags from a fixed vocabulary (under-trees, tucked-away, for-coffee, settle-in — see VIBE_TAGS in functions/api/_venue-validation.js), Kar-set only. Omitted/null = not yet tagged. outdoor: true = exposed to the weather (rooftop, open-air, riverside, garden/courtyard with nowhere indoors to sit it out), false = indoors enough that rain doesn't change the plan. Kar-set only. OMITTED = not yet audited, which is not the same as false: the rain note on a card is shown only for true and skipped entirely when the field is absent, so an unchecked venue never claims either way. See migrations/016_outdoor.sql. Optional \"why\": a short Kar-written paragraph on who the place suits, shown as 'Why you'll like it' on the venue detail; omitted = not written yet, and the block does not render. Optional \"rating\" (1-5) and \"review_count\": Paisaidee's OWN reviews only, set together, rating shown only when review_count > 0 — never a Google or aggregator rating. All three Kar-set only. See migrations/017_why_rating.sql.",
   "venues": [
     {
       "id": "kong-view",
@@ -135,8 +135,8 @@
       "lat": 17.9690462,
       "lng": 102.6103675,
       "area": "City center",
-      "short": "Temporarily closed after a fire — rebuilding bigger, back soon",
-      "description": "Vintage-garage bar-restaurant with burgers, pizza and nightly live music — temporarily closed after a fire, using the moment to rebuild wider and better. Follow their page for the reopening. It'll be a big night.",
+      "short": "Vintage-garage bar back after the rebuild — live music nightly",
+      "description": "Vintage-garage bar-restaurant with burgers, pizza and pasta, and live music every night. Back open after rebuilding from the fire.",
       "photos": [],
       "hours": null,
       "hours_note": null,
@@ -145,7 +145,7 @@
         "maps": "https://www.google.com/maps/dir/?api=1&destination=17.9690462,102.6103675"
       },
       "verified": true,
-      "source": "Google Maps listing, 2026-07-11",
+      "source": "Reopened after fire rebuild — confirmed by Kar, 2026-09-22; hours pending",
       "pin_status": "placed"
     },
     {
