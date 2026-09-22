@@ -11,7 +11,7 @@
 // JS/CSS and a fix genuinely never reached it — a real, distinct
 // possibility "verified in Chromium" could never have caught. Bump this
 // string whenever js/app.js or css/style.css change.
-const BUILD_TIME = '2026-09-22T00:00:00Z';
+const BUILD_TIME = '2026-09-22T12:00:00Z';
 
 // the very first thing this script does, before anything else — including
 // COLORS below — has any chance to run, let alone touch the URL. Logged
@@ -4308,6 +4308,101 @@ const HOME_HERO_IMAGES = [
 ];
 const HOME_HERO = HOME_HERO_IMAGES[Math.floor(Math.random() * HOME_HERO_IMAGES.length)];
 
+/* The same hero, per filter tab. Entries have the EXACT shape of a
+   HOME_HERO_IMAGES entry (photoDark/photoLight/veilDark/veilLight/
+   objectPosition) and go through the same heroVariant() and the same
+   .home-hero markup, so a tab's hero is not a second implementation of the
+   All hero — appending another photo to a tab is a one-line change here and
+   nothing else.
+
+   photoDark === photoLight on every entry: these are photographs, not the
+   illustration pair, so there is no day/night variant to choose between.
+   Writing the same id twice is the honest encoding of "this image is used in
+   both themes" — the same call HOME_HERO_IMAGES' That Luang entry makes.
+
+   A tab with no entry here (restaurant today) is NOT broken by this: the
+   header falls back to the greeting block it has always had — see
+   renderHomeSheet(). Adding a restaurant hero means adding a key, nothing
+   more.
+
+   Veils are per image and MEASURED against that image's own pixels under
+   each of the three text lines, at 320/390/desktop, both themes — the table
+   is in the report for this change. The three lines all end by y=117px and
+   .home-hero-scrim holds a flat veil to 124px, so one number covers the
+   whole text block at every hero height (see the note on .home-hero-scrim in
+   style.css). */
+const TYPE_HERO_IMAGES = {
+  bar: [
+    // 7th Heaven's rooftop at sunset, and the problem child of this list.
+    // Its sky runs straight through the band where the text sits, at EVERY
+    // crop — sweeping object-position from 0% to 100% moves the required
+    // veil only from .85 to .79 — so AA on the brand and English lines costs
+    // .84, and at .84 the sunset it was chosen for is gone. Shipped as given
+    // because it was the id asked for; flagged in the report as the one
+    // image worth swapping for a darker 7th Heaven shot.
+    { photoDark: 'v1789470832/7th_2_slovtd', photoLight: 'v1789470832/7th_2_slovtd',
+      veilDark: .84, veilLight: .84, objectPosition: '50% 50%' },
+    // Tipsy Elephant, neon-lit room. Its own "Tipsy Elephant" neon sits
+    // upper-left in the source, which is where this hero puts its own text —
+    // a centre crop moves it out of frame, so the two never overlap. .70 is
+    // the floor of a sharp trough in the crop sweep (.83 at 35%, .70 at
+    // 50-55%, .83 again by 75%), so this one is worth re-measuring if the
+    // crop is ever nudged.
+    { photoDark: 'v1789470830/tipsy1_gnwzff', photoLight: 'v1789470830/tipsy1_gnwzff',
+      veilDark: .70, veilLight: .70, objectPosition: '50% 50%' },
+    // Wind West, band on stage — confirmed by opening the asset, not by
+    // trusting the filename: three musicians mid-set under the WIND WEST
+    // sign. 70%, not centre: the source is barely taller than the hero, so
+    // the whole crop range moves the framing by only ~50px and the band
+    // stays in shot either way, but it lifts a lamp out from under the brand
+    // line and takes the required veil from .62 to .48. Shipped at .50 for a
+    // little margin — it is the only image here light enough to read as a
+    // photograph rather than a texture.
+    { photoDark: 'v1789470837/windwest2_bfjgyb', photoLight: 'v1789470837/windwest2_bfjgyb',
+      veilDark: .50, veilLight: .50, objectPosition: '50% 70%' },
+  ],
+  cafe: [
+    // Anthophile: canopy above, glass front and pool below. A centre crop is
+    // the only one that holds all three — 90% measured marginally lighter
+    // (.66 vs .69) but drops the canopy out of frame, which is half of why
+    // the photo is worth using. Subject won; .70 shipped.
+    { photoDark: 'v1785599071/anfront_ycq5p6', photoLight: 'v1785599071/anfront_ycq5p6',
+      veilDark: .70, veilLight: .70, objectPosition: '50% 50%' },
+  ],
+  event: [
+    // The night market, lit and busy. NOTE: this asset carries a visible
+    // "(C)AsiaWebDirect" watermark in its bottom-right corner — see the
+    // report for this change. It is used here because it was the id given,
+    // but it is a third party's photograph and the crop does not and must
+    // not hide the credit.
+    { photoDark: 'v1785192698/night_market_hrrub8', photoLight: 'v1785192698/night_market_hrrub8',
+      veilDark: .84, veilLight: .84, objectPosition: '50% 50%' },
+  ],
+};
+
+/* One pick per tab per app open, exactly like HOME_HERO above: module-level
+   consts, evaluated once. renderHomeSheet() runs again on every filter
+   switch, every search keystroke and every return from a venue, and reading
+   Math.random() inside it would reshuffle the hero each time — the bug the
+   All hero already had and fixed. */
+const TYPE_HERO = {
+  bar:   TYPE_HERO_IMAGES.bar[Math.floor(Math.random() * TYPE_HERO_IMAGES.bar.length)],
+  cafe:  TYPE_HERO_IMAGES.cafe[Math.floor(Math.random() * TYPE_HERO_IMAGES.cafe.length)],
+  event: TYPE_HERO_IMAGES.event[Math.floor(Math.random() * TYPE_HERO_IMAGES.event.length)],
+};
+
+/* English sub-line per tab. Written out rather than derived from
+   VENUE_TYPE_META[f].label because that label is "Cafes" and the hero wants
+   the accented "Cafés". The LAO line is NOT written here — it is read from
+   the same VENUE_TYPE_META[f].label_lo the chips and the category buttons
+   already use, so there is no second translation of a word the app has
+   already translated. */
+const TYPE_HERO_EN = {
+  bar:   'Bars in Vientiane',
+  cafe:  'Cafés in Vientiane',
+  event: 'Events in Vientiane',
+};
+
 // the image AND its veil for the theme being rendered, picked by one branch
 // on purpose: a photo chosen for night under a veil chosen for day is
 // exactly the illegible pairing the veils exist to prevent, and two separate
@@ -4366,6 +4461,43 @@ function homeDiscoverHeaderHtml() {
     <div id="homeBody">
       ${homeCategoriesHtml()}
       <div class="s-subrow home-weather">${weatherWidgetHtml()}</div>`;
+}
+
+/* The Bars / Cafes / Events hero. Same <section class="home-hero"> as
+   homeDiscoverHeaderHtml() above — same scrim, same text block, same
+   per-image veil and object-position — with two differences, both of them
+   the point of the tab:
+     - the large line is the TYPE in Lao and the small line names it in
+       English, where All carries the brand question.
+     - there is no search bar under it. Search belongs to All; a search box
+       on the Bars tab would either search bars only (a second, narrower
+       search with no way to say so) or search everything (in which case it
+       is All's, on the wrong screen).
+   The brand mark stays on every tab: it is the one thing that should not
+   change between them.
+   Returns '' for a filter with no TYPE_HERO entry, which renderHomeSheet()
+   reads as "keep the greeting block" rather than "render nothing". */
+function typeHeroHeaderHtml(f) {
+  const entry = TYPE_HERO[f];
+  if (!entry) return '';
+  const { photo, veil } = heroVariant(entry);
+  // 'event' is not a venue type, so it has no VENUE_TYPE_META row — this is
+  // the same pair of sources homeCategoriesHtml() reads for its labels, and
+  // deliberately the same, so the Lao on the chip, the category button and
+  // the hero can never drift apart.
+  const lo = f === 'event' ? 'ອີເວັນ' : VENUE_TYPE_META[f]?.label_lo || '';
+  const en = TYPE_HERO_EN[f] || '';
+  return `
+    <section class="home-hero" aria-label="${esc(en)}"${typeof veil === 'number' ? ` style="--hero-veil:${veil}"` : ''}>
+      ${photo ? `<img class="home-hero-img" src="${esc(cloudinaryUrl(photo, 900))}" alt=""
+        style="object-position:${entry.objectPosition}" fetchpriority="high">` : ''}
+      <div class="home-hero-scrim"></div>
+      <div class="home-hero-text">
+        <div class="home-hero-brand">${logoMark(18, '#131019')}<span>PAISAIDEE</span></div>
+        <div class="home-hero-lo lao">${esc(lo)}</div>
+        <div class="home-hero-en">${esc(en)}</div>
+      </div>
+    </section>`;
 }
 
 // round category buttons, one per filter the chip row offers — Bars, Cafes,
@@ -4617,12 +4749,28 @@ function renderHomeSheet() {
     ? '<span class="lao">ຄືນນີ້ໄປໃສດີ?</span>'
     : '<span class="lao">ມື້ນີ້ໄປໃສດີ?</span>';
 
+  /* The header above the chip row on a NON-All tab. A tab with a hero shows
+     it in place of the greeting; a tab without one (restaurant, until a
+     photo is chosen for it) keeps the greeting exactly as it was, so adding
+     a type never lands it on a headerless screen.
+     The weather row survives either way. It is not part of the greeting —
+     rain is the one thing that changes whether an open-air bar is a good
+     idea tonight (see outdoorNoteHtml()), and it is just as relevant on the
+     Bars tab as on All. On All it already sits in its own .s-subrow
+     .home-weather below the hero; this puts it in the same place here.
+     The chip row is NOT moved by any of this: it still follows this block,
+     which is what makes it the way back to All. */
+  const tabHeaderHtml = (filter) => TYPE_HERO[filter]
+    ? `${typeHeroHeaderHtml(filter)}
+      <div class="s-subrow home-weather">${weatherWidgetHtml()}</div>`
+    : `${greetEyebrowHtml()}
+      <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
+      <div class="s-subrow"><div class="s-sub">${sub}</div>${weatherWidgetHtml()}</div>`;
+
   if (VENUE_TYPE_META[f]?.chip) {
     const label = `${VENUE_TYPE_META[f].label} · ${VENUE_TYPE_META[f].label_lo}`;
     let html = `
-      ${greetEyebrowHtml()}
-      <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
-      <div class="s-subrow"><div class="s-sub">${sub}</div>${weatherWidgetHtml()}</div>
+      ${tabHeaderHtml(f)}
       ${surpriseMeHtml(f)}
       <div id="chipSentinel"></div>
       <div id="chipSlot"></div>`;
@@ -4675,9 +4823,7 @@ function renderHomeSheet() {
   // filter this branch draws, keeps the list header and the chip row, since
   // the chip row is the way back
   let html = f === 'all' ? homeDiscoverHeaderHtml() : `
-    ${greetEyebrowHtml()}
-    <div class="s-title s-greet">${dayGreeting()}, Vientiane</div>
-    <div class="s-subrow"><div class="s-sub">${sub}</div>${weatherWidgetHtml()}</div>
+    ${tabHeaderHtml(f)}
     <div id="chipSentinel"></div>
     <div id="chipSlot"></div>`;
   let rendered = false;
