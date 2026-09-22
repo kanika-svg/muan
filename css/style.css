@@ -2804,6 +2804,73 @@ body {
 .vd-dot { color: var(--secondary); }
 .vd-dim { color: var(--secondary); }
 
+/* ---------- venue logo badge (migrations/018_logo.sql) ----------
+   Rendered ONLY when the venue has a logo, and only in this header — see the
+   note above VENUE_LOGO_LAYOUT in js/app.js. A venue without one emits no
+   .vd-head at all, so none of these rules match and the header is exactly
+   what it was before: no placeholder, no initial, no reserved gap.
+   Both layouts are live behind that constant so they can be compared on a
+   real device; whichever loses gets deleted, not left dangling. */
+.vd-head { display: flex; align-items: flex-start; gap: 12px; }
+/* .vd-title owns margin-top:14px because in the no-logo header it is the
+   first thing under the photo and nothing else supplies that gap. Inside
+   .vd-head the row positions it instead, so the margin is neutralised HERE
+   rather than deleted there — the no-logo path still needs it. */
+.vd-head .vd-title { margin-top: 0; }
+.vd-headtext { flex: 1; min-width: 0; }
+
+.vd-logo {
+  flex: 0 0 auto;
+  display: block; border-radius: 50%; overflow: hidden;
+  /* A logo is usually drawn FOR a white page, and plenty are transparent
+     PNGs or have a white ground of their own. Without a pale backdrop behind
+     the crop, those read as a hole punched in the photo. Fixed hex and NOT
+     --bone: --bone flips to #2A2419 in the day theme, which would put a
+     white-background logo in a near-black disc on exactly the theme where it
+     is least expected. Same reasoning as .vd-round and .status-pill, which
+     also hardcode their colours because they sit over a photo. */
+  background: #F5F1E8;
+  /* the ring, as box-shadow rather than border: a shadow takes no part in
+     layout, so the 50% radius stays a true circle and the half-overlap
+     arithmetic below stays whole numbers. var(--ground) is #sheet's own
+     background colour, so the ring reads as the sheet cutting a hole through
+     the photo for the badge — and it follows the theme for free. */
+  box-shadow: 0 0 0 3px var(--ground);
+}
+/* cloudinaryAvatarUrl() already centre-crops square, so this is the guard for
+   the case where it did not: a stored full URL (which that helper returns
+   untouched) or a transform that failed would otherwise stretch. */
+.vd-logo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ---- 'overlap': the collage keeps the top of the sheet ---- */
+.vd-head-overlap {
+  /* the row rises by half the logo so the circle straddles the photo's
+     bottom edge. -32px is half of the 64px set below: the two numbers are a
+     pair and have to move together. */
+  margin-top: -32px;
+  /* over .vd-hero::after's bottom scrim */
+  position: relative; z-index: 2;
+  /* the row now covers the bottom 32px of the collage, including the strip
+     of photo beside the logo — which openVenue() has a delegated click
+     handler on for the lightbox. Making the row transparent to pointers and
+     handing them back to the two things that actually want them keeps that
+     tap area exactly as large as it was before the badge existed. */
+  pointer-events: none;
+}
+.vd-head-overlap .vd-logo,
+.vd-head-overlap .vd-title,
+.vd-head-overlap .vd-meta { pointer-events: auto; }
+.vd-head-overlap .vd-logo { width: 64px; height: 64px; }
+/* the text has to clear the edge the logo is straddling: 32px back down to
+   the photo's bottom, then the same 14px of air the title always had under
+   it, so the name sits where the eye already expects it. */
+.vd-head-overlap .vd-headtext { padding-top: 46px; }
+
+/* ---- 'above': logo and name are a row, photos follow ---- */
+.vd-head-above { align-items: center; margin-bottom: 12px; }
+.vd-head-above .vd-logo { width: 48px; height: 48px; }
+
+
 /* the venue's own vibe tags (migrations/013_vibe.sql) — until now these only
    existed inside the mood chooser. Read-only here: a label, not a filter. */
 .vd-vibes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

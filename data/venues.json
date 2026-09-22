@@ -1,5 +1,5 @@
 {
-  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am = '26:00', 03:00 am = '27:00'. hours_note: shown instead of 'hours unconfirmed' when hours is null but there's a known reason (e.g. a venue with no daily schedule) rather than nobody having looked — only read when hours is null. photos (and events.json's photo field): '<version>/<publicId>', e.g. 'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. See cloudinaryUrl() in js/app.js, the only place that turns this into a delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, not in the stored value). vibe: 0-4 tags from a fixed vocabulary (under-trees, tucked-away, for-coffee, settle-in — see VIBE_TAGS in functions/api/_venue-validation.js), Kar-set only. Omitted/null = not yet tagged. outdoor: true = exposed to the weather (rooftop, open-air, riverside, garden/courtyard with nowhere indoors to sit it out), false = indoors enough that rain doesn't change the plan. Kar-set only. OMITTED = not yet audited, which is not the same as false: the rain note on a card is shown only for true and skipped entirely when the field is absent, so an unchecked venue never claims either way. See migrations/016_outdoor.sql. Optional \"why\": a short Kar-written paragraph on who the place suits, shown as 'Why you'll like it' on the venue detail; omitted = not written yet, and the block does not render. Optional \"rating\" (1-5) and \"review_count\": Paisaidee's OWN reviews only, set together, rating shown only when review_count > 0 — never a Google or aggregator rating. All three Kar-set only. See migrations/017_why_rating.sql.",
+  "_schema_notes": "Coordinates and hours sourced from live Google Maps listings on 2026-07-11. Google hours can lag reality — spot-check in person when convenient. hours: 24h 'HH:MM-HH:MM' per day, null = closed that day. Whole hours object null = hours unknown/unconfirmed. Closing past midnight: 02:00 am = '26:00', 03:00 am = '27:00'. hours_note: shown instead of 'hours unconfirmed' when hours is null but there's a known reason (e.g. a venue with no daily schedule) rather than nobody having looked — only read when hours is null. photos (and events.json's photo field): '<version>/<publicId>', e.g. 'v1785599071/anfront_ycq5p6' — a Cloudinary public ID, not a full URL. See cloudinaryUrl() in js/app.js, the only place that turns this into a delivery URL (cloud name + q_auto,f_auto,dpr_auto + width live there, not in the stored value). vibe: 0-4 tags from a fixed vocabulary (under-trees, tucked-away, for-coffee, settle-in — see VIBE_TAGS in functions/api/_venue-validation.js), Kar-set only. Omitted/null = not yet tagged. outdoor: true = exposed to the weather (rooftop, open-air, riverside, garden/courtyard with nowhere indoors to sit it out), false = indoors enough that rain doesn't change the plan. Kar-set only. OMITTED = not yet audited, which is not the same as false: the rain note on a card is shown only for true and skipped entirely when the field is absent, so an unchecked venue never claims either way. See migrations/016_outdoor.sql. Optional \"why\": a short Kar-written paragraph on who the place suits, shown as 'Why you'll like it' on the venue detail; omitted = not written yet, and the block does not render. Optional \"rating\" (1-5) and \"review_count\": Paisaidee's OWN reviews only, set together, rating shown only when review_count > 0 — never a Google or aggregator rating. All three Kar-set only. See migrations/017_why_rating.sql. Optional \"logo\": the venue's own mark, a Cloudinary public ID in the same '<version>/<publicId>' form as photos. Used ONLY in the venue detail header, as a circular badge; list cards, the carousel and the map keep using photos[0], since a logo says which place it is and a photo says what it looks like. Omitted = no logo, and no circle is drawn at all — there is no placeholder or initial. Kar-set only, and not every mark belongs here: a photograph of a sign on a wall is a photo, not a logo, and crops badly into a circle. See migrations/018_logo.sql.",
   "venues": [
     {
       "id": "kong-view",
@@ -149,7 +149,8 @@
       },
       "verified": true,
       "source": "Reopened after fire rebuild — confirmed by Kar, 2026-09-22; hours pending",
-      "pin_status": "placed"
+      "pin_status": "placed",
+      "logo": "v1790032689/godunkpf_d55cdz"
     },
     {
       "id": "status-bar",
@@ -333,8 +334,7 @@
         "v1787658195/treetown4_oqbrqz",
         "v1787658200/treetownf1_deijyh",
         "v1787658200/treetownf2_hiqprc",
-        "v1787658200/treetownf3_oeabw3",
-        "v1787658196/treetownlogo_ipayqw"
+        "v1787658200/treetownf3_oeabw3"
       ],
       "hours": {
         "mon": null,
@@ -356,7 +356,8 @@
       "vibe": [
         "tucked-away",
         "settle-in"
-      ]
+      ],
+      "logo": "v1787658196/treetownlogo_ipayqw"
     },
     {
       "id": "common-grounds",
@@ -407,8 +408,7 @@
         "v1787658197/drip1920front_bdz1fi",
         "v1787658197/drip1920.1_td5jwz",
         "v1787658197/drip1920.2_b0wze0",
-        "v1787658198/drip1920.3_guywjh",
-        "v1787658602/drip1920logo_ltdtho"
+        "v1787658198/drip1920.3_guywjh"
       ],
       "hours": {
         "mon": "07:00-20:00",
@@ -430,7 +430,8 @@
       "vibe": [
         "tucked-away",
         "settle-in"
-      ]
+      ],
+      "logo": "v1787658602/drip1920logo_ltdtho"
     },
     {
       "id": "maomao-matcha",
@@ -451,8 +452,7 @@
         "v1787658198/maomao5_pp3vi8",
         "v1787658197/maomaod1_hresm7",
         "v1787658196/maomao_matcha_menu_lcu015",
-        "v1787658196/maomaofoodmenu_xopcxg",
-        "v1787658199/maomaologo_if87kz"
+        "v1787658196/maomaofoodmenu_xopcxg"
       ],
       "hours": {
         "mon": "07:30-16:30",
@@ -473,7 +473,8 @@
       "pin_status": "placed",
       "vibe": [
         "for-coffee"
-      ]
+      ],
+      "logo": "v1787658199/maomaologo_if87kz"
     },
     {
       "id": "vte-night-market",
@@ -548,8 +549,7 @@
         "v1787658198/farsai3_uyectp",
         "v1787658198/farsai_food_mymfsb",
         "v1787658198/farsai_food2_dpojmm",
-        "v1787658197/farsai_food3_yoq58m",
-        "v1787658199/farsai_cafe_ko5ikm"
+        "v1787658197/farsai_food3_yoq58m"
       ],
       "hours": {
         "mon": "10:00-22:00",
@@ -571,7 +571,8 @@
       "vibe": [
         "under-trees",
         "settle-in"
-      ]
+      ],
+      "logo": "v1787658199/farsai_cafe_ko5ikm"
     },
     {
       "id": "corebeer",
@@ -1051,8 +1052,7 @@
         "v1787658195/chocolad1_pceuew",
         "v1787658199/chocolad2_aa2fmk",
         "v1787658194/chocolac1_hvrirs",
-        "v1787658200/chocolac2_wzwwrc",
-        "v1787658196/chocolalogo_xzigjy"
+        "v1787658200/chocolac2_wzwwrc"
       ],
       "hours": {
         "mon": "09:00-18:00",
@@ -1078,7 +1078,8 @@
       },
       "vibe": [
         "tucked-away"
-      ]
+      ],
+      "logo": "v1787658196/chocolalogo_xzigjy"
     }
   ]
 }

@@ -47,12 +47,20 @@ const SCHEMA_NOTES =
   "yet, and the block does not render. Optional \"rating\" (1-5) and " +
   "\"review_count\": Paisaidee's OWN reviews only, set together, rating shown " +
   "only when review_count > 0 — never a Google or aggregator rating. All three " +
-  "Kar-set only. See migrations/017_why_rating.sql.";
+  "Kar-set only. See migrations/017_why_rating.sql. " +
+  "Optional \"logo\": the venue's own mark, a Cloudinary public ID in the " +
+  "same '<version>/<publicId>' form as photos. Used ONLY in the venue " +
+  "detail header, as a circular badge; list cards, the carousel and the map " +
+  "keep using photos[0], since a logo says which place it is and a photo " +
+  "says what it looks like. Omitted = no logo, and no circle is drawn at " +
+  "all — there is no placeholder or initial. Kar-set only, and not every " +
+  "mark belongs here: a photograph of a sign on a wall is a photo, not a " +
+  "logo, and crops badly into a circle. See migrations/018_logo.sql.";
 
 // single line, no embedded newlines — execSync below runs this through the
 // platform shell (cmd.exe on Windows) as one quoted --command token, and a
 // multi-line value doesn't survive that quoting intact
-const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status, vibe, outdoor, why, rating, review_count FROM venues ORDER BY rowid;";
+const QUERY = "SELECT id, name, short_name, name_lo, type, lat, lng, area, short, description, photos, hours, hours_note, contact, parking, links, verified, status, source, signature, pin_status, vibe, outdoor, why, rating, review_count, logo FROM venues ORDER BY rowid;";
 
 // mirrors functions/api/venues.js's row -> JSON reassembly exactly; if that
 // shape ever changes, change it there and here together
@@ -90,6 +98,9 @@ function rowToVenue(r) {
   if (r.why !== null) v.why = r.why;
   if (r.rating !== null) v.rating = r.rating;
   if (r.review_count !== null) v.review_count = r.review_count;
+  // migrations/018_logo.sql — omitted when NULL, mirroring
+  // functions/api/venues.js exactly
+  if (r.logo !== null) v.logo = r.logo;
   return v;
 }
 

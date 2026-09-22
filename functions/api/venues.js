@@ -48,7 +48,7 @@ async function handleGet(context) {
       `SELECT id, name, short_name, name_lo, type, lat, lng, area, short,
               description, photos, hours, hours_note, contact, parking, links,
               verified, status, source, signature, pin_status, vibe, outdoor,
-              why, rating, review_count
+              why, rating, review_count, logo
        FROM venues WHERE pin_status != 'rejected' ORDER BY rowid`
     ).all();
 
@@ -111,6 +111,13 @@ async function handleGet(context) {
       if (r.why !== null) v.why = r.why;
       if (r.rating !== null) v.rating = r.rating;
       if (r.review_count !== null) v.review_count = r.review_count;
+      // logo (migrations/018_logo.sql) — a Cloudinary public ID, same shape
+      // as a photos entry, omitted when NULL by the same absence convention.
+      // Read ONLY by the venue detail header in js/app.js: list cards, the
+      // carousel and the map markers stay on photos[0], because a mark tells
+      // you which place it is and a photo tells you what it looks like, and a
+      // card is there to answer the second question.
+      if (r.logo !== null) v.logo = r.logo;
       return v;
     });
 

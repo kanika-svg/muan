@@ -39,6 +39,11 @@
 //     V10 rating and review_count > 0 come together — a rating with no
 //         reviews of our own behind it came from somewhere else
 //         (migrations/017_why_rating.sql: never an aggregator's rating)
+//     V11 logo, when present, is a Cloudinary "v<digits>/<publicId>"
+//         reference — the same shape as a photo (V4), since it is the same
+//         kind of value and goes through the same cloudinaryUrl(). Absent =
+//         no logo, which is the normal case and not a problem
+//         (migrations/018_logo.sql)
 //   events
 //     E1  every event has a source_url
 //     E2  venue_id is null or the id of a venue that exists
@@ -119,6 +124,12 @@ for (const v of venues) {
   const reviewed = Number.isInteger(v.review_count) && v.review_count > 0;
   if ('rating' in v && !reviewed) fail('V10', where, 'rating with no review_count > 0 — a rating must come from Paisaidee\'s own reviews');
   if (reviewed && !('rating' in v)) fail('V10', where, 'review_count > 0 but no rating');
+
+  // same shape as a photo (V4) — a logo goes through the same
+  // cloudinaryUrl(), so a full URL pasted in here fails for the same reason
+  if ('logo' in v && !(typeof v.logo === 'string' && PHOTO_RE.test(v.logo))) {
+    fail('V11', where, `logo "${v.logo}" is not a "v<digits>/<publicId>" reference`);
+  }
 }
 
 const eventIds = new Set();

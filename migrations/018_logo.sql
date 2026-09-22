@@ -1,0 +1,42 @@
+-- logo: the venue's own mark — a Cloudinary public ID in the SAME
+-- "v<digits>/<publicId>" form as `photos` (see cloudinaryUrl() in
+-- js/app.js, which is still the only place that turns one into a delivery
+-- URL). NULL for a venue that has no logo, which is most of them.
+--
+-- Why a column of its own rather than photos[0] or a convention like "the
+-- last one is the logo": six venues already had their logo sitting at the
+-- END of photos, because that was the only place to put it. That made it a
+-- photo everywhere a photo is used — it took a slot in the detail collage,
+-- it could surface as a list card's thumbnail, and on Farsai and MaoMao it
+-- pushed the array to 9, one OVER the MAX_PHOTOS = 8 cap that
+-- functions/api/_venue-validation.js enforces on owner edits, so an owner
+-- saving any unrelated change would have been rejected until they deleted
+-- a real photo. Moving them here fixes all three at once.
+--
+-- A logo is NOT a photo and the two are not interchangeable: a photo
+-- answers "what does this place look like", a logo answers "which place is
+-- this". So the logo is used in ONE place, the venue detail header, and
+-- list cards / the carousel / the map keep reading photos[0]. A card whose
+-- thumbnail is a wordmark tells you nothing about the venue.
+--
+-- Not every mark a venue owns belongs here. 7th Heaven's "7th_logo" stays
+-- in photos: it is a photograph of a neon sign on a wall (1440x1920,
+-- portrait), not a square mark, and a circular crop cuts the ends off the
+-- wordmark. The six that moved are all square profile pictures. The test is
+-- the asset, not the filename.
+--
+-- Kar-only, by the same mechanism as `vibe` (013), `outdoor` (016) and
+-- `why`/`rating` (017): deliberately NOT added to SIMPLE_FIELDS in
+-- functions/api/_venue-validation.js, so neither the owner submission POST
+-- (functions/api/venues.js) nor the owner PATCH (functions/api/venues/[id].js)
+-- will accept it from a request body. Owners upload photos through
+-- functions/api/upload-signature.js; there is no logo upload path yet, and
+-- adding one is a separate decision.
+--
+-- DEPLOY ORDER (CLAUDE.md): functions/api/venues.js and
+-- scripts/export-venues.js SELECT this column by name as of the same
+-- change. Run this with --remote BEFORE deploying that code and confirm
+-- with `node scripts/check-schema.js` — deployed first, every /api/venues
+-- request would throw and fall back to the stale bundled mirror, which is
+-- exactly what migrations 008 and 010 did.
+ALTER TABLE venues ADD COLUMN logo TEXT;

@@ -11,7 +11,7 @@
 // JS/CSS and a fix genuinely never reached it — a real, distinct
 // possibility "verified in Chromium" could never have caught. Bump this
 // string whenever js/app.js or css/style.css change.
-const BUILD_TIME = '2026-08-15T14:20:00Z';
+const BUILD_TIME = '2026-09-22T00:00:00Z';
 
 // the very first thing this script does, before anything else — including
 // COLORS below — has any chance to run, let alone touch the URL. Logged
@@ -4918,6 +4918,25 @@ function updateCheckinButton(v) {
 }
 
 /* ---------- sheet: venue detail ---------- */
+/* Which of the two venue-logo headers to render. Both are built; this picks
+   one, so the pair can be compared on a real device rather than in the
+   abstract, and the loser deleted once Kar has chosen.
+
+     'overlap' — the photo collage stays at the very top of the sheet. The
+                 logo is a 64px circle straddling the collage's bottom-left
+                 edge, half over the photo and half over the sheet, with a
+                 3px ring in the sheet's own background so it reads as
+                 sitting on top rather than punched into the photo. Name and
+                 tagline sit to its right.
+
+     'above'   — the logo and name form a 48px header row ABOVE the collage,
+                 and the photos follow underneath.
+
+   Only ever consulted for a venue that HAS a logo (see openVenue()). For the
+   other 24 the header is byte-identical either way, so flipping this is safe
+   at any time and changes nothing for most of the app. */
+const VENUE_LOGO_LAYOUT = 'overlap';   // 'overlap' | 'above'
+
 function openVenue(id) {
   // a map pin is tappable on desktop while an owner form is open
   if (typeof edBlocksLeave === 'function' && edBlocksLeave(() => openVenue(id))) return;
@@ -5112,11 +5131,41 @@ function openVenue(id) {
         </div>`).join('')}
     </div>`));
 
+  /* ---- venue logo (migrations/018_logo.sql) ----
+     The venue's own mark, as a circular badge in this header and NOWHERE
+     else: list cards, the carousel and the map markers all stay on
+     photos[0]. A card exists to answer "what is this place like", which a
+     wordmark cannot; the detail header is the one surface where "which
+     place is this" is the question being asked.
+
+     No logo -> no circle, no placeholder, no initial, no reserved gap: the
+     header falls through to exactly the markup it had before this existed,
+     which is what 24 of the 30 venues render. That is why the layouts below
+     branch on logoSrc FIRST and on VENUE_LOGO_LAYOUT second — the constant
+     changes nothing at all for a venue with no logo.
+
+     cloudinaryAvatarUrl(), not cloudinaryUrl(): it centre-crops square
+     server-side, which is the right source shape for a circle. Requested at
+     2x the CSS size for retina. The CSS mask, the white-ish backdrop and
+     the ring are all in style.css (.vd-logo). */
+  const logoSrc = (typeof v.logo === 'string' && v.logo.trim()) ? v.logo.trim() : '';
+  const logoPx = VENUE_LOGO_LAYOUT === 'above' ? 48 : 64;
+  const logoHtml = logoSrc
+    ? `<span class="vd-logo"><img src="${esc(cloudinaryAvatarUrl(logoSrc, logoPx * 2))}" alt="" width="${logoPx}" height="${logoPx}" draggable="false"></span>`
+    : '';
+  const titleHtml = `<div class="vd-title">${v.name_lo ? `<span class="vd-title-lo lao">${esc(v.name_lo)}</span><span class="vd-title-sep"> · </span>` : ''}${esc(v.name)}</div>`;
+  const metaHtml = `<div class="vd-meta">${metaBits.join(' <span class="vd-dot">·</span> ')}</div>`;
+  // the three header shapes. Without a logo the first branch reproduces the
+  // pre-logo markup verbatim, so nothing about an ordinary venue moves.
+  const headHtml = !logoSrc
+    ? `${heroHtml}${titleHtml}${metaHtml}`
+    : VENUE_LOGO_LAYOUT === 'above'
+      ? `<div class="vd-head vd-head-above">${logoHtml}<div class="vd-headtext">${titleHtml}${metaHtml}</div></div>${heroHtml}`
+      : `${heroHtml}<div class="vd-head vd-head-overlap">${logoHtml}<div class="vd-headtext">${titleHtml}${metaHtml}</div></div>`;
+
   let html = `
     <span data-venue-detail hidden></span>
-    ${heroHtml}
-    <div class="vd-title">${v.name_lo ? `<span class="vd-title-lo lao">${esc(v.name_lo)}</span><span class="vd-title-sep"> · </span>` : ''}${esc(v.name)}</div>
-    <div class="vd-meta">${metaBits.join(' <span class="vd-dot">·</span> ')}</div>
+    ${headHtml}
     ${ratingLineHtml(v, 'vd-rating')}
     ${vibes.length ? `<div class="vd-vibes">${vibes.map(t => `<span class="vd-vibe">${esc(t.label)}</span>`).join('')}</div>` : ''}
     ${actionsHtml}
